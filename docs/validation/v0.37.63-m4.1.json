@@ -1,0 +1,22 @@
+{
+  "version": "0.37.63-m4.1",
+  "date": "2026-11-14",
+  "status": "development_checkpoint",
+  "tests": {
+    "vector_related": {
+      "pass": 14,
+      "backend": "local HTTP fixtures and mocks"
+    },
+    "office_pool_soak": "running; no final conclusion"
+  },
+  "limitations": [
+    "No matching Mac application",
+    "Mac native and real embedding model unverified",
+    "OCR WASM engine and Chinese data excluded",
+    "No GitHub release"
+  ],
+  "changed": [
+    "desktop/services/knowledge-vector.mjs",
+    "desktop/tests/knowledge-vector-03736.test.mjs"
+  ]
+}

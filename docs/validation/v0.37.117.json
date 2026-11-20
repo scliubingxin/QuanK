@@ -1,0 +1,26 @@
+{
+  "version": "0.37.117-m4.1",
+  "status": "internal checkpoint, not release",
+  "changes": [
+    "desktop/runtime/browser.mjs",
+    "desktop/tests/browser-preaborted-037117.test.mjs"
+  ],
+  "browser_cli_related": {
+    "passed": 37,
+    "failed": 0
+  },
+  "packaging": {
+    "passed": 50,
+    "failed": 0
+  },
+  "full": {
+    "total": 786,
+    "passed": 750,
+    "failed": 17,
+    "skipped": 19,
+    "failure": "jsdom unavailable"
+  },
+  "mac_native_tested": false,
+  "matching_arm64_package": false,
+  "m4_complete": false
+}

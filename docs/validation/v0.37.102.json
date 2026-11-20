@@ -1,0 +1,18 @@
+{
+  "version": "0.37.102-m4.1",
+  "related_node": {
+    "total": 56,
+    "passed": 54,
+    "failed": 0,
+    "skipped": 2,
+    "reason": "build-time OCR assets absent"
+  },
+  "packaging_tests": 50,
+  "protected_web_python_files_unchanged": 122,
+  "actual": "Linux Tesseract and source evidence byte verification",
+  "fixtures": "native approval and model semantics",
+  "browser_ui": "not tested",
+  "mac": "not tested",
+  "matching_apple_bundle": "not built: asar and rcodesign unavailable",
+  "release": "internal checkpoint; prior GitHub security rejection not bypassed"
+}

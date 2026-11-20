@@ -1,0 +1,20 @@
+{
+  "version": "0.37.115-m4.1",
+  "status": "internal_checkpoint",
+  "targeted": {
+    "total": 39,
+    "passed": 37,
+    "skipped": 2,
+    "models": "fixtures except skipped real model"
+  },
+  "packaging_tests": 50,
+  "full_regression": {
+    "total": 778,
+    "passed": 742,
+    "failed": 17,
+    "skipped": 19,
+    "cause": "missing jsdom"
+  },
+  "mac_arm64": "not built or tested",
+  "m4_complete": false
+}

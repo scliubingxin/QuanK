@@ -1,0 +1,67 @@
+{
+  "version": "0.37.112-m4.1",
+  "kind": "internal checkpoint",
+  "changed": [
+    "desktop/runtime/serial-jobs.mjs",
+    "desktop/runtime/abortable-work.mjs",
+    "desktop/runtime/pdf-ocr.mjs",
+    "desktop/services/knowledge-index.mjs",
+    "desktop/services/knowledge-vector.mjs",
+    "desktop/services/agent-session.mjs",
+    "desktop/tests/knowledge-index-queue-037112.test.mjs",
+    "desktop/tests/knowledge-vector-queue-037112.test.mjs",
+    "desktop/tests/knowledge-agent-cancel-037112.test.mjs",
+    "desktop/tests/abortable-work-037112.test.mjs",
+    "desktop/tests/office-pool-cross-format-037112.test.mjs",
+    "desktop/tests/acceptance/office-pool-mixed-endurance.mjs"
+  ],
+  "tests": {
+    "knowledge": {
+      "total": 77,
+      "passed": 73,
+      "skipped": 4,
+      "failed": 0
+    },
+    "new_fault_tests": {
+      "total": 12,
+      "passed": 12
+    },
+    "pdf": {
+      "total": 62,
+      "passed": 60,
+      "skipped": 2
+    },
+    "packaging_python": {
+      "total": 50,
+      "passed": 50
+    },
+    "real_office_cross_format": {
+      "workers": 2,
+      "previews": 9,
+      "result": "passed"
+    },
+    "mixed_endurance_pilot": {
+      "seconds": 5,
+      "rounds": 31,
+      "result": "passed"
+    },
+    "exploratory_full_before_adding_test_files": {
+      "total": 763,
+      "passed": 727,
+      "failed": 17,
+      "skipped": 19,
+      "failure": "jsdom missing"
+    }
+  },
+  "protected_web_python_files": 122,
+  "native_macos_verified": false,
+  "matching_apple_app": false,
+  "limitations": [
+    "late read or native approval may continue",
+    "running job is not released early on cancellation",
+    "OCR and PDFium experimental binaries absent",
+    "local ONNX model and dependencies absent",
+    "M4 incomplete",
+    "GitHub prior security rejection"
+  ]
+}

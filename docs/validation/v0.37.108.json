@@ -1,0 +1,37 @@
+{
+  "version": "0.37.108-m4.1",
+  "kind": "internal checkpoint",
+  "baseline": "0.37.107; authority 0.37.22 v60",
+  "changed": [
+    "desktop/runtime/pdf-ocr.mjs",
+    "desktop/runtime/ocr-provenance.mjs",
+    "desktop/services/ocr-source-open.mjs",
+    "desktop/services/ocr-source-preview.mjs",
+    "desktop/tests/ocr-provenance-03746.test.mjs",
+    "desktop/tests/ocr-source-preview-03758.test.mjs"
+  ],
+  "node_targeted": {
+    "total": 86,
+    "passed": 78,
+    "failed": 0,
+    "skipped": 8
+  },
+  "packaging_python": {
+    "total": 50,
+    "passed": 50
+  },
+  "exploratory_full": {
+    "total": 734,
+    "passed": 698,
+    "failed": 17,
+    "skipped": 19,
+    "note": "jsdom missing; source changed during run"
+  },
+  "limitations": [
+    "PDFium preview route uses injected fixture",
+    "assets absent from this source package and app",
+    "no Mac, native approval or production model acceptance",
+    "no matching Apple app built",
+    "M4 incomplete"
+  ]
+}

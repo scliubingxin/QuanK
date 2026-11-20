@@ -1,0 +1,21 @@
+{
+  "version": "0.37.76-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "pool_related": 32,
+    "office_soak": "restarted on changed code; no final conclusion"
+  },
+  "limitations": [
+    "No matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/isolated-worker-pool.mjs",
+    "desktop/runtime/office-preview-pool.mjs",
+    "desktop/tests/isolated-worker-pool-03738.test.mjs",
+    "desktop/tests/office-preview-pool-03739.test.mjs"
+  ]
+}

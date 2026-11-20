@@ -1,0 +1,187 @@
+// [q1] 量化 page: engine status, stock pool cards, stock detail. Field names are generic; the private engine's
+// wb-engine.json maps its own response onto them (see src/shared/quant.js).
+import { escape } from './markdown.js';
+import { actionLabel, actionTone, normalizeWatch, describeWatch, WATCH_INTERVALS, normalizeReportAuto, describeReportAuto } from '../shared/quant.js';
+import { tableFromGrid, inferColumns, normalizeSpec } from '../shared/dashboard.js';
+import { plazaIcon } from './preset-catalog.js';
+import { sparkSvg } from './spark.js'; // [fin2]
+
+const STATUS = {stopped: ['已停止', ''], starting: ['启动中', 't-blue'], running: ['运行中', 't-green'], error: ['出错', 't-red']};
+const f = (v, d = 2) => v === null || v === undefined || Number.isNaN(v) ? '—' : Number(v).toFixed(d).replace(/\.00$/, '');
+const pct = v => v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${f(v)}%`;
+const val = (fm, n) => String((typeof fm?.get === 'function' ? fm.get(n) : fm?.elements?.[n]?.value ?? fm?.[n]?.value) ?? '');
+const on = (fm, n) => typeof fm?.get === 'function' ? fm.get(n) !== null : !!(fm?.elements?.[n]?.checked ?? fm?.[n]?.checked);
+
+function engineCard(q, {action, date}) {
+  const [label, tone] = STATUS[q.status] || STATUS.stopped;
+  const btn = q.status === 'running' ? action('停止引擎', 'quantStop') + action('重启', 'quantRestart') : q.status === 'starting' ? '' : action('启动引擎', 'quantStart', '', 'primary');
+  return `<div class="card plaza-card quant-engine"><div class="pc-head">${plazaIcon('量化')}<div class="pc-title"><h3>${escape(q.title || '本机量化引擎')}</h3><small>${q.source ? escape(q.source) : '尚未导入策略项目'}</small></div><span class="pc-tag ${tone}">${label}</span></div>
+${q.error ? `<p class="task-error">${escape(q.error)}</p>` : ''}
+<p class="pc-desc">${q.installed ? `已同步 ${q.files || 0} 个文件${q.lastSync ? ' · ' + escape(date(q.lastSync)) : ''} · Python：${escape(q.python || q.pythonFound || '未找到')}` : '需要添加微信 findingnoone 获取量化策略和支持。'}</p>
+<p class="q-watch"><span class="${normalizeWatch(q.watch).enabled ? 'on' : 'off'}">${escape(describeWatch(q.watch))}</span>${q.lastWatch ? `<span>上次检查 ${escape(date(q.lastWatch))}</span>` : ''}${q.watchError ? `<span class="err">${escape(q.watchError)}</span>` : ''}</p>
+<div class="pc-actions">${q.installed ? '' : action('添加微信', 'quantContact', '', 'primary')}${btn}${action(q.installed ? '从源目录同步' : '导入策略项目', 'quantSync', '', 'secondary')}${action('盯盘与提醒', 'quantWatch')}${q.features?.plan ? action('定投计划', 'quantPlan') : ''}${action('设置', 'quantSettings')}${action('日志', 'quantLog')}</div></div>`;
+}
+
+// [v45q] company logo (data URL fetched when the stock was added), letter badge otherwise
+const LOGO_OK = /^data:image\/(png|jpeg|gif|webp|x-icon);base64,[A-Za-z0-9+\/=]+$/;
+export const stockLogo = (src, name) => LOGO_OK.test(src || '') ? `<span class="pc-icon q-logo" aria-hidden="true"><img src="${src}" alt=""></span>` : plazaIcon(name);
+function stockCard(s, {action, date, holding, logo = ''}) {
+  const l = s.last || {}, tone = actionTone(l.action);
+  return `<div class="card plaza-card quant-stock q-${tone}" data-quant="${escape(s.code)}"><div class="pc-head">${stockLogo(logo, s.name || s.code)}<div class="pc-title"><h3>${escape(s.name || s.code)}</h3><small>${escape(s.code)}${l.date ? ' · ' + escape(l.date) : ''}</small></div>${l.action ? `<span class="q-action q-${tone}">${escape(actionLabel(l.action, l.actionText))}</span>` : ''}</div>
+<div class="q-nums"><span><b>${f(l.score, 1)}</b>综合分</span><span><b>${l.multiplier == null ? '—' : f(l.multiplier, 1) + '×'}</b>倍率</span><span><b>${f(l.price)}</b>现价</span><span class="${(l.changePct || 0) >= 0 ? 'up' : 'down'}"><b>${pct(l.changePct)}</b>涨跌</span></div>
+${sparkSvg(s.spark, {w: 260, h: 42, cls: 'q-spark', id: s.code})}${holdingLine(holding)}
+<div class="pc-actions">${action('详情', 'quantOpen', s.code, 'primary')}${action('刷新', 'quantRefresh', s.code)}${action('AI 研判', 'quantInsight', s.code)}${action('移出', 'quantRemove', s.code)}</div>
+<small class="q-when">${l.at ? '更新于 ' + escape(date(l.at)) : '尚未计算'}</small></div>`;
+}
+
+export function quantPage(state, {action, heading, empty, date, open = '', detail = null}) {
+  const q = state.quant || {status: 'stopped', pool: []};
+  if (open) return quantDetail(q, open, detail, {action, date});
+  const pool = q.pool || [], stats = [[pool.length, '只自选'], [pool.filter(p => ['BUY', 'STRONG_BUY'].includes(p.last?.action)).length, '个买点'], [pool.filter(p => ['SELL', 'STRONG_SELL'].includes(p.last?.action)).length, '个风控提示']];
+  const head = heading('', '让策略在本机运行，信号一眼看清。', '档位、综合分与倍率来自你自己的私有策略，在本机计算；也可以直接在对话里问「600519 现在什么信号」「池子里谁是买点」。', action('＋ 添加股票', 'quantAdd', '', 'primary') + action('全部刷新', 'quantRefreshAll'), stats);
+  const grid = pool.length ? `<div class="plaza-grid q-pool-grid">${pool.map(s => stockCard(s, {action, date, holding: q.holdings?.[s.code], logo: q.logos?.[s.code]})).join('')}</div>`
+    : q.status === 'running' ? empty('股票池是空的', '点「添加股票」输入 6 位代码。') : '<p class="empty-note">启动引擎后显示股票池。</p>';
+  return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${reportsBox(q, {action, date})}${alertsBox(q, {action, date})}</div>`;
+}
+
+function quantDetail(q, code, d, {action, date}) {
+  const name = (q.pool || []).find(p => p.code === code)?.name || code;
+  const bar = `<div class="miniapp-bar">${action('← 股票池', 'quantClose')}<h2>${escape(name)} <small>${escape(code)}</small></h2><span class="miniapp-tools">${action('重新计算', 'quantRefresh', code)}${action('AI 研判', 'quantInsight', code, 'primary')}</span></div>`;
+  if (!d) return `<div class="page quant-page">${bar}<p class="empty-note" id="quantLoading">正在计算信号…（首次可能需要半分钟）</p></div>`;
+  if (d.error) return `<div class="page quant-page">${bar}<p class="task-error">${escape(d.error)}</p></div>`;
+  const s = d.summary, tone = actionTone(s.action), bt = s.backtest || {};
+  const kpi = (label, v, cls = '') => `<div class="q-kpi ${cls}"><small>${label}</small><b>${v}</b></div>`;
+  const list = (title, items) => items?.length ? `<section class="q-box"><h3>${title}</h3><ul>${items.map(x => `<li>${escape(x)}</li>`).join('')}</ul></section>` : '';
+  const factors = s.factors?.length ? `<section class="q-box"><h3>评分构成</h3><table class="q-table"><tbody>${s.factors.map(b => `<tr><th>${escape(b.name)}</th><td>${f(b.score, 1)}${b.max ? ' / ' + b.max : ''}</td><td>${escape(b.reason)}</td></tr>`).join('')}</tbody></table></section>` : '';
+  const inds = s.indicators?.length ? `<section class="q-box"><h3>指标</h3><table class="q-table"><tbody>${s.indicators.map(x => `<tr><th>${escape(x.name)}</th><td>${f(x.value)}</td></tr>`).join('')}</tbody></table></section>` : '';
+  const ops = d.charts?.ops?.length ? `<section class="q-box"><h3>回测操作（最近 ${d.charts.ops.length} 次）</h3><div class="table-scroll"><table class="q-table"><thead><tr><th>日期</th><th>操作</th><th>价格</th><th>股数</th><th>金额</th><th>分</th><th>原因</th></tr></thead><tbody>${d.charts.ops.map(o => `<tr><td>${escape(o.date)}</td><td>${escape(o.action)}</td><td>${f(o.price)}</td><td>${f(o.shares, 0)}</td><td>${f(o.amount, 0)}</td><td>${f(o.score, 1)}</td><td>${escape(o.reason)}</td></tr>`).join('')}</tbody></table></div></section>` : '';
+  const up = (s.changePct || 0) >= 0 ? 'up' : 'down';
+  return `<div class="page quant-page">${bar}
+<div class="q-hero q-${tone}"><div><span class="q-action q-${tone}">${escape(actionLabel(s.action, s.actionText))}</span><p>${escape(s.detail)}</p></div>
+<div class="q-kpis">${kpi('综合分', f(s.score, 1) + (s.scoreRaw != null && s.scoreRaw !== s.score ? `<em>调整前 ${f(s.scoreRaw, 1)}</em>` : ''))}${kpi('倍率', s.multiplier == null ? '—' : f(s.multiplier, 1) + '×')}${kpi('现价', f(s.price), up)}${kpi('涨跌', pct(s.changePct), up)}${kpi('模型概率', s.probPct == null ? '—' : f(s.probPct, 1) + '%')}</div></div>
+${s.advice ? `<p class="q-sizing">${escape(s.advice)}</p>` : ''}${holdingDetail(d.holding, code, q, {action})}
+<div class="q-kpis q-bt">${kpi('策略收益', pct(bt.smartPct))}${kpi('基准收益', pct(bt.blindPct))}${kpi('超额', pct(bt.excess))}${kpi('胜率', bt.winRate == null ? '—' : f(bt.winRate, 0) + '%')}${kpi('交易次数', f(bt.trades, 0))}${kpi('最大回撤', pct(bt.maxDrawdown))}</div>
+<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
+<div class="q-grid2">${list('信号理由', s.reasons)}${list('约束与风控', s.gates)}</div><div class="q-grid2">${factors}${inds}</div>${ops}
+<p class="auto-note">数据由本机私有引擎计算${s.plan ? `（${escape(s.plan)}）` : ''}${s.model ? `，模型 ${escape(s.model)}` : ''}。仅供研究，不构成投资建议。</p></div>`;
+}
+
+/** Dashboard objects for mountDashboard(): price & score lines, backtest curves (column names come from the engine's labels). */
+export function quantDashboards(code, charts) {
+  const out = [], L = charts?.labels || {}, make = (id, title, grid, chartsSpec) => {
+    const table = tableFromGrid(grid), cols = inferColumns(table.columns, table.rows);
+    const spec = normalizeSpec({title, charts: chartsSpec}, cols, title);
+    if (spec?.charts?.length) out.push({id: `quant-${code}-${id}`, name: title, table, spec});
+  };
+  if (charts?.price) make('price', `${L.price || '价格'}与${L.score || '评分'}`, charts.price, [{type: 'line', title: L.price || '价格', x: '日期', timeUnit: 'day', series: [{column: charts.price[0][1], agg: 'avg'}]}, {type: 'line', title: L.score || '评分', x: '日期', timeUnit: 'day', series: [{column: charts.price[0][2], agg: 'avg'}]}]);
+  if (charts?.curve) make('curve', `回测：${L.a || '策略'} vs ${L.b || '基准'}`, charts.curve, [{type: 'line', title: '持仓市值', x: '日期', timeUnit: 'day', series: charts.curve[0].slice(1).map(column => ({column, agg: 'avg'}))}]);
+  return out;
+}
+
+export function quantAddForm() {
+  return `<label>公司名称或股票代码<input name="code" required maxlength="40" placeholder="例如 宁德时代、茅台 或 600519"></label><p class="muted">输入公司名称会自动联网查找代码、名称和公司标志；也可以直接在对话里说「添加宁德时代」。</p>`;
+}
+export const quantAddPayload = fm => ({action: 'addStock', code: val(fm, 'code').trim(), name: val(fm, 'name').trim()});
+export function quantSettingsForm(q) {
+  return `<label>Python 解释器（需装好引擎声明的依赖包）<input name="python" value="${escape(q.python || '')}" placeholder="${escape(q.pythonFound || '自动查找')}"></label>
+<label>AI 研判<select name="ai"><option value="willbuddy" ${q.ai !== 'none' ? 'selected' : ''}>使用 QuanK 当前配置的模型</option><option value="none" ${q.ai === 'none' ? 'selected' : ''}>关闭（只用算法结论）</option></select></label>
+<label class="check"><input type="checkbox" name="autoStart" ${q.autoStart !== false ? 'checked' : ''}> 需要时自动启动引擎</label>
+<label class="check"><input type="checkbox" name="importHoldings" ${q.importHoldings ? 'checked' : ''}> 首次启动时从源项目导入持仓等设置（之后由本机引擎维护）</label>
+<p class="hint">源目录：${escape(q.source || '尚未选择')}。同步时复制项目文件，但不复制数据库、密钥类配置、日志以及 wb-engine.json 里列出的文件。模型密钥会写入本机引擎目录的配置文件（仅你本人可读）。</p>`;
+}
+export const quantSettingsPayload = fm => ({action: 'settings', python: val(fm, 'python'), ai: val(fm, 'ai') || 'willbuddy', autoStart: on(fm, 'autoStart'), importHoldings: on(fm, 'importHoldings')});
+
+/** [q3] 盯盘与提醒 settings form (field names match quantWatchPayload). */
+export function quantWatchForm(q) {
+  const w = normalizeWatch(q?.watch);
+  return `<label class="check"><input type="checkbox" name="enabled" ${w.enabled ? 'checked' : ''}> 开启盯盘：交易时段按频率重新计算股票池，档位变化写入「动态」</label>
+<label>检查频率<select name="interval">${WATCH_INTERVALS.map(n => `<option value="${n}" ${n === w.interval ? 'selected' : ''}>每 ${n} 分钟</option>`).join('')}</select></label>
+<label class="check"><input type="checkbox" name="premarket" ${w.premarket ? 'checked' : ''}> 工作日开盘前生成一份盘前量化简报</label>
+<label>盘前简报时间<input type="time" name="premarketTime" min="06:00" max="09:29" value="${escape(w.premarketTime)}"></label>
+<label class="check"><input type="checkbox" name="notify" ${w.notify ? 'checked' : ''}> 信号变化和盘前简报发系统通知</label>
+<p class="hint">交易时段指工作日 09:30–11:30、13:00–15:00（不识别法定节假日，休市日行情不变不会产生提醒）。需要 QuanK 保持运行；每次检查会逐只计算，股票越多耗时越长。</p>`;
+}
+export const quantWatchPayload = fm => ({action: 'watch', enabled: on(fm, 'enabled'), interval: Number(val(fm, 'interval')) || 15, premarket: on(fm, 'premarket'), premarketTime: val(fm, 'premarketTime') || '09:15', notify: on(fm, 'notify')});
+function alertsBox(q, {action, date}) {
+  const list = (q.alerts || []).filter(a => a.kind === 'change').slice(0, 8);
+  if (!list.length) return '';
+  return `<section class="q-alerts"><div class="plaza-section-head"><h2>最近信号变化</h2><small>盯盘发现的档位变化，也会出现在「动态」里。</small></div><ul>${list.map(a => `<li><time>${escape(date(a.time))}</time><b>${escape(a.name || a.code)}</b><span>${escape(actionLabel(a.from))}</span><span class="q-arrow">→</span><span class="q-action q-${actionTone(a.to)}">${escape(actionLabel(a.to, a.toText))}</span><span class="grow">${escape([a.score != null ? `综合分 ${a.score}` : '', a.reason].filter(Boolean).join(' · '))}</span>${action('详情', 'quantOpen', a.code)}</li>`).join('')}</ul></section>`;
+}
+
+// [q4] holdings & investment plan
+const n0 = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', {maximumFractionDigits: 0});
+const money = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const tone = v => (v || 0) >= 0 ? 'up' : 'down';
+function holdingLine(h) {
+  if (!h || !h.shares) return h && !h.error ? '<p class="q-hold">未持仓</p>' : '';
+  return `<p class="q-hold">持仓 ${n0(h.shares)} 股 · 成本 ${f(h.cost)}${h.pnlPct != null ? ` · <span class="${tone(h.pnlPct)}">${pct(h.pnlPct)}</span>` : ''}</p>`;
+}
+function holdingsBox(q, {action}) {
+  if (!q.features?.holdings) return '';
+  const H = q.holdings || {}, rows = (q.pool || []).map(p => ({p, h: H[p.code]})).filter(x => x.h);
+  const tot = holdingTotalsUi(rows.map(x => x.h));
+  const tools = action('刷新持仓', 'quantHoldings') + (q.features.record ? action('记录买卖', 'quantTrade', '', 'primary') : '');
+  const body = rows.length ? `<div class="table-scroll"><table class="q-table q-hold-table"><thead><tr><th>股票</th><th>持仓（股）</th><th>成本</th><th>现价</th><th>市值</th><th>浮动盈亏</th><th></th></tr></thead><tbody>${rows.map(({p, h}) => `<tr><td><b>${escape(p.name || p.code)}</b> <small>${escape(p.code)}</small></td><td>${n0(h.shares)}</td><td>${f(h.cost)}</td><td>${f(h.price)}</td><td>${money(h.value)}</td><td class="${tone(h.pnl)}">${money(h.pnl)}${h.pnlPct != null ? ` <small>${pct(h.pnlPct)}</small>` : ''}</td><td>${action('详情', 'quantOpen', p.code)}</td></tr>`).join('')}</tbody>${tot.stocks ? `<tfoot><tr><th>合计 ${tot.stocks} 只</th><td></td><td></td><td></td><td>${money(tot.value)}</td><td class="${tone(tot.pnl)}">${money(tot.pnl)}</td><td></td></tr></tfoot>` : ''}</table></div>`
+    : '<p class="empty-note">点「刷新持仓」从本机引擎读取各股票的持仓。</p>';
+  return `<section class="q-box q-holdings"><div class="plaza-section-head"><h2>持仓与定投</h2><small>${q.plan?.label ? `定投计划：${escape(q.plan.label)} · ` : ''}只记录你在券商的实际成交，QuanK 不会替你下单。</small><span class="q-head-tools">${tools}</span></div>${body}</section>`;
+}
+function holdingTotalsUi(list) {
+  const ok = list.filter(h => h && h.shares > 0), every = k => ok.length && ok.every(h => h[k] != null);
+  return {stocks: ok.length, value: every('value') ? ok.reduce((n, h) => n + h.value, 0) : null, pnl: every('pnl') ? ok.reduce((n, h) => n + h.pnl, 0) : null};
+}
+function holdingDetail(h, code, q, {action}) {
+  if (!h) return '';
+  const kpi = (label, v, cls = '') => `<div class="q-kpi ${cls}"><small>${label}</small><b>${v}</b></div>`;
+  const btns = q?.features?.record ? action('记录买入', 'quantTrade', `${code}:buy`, 'primary') + action('记录卖出', 'quantTrade', `${code}:sell`) : '';
+  const log = h.log?.length ? `<div class="table-scroll"><table class="q-table"><thead><tr><th>日期</th><th>方向</th><th>价格</th><th>股数</th><th>金额</th><th>备注</th></tr></thead><tbody>${h.log.map(e => `<tr><td>${escape(e.date)} <small>${escape(e.time)}</small></td><td class="${e.side === 'buy' ? 'up' : 'down'}">${e.side === 'buy' ? '买入' : '卖出'}</td><td>${f(e.price)}</td><td>${n0(e.shares)}</td><td>${money(e.amount)}</td><td>${escape(e.note)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="empty-note">还没有记录过成交。</p>';
+  return `<section class="q-box q-holding"><div class="plaza-section-head"><h2>我的持仓</h2><small>${h.budget != null ? `单次计划 ${n0(h.budget)} 股 · ` : ''}已记录 ${n0(h.trades)} 笔成交</small><span class="q-head-tools">${btns}</span></div>
+<div class="q-kpis">${kpi('持仓股数', n0(h.shares))}${kpi('成本价', f(h.cost))}${kpi('市值', money(h.value))}${kpi('浮动盈亏', money(h.pnl) + (h.pnlPct != null ? `<em>${pct(h.pnlPct)}</em>` : ''), tone(h.pnl))}${kpi('可用资金', money(h.cash))}</div>${log}</section>`;
+}
+export function quantTradeForm(q, {code = '', side = 'buy', price = null, today = ''} = {}) {
+  const lot = q?.features?.lot || 1;
+  return `<label>股票<select name="code" required>${(q?.pool || []).map(p => `<option value="${escape(p.code)}" ${p.code === code ? 'selected' : ''}>${escape(p.name || p.code)} ${escape(p.code)}</option>`).join('')}</select></label>
+<div class="form-row"><label>方向<select name="side"><option value="buy" ${side === 'buy' ? 'selected' : ''}>买入</option><option value="sell" ${side === 'sell' ? 'selected' : ''}>卖出</option></select></label><label>成交日期<input name="date" type="date" value="${escape(today)}"></label></div>
+<div class="form-row"><label>成交价<input name="price" type="number" step="0.001" min="0" required value="${price ?? ''}"></label><label>股数（${lot} 的整数倍）<input name="shares" type="number" step="${lot}" min="${lot}" required></label></div>
+<label>备注（可留空）<input name="note" maxlength="60"></label>
+<p class="hint">只记录你在券商实际成交的买卖，用来更新本机引擎里的持仓、成本和后续仓位建议；QuanK 不会替你下单。</p>`;
+}
+export const quantTradePayload = fm => ({action: 'record', code: val(fm, 'code'), side: val(fm, 'side') === 'sell' ? 'sell' : 'buy', price: Number(val(fm, 'price')), shares: Number(val(fm, 'shares')), date: val(fm, 'date'), note: val(fm, 'note').trim()});
+export function quantPlanForm(q) {
+  const opts = q?.planOptions || [], cur = q?.plan || {};
+  return `<p class="hint">当前：${escape(cur.label || '未读取')}${cur.maxMultiplier != null ? ` · 最高 ${cur.maxMultiplier} 倍` : ''}</p>
+<div class="form-row"><label>周期<select name="type">${opts.map(o => `<option value="${escape(o.type)}" ${o.type === cur.type ? 'selected' : ''}>${escape(o.label)}（${o.min}–${o.max} 次）</option>`).join('')}</select></label><label>次数<input name="times" type="number" min="1" max="100" required value="${cur.times ?? 1}"></label></div>
+<p class="hint">修改后，所有股票的信号和仓位建议会按新的定投节奏重新计算。</p>`;
+}
+export const quantPlanPayload = fm => ({action: 'planSet', type: val(fm, 'type'), times: Number(val(fm, 'times'))});
+
+// [q5] 日报与复盘
+function reportsBox(q, {action, date}) {
+  const defs = q.reportDefs || [];
+  if (!defs.length) return '';
+  const cards = defs.map(d => {
+    const r = q.reports?.[d.id], warn = r?.warnings?.length;
+    const tag = r ? `<span class="pc-tag ${r.ok ? (warn ? 't-orange' : 't-green') : 't-red'}">${r.ok ? (warn ? '有告警' : '已生成') : '失败'}</span>` : '';
+    return `<div class="card plaza-card q-report"><div class="pc-head">${plazaIcon(d.title)}<div class="pc-title"><h3>${escape(d.title)}</h3><small>${r ? `${escape(date(r.at))}${r.date ? ' · ' + escape(r.date) : ''}` : '尚未生成'}${d.schedule === 'daily' ? ' · 每日' : ' · 手动'}</small></div>${tag}</div>
+${r?.metrics?.length ? `<div class="q-metrics">${r.metrics.map(m => `<span><b>${escape(m.value)}</b>${escape(m.label)}</span>`).join('')}</div>` : ''}
+<p class="pc-desc">${escape(r ? (r.ok ? r.summary || '已生成' : r.error || '生成失败') : '点「生成」在本机运行引擎自带的分析脚本。')}</p>
+${(r?.warnings || []).map(w => `<p class="task-error">${escape(w)}</p>`).join('')}
+<div class="pc-actions">${action(r ? '重新生成' : '生成', 'quantReportRun', d.id, 'primary')}${r?.ok ? action('查看', 'quantReport', d.id) : ''}</div></div>`;
+  }).join('');
+  return `<section class="q-reports"><div class="plaza-section-head"><h2>日报与复盘</h2><small>${escape(describeReportAuto(q.reportAuto))} · 报告由引擎自带的分析脚本在本机生成。</small><span class="q-head-tools">${action('自动生成', 'quantReportAuto')}</span></div><div class="plaza-grid">${cards}</div></section>`;
+}
+/** Report header for the viewer modal (metrics, warnings, suggestions). The markdown body is rendered by the caller. */
+export function quantReportDetail(r) {
+  if (!r) return '';
+  const LV = {high: 't-red', medium: 't-orange', low: 't-blue'};
+  return `<p class="hint">${escape(r.title || '')}${r.date ? ' · ' + escape(r.date) : ''} · 生成用时 ${r.ms ? Math.round(r.ms / 1000) + ' 秒' : '—'}</p>
+${r.metrics?.length ? `<div class="q-metrics">${r.metrics.map(m => `<span><b>${escape(m.value)}</b>${escape(m.label)}</span>`).join('')}</div>` : ''}
+${r.summary ? `<p class="q-report-summary">${escape(r.summary)}</p>` : ''}${(r.warnings || []).map(w => `<p class="task-error">${escape(w)}</p>`).join('')}
+${r.items?.length ? `<ul class="q-report-items">${r.items.map(x => `<li><span class="pc-tag ${LV[x.level] || ''}">${escape(x.level || '建议')}</span><b>${escape(x.title)}</b>${x.detail ? `<small>${escape(x.detail)}</small>` : ''}</li>`).join('')}</ul>` : ''}`;
+}
+export function quantReportAutoForm(q) {
+  const a = normalizeReportAuto(q?.reportAuto), daily = (q?.reportDefs || []).filter(d => d.schedule === 'daily').map(d => d.title);
+  return `<label class="check"><input type="checkbox" name="enabled" ${a.enabled ? 'checked' : ''}> 工作日收盘后自动生成${daily.length ? `（${escape(daily.join('、'))}）` : ''}</label>
+<label>生成时间<input type="time" name="time" min="15:00" max="23:59" value="${escape(a.time)}"></label>
+<p class="hint">需要 QuanK 保持运行。生成结果进入「动态」和每日简报；有告警时发系统通知（沿用「盯盘与提醒」里的通知开关）。</p>`;
+}
+export const quantReportAutoPayload = fm => ({action: 'reportAuto', enabled: on(fm, 'enabled'), time: val(fm, 'time') || '18:00'});

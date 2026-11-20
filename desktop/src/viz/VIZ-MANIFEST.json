@@ -1,0 +1,25 @@
+{
+  "echarts": "6.1.0",
+  "files": [
+    {
+      "name": "index.html",
+      "bytes": 2368,
+      "sha256": "6b0e73a100f949bd81e5727bed6e3fa86420b421ade4a46087ff36580ca3e87d"
+    },
+    {
+      "name": "boot.js",
+      "bytes": 634,
+      "sha256": "a6df98e34e3cb62e1ac6123341eedce52fd1afec7ea1df8513f1cfae555cac52"
+    },
+    {
+      "name": "frame.js",
+      "bytes": 11779,
+      "sha256": "0d79f018d271e9afd59f56d67ba63567a45fc3612103d7ad2888b0c7fed4c99e"
+    },
+    {
+      "name": "echarts.min.js",
+      "bytes": 1121883,
+      "sha256": "b66b25aeb4df84e33199dc21694014d336d222cbd9deb0e5a7c14bd6aa0d0fd0"
+    }
+  ]
+}

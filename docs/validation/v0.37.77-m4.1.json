@@ -1,0 +1,19 @@
+{
+  "version": "0.37.77-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "pool_related": 33,
+    "office_soak": "restarted on final changed code; no final conclusion"
+  },
+  "limitations": [
+    "No matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/isolated-worker-pool.mjs",
+    "desktop/tests/isolated-worker-pool-03738.test.mjs"
+  ]
+}

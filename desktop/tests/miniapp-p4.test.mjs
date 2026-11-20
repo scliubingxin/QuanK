@@ -1,0 +1,223 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
+import { JSDOM } from 'jsdom';
+import { extractHtml, normalizeAppHtml, applyStorageOp, storageSize, MINIAPP_INSTRUCTION, MINIAPP_PROMPT, APP_LIMIT, VERSION_LIMIT } from '../src/shared/miniapp.js';
+import { createMiniAppService } from '../services/miniapps.mjs';
+import { createRich } from '../src/ui/markdown.js';
+import { miniappPage, miniappPayload, miniappRevisePayload, miniappVersionsView, mountMiniApp } from '../src/ui/miniapp.js';
+import { infographicPayload } from '../src/ui/infographic.js';
+import { allowPreviewNavigation } from '../main/preview-navigation.mjs';
+import { preparePreviewProtocol } from '../main/preview-protocol.mjs';
+import { executeAppTool, appToolDefinitions } from '../services/app-tools.mjs';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const APP = '<!doctype html><html><head><title>打卡表</title><style>body{font-family:sans-serif}</style></head><body><button id="b">打卡</button><script>document.getElementById("b").onclick=()=>localStorage.setItem("n",String(Number(localStorage.getItem("n")||0)+1))</script></body></html>';
+const fd = o => { const f = new FormData(); for (const [k, v] of Object.entries(o)) f.append(k, v); return f; };
+
+test('extract / normalize app HTML and storage quota', () => {
+  assert.equal(extractHtml('说明\n```html\n<div>x</div>\n```\n结尾'), '<div>x</div>');
+  assert.equal(extractHtml('```miniapp\n<p>y</p>\n```'), '<p>y</p>');
+  assert.equal(extractHtml('好的：<!doctype html><html><body>z</body></html> 完成'), '<!doctype html><html><body>z</body></html>');
+  const n = normalizeAppHtml(APP);
+  assert.equal(n.title, '打卡表');
+  assert.match(normalizeAppHtml('<div>a</div>').html, /^<!doctype html>\n<div>/);
+  assert.throws(() => normalizeAppHtml(''), /为空/);
+  assert.throws(() => normalizeAppHtml('纯文字说明'), /HTML/);
+  assert.throws(() => normalizeAppHtml('<script src="https://cdn.x/a.js"></script><div></div>'), /外部脚本/);
+  assert.throws(() => normalizeAppHtml('<link rel="stylesheet" href="x.css"><div></div>'), /外部脚本或样式/);
+  assert.throws(() => normalizeAppHtml('<div>' + 'x'.repeat(300 * 1024) + '</div>'), /256 KB/);
+  let s = applyStorageOp({}, {op: 'set', key: 'a', value: '1'});
+  s = applyStorageOp(s, {op: 'set', key: 'b', value: 2});
+  assert.deepEqual(s, {a: '1', b: '2'});
+  assert.deepEqual(applyStorageOp(s, {op: 'remove', key: 'a'}), {b: '2'});
+  assert.deepEqual(applyStorageOp(s, {op: 'clear'}), {});
+  assert.throws(() => applyStorageOp({}, {op: 'set', key: '', value: 'x'}), /键无效/);
+  assert.throws(() => applyStorageOp({}, {op: 'set', key: 'big', value: 'x'.repeat(600000)}), /1 MB/);
+  const many = Object.fromEntries(Array.from({length: 200}, (_, i) => ['k' + i, '']));
+  assert.throws(() => applyStorageOp(many, {op: 'set', key: 'new', value: ''}), /200 项/);
+  assert.ok(applyStorageOp(many, {op: 'set', key: 'k1', value: 'ok'}));
+  assert.throws(() => applyStorageOp({}, {op: 'drop', key: 'a'}), /未知/);
+  assert.equal(storageSize({ab: 'cd'}), 8);
+  assert.match(MINIAPP_INSTRUCTION, /miniapp代码围栏/); assert.ok(!MINIAPP_INSTRUCTION.includes("'"));
+  assert.match(MINIAPP_PROMPT, /不引用外部脚本/);
+});
+
+function svc({text = '```html\n' + APP + '\n```', model = 'm'} = {}) {
+  const store = {data: {settings: {model}}, saves: 0, save() { this.saves++; }, log() {}}, calls = [], saved = [];
+  const s = createMiniAppService({store, request: async (settings, key, messages) => { calls.push(messages); return {text: typeof text === 'function' ? text(calls.length) : text}; }, now: (() => { let t = 1000; return () => t += 1000; })(), saveFile: async f => { saved.push(f); return true; }});
+  return {s, store, calls, saved};
+}
+
+test('service: create, get, revise with versions, restore, rename, copy, remove', async () => {
+  const {s, store, calls} = svc({text: n => '```html\n' + APP.replace('打卡表', n === 1 ? '打卡表' : '打卡表 v' + n) + '\n```'});
+  const r = await s.handle({action: 'create', prompt: '做一个团队打卡表'});
+  assert.equal(r.name, '打卡表');
+  assert.equal(calls[0][0].content.includes('单文件'), true);
+  const v = s.view();
+  assert.equal(v.length, 1); assert.ok(!('html' in v[0]) && !('storage' in v[0]), 'state view carries no code or data');
+  const g = await s.handle({action: 'get', id: r.id});
+  assert.match(g.html, /打卡/); assert.deepEqual(g.storage, {});
+  await s.handle({action: 'storage', id: r.id, op: 'set', key: 'n', value: '3'});
+  await s.handle({action: 'revise', id: r.id, instruction: '加一个重置按钮'});
+  assert.match(calls[1][1].content, /修改要求：加一个重置按钮[\s\S]*当前代码：[\s\S]*打卡表/);
+  assert.match(calls[1][1].content, /localStorage 的键名与结构/);
+  const a = store.data.miniapps[0];
+  assert.equal(a.versions.length, 1); assert.match(a.html, /打卡表 v2/); assert.deepEqual(a.storage, {n: '3'}, 'data survives a revision');
+  const vs = await s.handle({action: 'versions', id: r.id});
+  assert.equal(vs.versions.length, 1); assert.equal(vs.current.note, '加一个重置按钮');
+  await s.handle({action: 'restore', id: r.id, index: 0});
+  assert.ok(!/打卡表 v2/.test(a.html) && a.versions.length === 1 && /打卡表 v2/.test(a.versions[0].html));
+  await assert.rejects(s.handle({action: 'restore', id: r.id, index: 5}), /版本不存在/);
+  for (let i = 0; i < 15; i++) await s.handle({action: 'replace', id: r.id, html: APP, note: 'n' + i});
+  assert.equal(a.versions.length, VERSION_LIMIT);
+  await s.handle({action: 'rename', id: r.id, name: '  周报打卡  '});
+  assert.equal(a.name, '周报打卡');
+  const c = await s.handle({action: 'copy', id: r.id});
+  assert.equal(c.name, '周报打卡 副本'); assert.deepEqual(store.data.miniapps[0].storage, {}, 'a copy starts with empty data');
+  await s.handle({action: 'remove', id: c.id});
+  await assert.rejects(s.handle({action: 'get', id: c.id}), /不存在/);
+  await assert.rejects(s.handle({action: 'revise', id: r.id, instruction: ' '}), /怎么修改/);
+  await assert.rejects(s.handle({action: 'nope'}), /未知操作/);
+});
+
+test('service: save from chat, storage quota, reset, export, read-only access, limits, no model', async () => {
+  const {s, store, saved} = svc();
+  const r = await s.handle({action: 'save', html: APP});
+  assert.equal(r.name, '打卡表');
+  assert.deepEqual(await s.handle({action: 'storage', id: r.id, op: 'set', key: 'x', value: 'y'}), {items: 1, bytes: 4});
+  await assert.rejects(s.handle({action: 'storage', id: r.id, op: 'set', key: 'big', value: 'z'.repeat(700000)}), /1 MB/);
+  assert.deepEqual(store.data.miniapps[0].storage, {x: 'y'}, 'a rejected write changes nothing');
+  assert.deepEqual(s.read(r.id).data, {x: 'y'});
+  await s.handle({action: 'resetData', id: r.id});
+  assert.deepEqual(store.data.miniapps[0].storage, {});
+  assert.deepEqual(await s.handle({action: 'export', id: r.id}), {saved: true});
+  assert.equal(saved[0].name, '打卡表.html'); assert.equal(saved[0].bytes.toString('utf8'), store.data.miniapps[0].html);
+  await assert.rejects(s.handle({action: 'save', html: '<script src="//x"></script><div>'}), /外部脚本/);
+  for (let i = store.data.miniapps.length; i < APP_LIMIT; i++) await s.handle({action: 'save', html: APP});
+  await assert.rejects(s.handle({action: 'save', html: APP}), /最多保存 30/);
+  const none = svc({model: ''});
+  await assert.rejects(none.s.handle({action: 'create', prompt: '做一个计时器'}), /配置模型/);
+  const bad = svc({text: '抱歉，我做不到'});
+  await assert.rejects(bad.s.handle({action: 'create', prompt: '做一个计时器'}), /HTML/);
+});
+
+test('sandbox frame: CSP, storage seed (escaped), relay with token, quota inside the app', async () => {
+  const src = await readFile(path.join(here, '../src/apps/frame.js'), 'utf8');
+  const index = await readFile(path.join(here, '../src/apps/index.html'), 'utf8');
+  assert.match(index, /<script src="frame.js"><\/script>/);
+  const dom = new JSDOM('<p id="status"></p>', {url: 'https://frame.test/apps/index.html#tok', runScripts: 'outside-only'});
+  const w = dom.window, posted = [];
+  w.parent.postMessage = m => posted.push(m);
+  w.eval(src);
+  const plain = x => JSON.parse(JSON.stringify(x)); // messages are created in the jsdom realm
+  assert.deepEqual(plain(posted[0]), {kind: 'app-ready', token: 'tok'});
+  w.dispatchEvent(new w.MessageEvent('message', {source: w.parent, data: {kind: 'app-document', token: 'tok', source: APP, storage: {n: '2', evil: '</script><script>alert(1)</script>'}}}));
+  const child = w.document.querySelector('iframe');
+  assert.equal(child.getAttribute('sandbox'), 'allow-scripts allow-modals');
+  const srcdoc = child.srcdoc;
+  assert.match(srcdoc, /Content-Security-Policy[\s\S]*connect-src 'none'/);
+  assert.ok(!srcdoc.includes('</script><script>alert(1)'), 'saved data cannot break out of the shim');
+  const relayed = [], inner = {parent: {postMessage: m => relayed.push(m)}, document: {addEventListener() {}}, addEventListener() {}};
+  inner.window = inner;
+  const shim = new JSDOM(srcdoc).window.document.querySelector('head script').textContent;
+  vm.runInNewContext(shim, inner);
+  assert.equal(inner.localStorage.getItem('n'), '2');
+  assert.equal(inner.localStorage.getItem('evil'), '</script><script>alert(1)</script>');
+  inner.localStorage.setItem('n', '3'); inner.localStorage.removeItem('n'); inner.sessionStorage.setItem('t', '1');
+  assert.deepEqual(JSON.parse(JSON.stringify(relayed.map(m => [m.op, m.key]))), [['set', 'n'], ['remove', 'n']], 'sessionStorage is not persisted');
+  assert.throws(() => inner.localStorage.setItem('big', 'x'.repeat(600000)), /1 MB/);
+  w.dispatchEvent(new w.MessageEvent('message', {source: child.contentWindow, data: {kind: 'wb-storage', op: 'set', key: 'k', value: 'v'}}));
+  w.dispatchEvent(new w.MessageEvent('message', {source: w.parent, data: {kind: 'wb-storage', op: 'set', key: 'forged', value: 'v'}}));
+  w.dispatchEvent(new w.MessageEvent('message', {source: child.contentWindow, data: {kind: 'wb-storage', op: 'exec', key: 'k'}}));
+  assert.deepEqual(plain(posted.slice(1)), [{kind: 'app-storage', token: 'tok', op: 'set', key: 'k', value: 'v'}], 'only the child can write, only known operations');
+  for (let i = 0; i < 300; i++) w.dispatchEvent(new w.MessageEvent('message', {source: child.contentWindow, data: {kind: 'wb-storage', op: 'set', key: 'k' + i, value: ''}}));
+  assert.ok(posted.length <= 202, 'rate limited');
+});
+
+test('host mount: token-checked bridge, storage relay, timeout fallback', async () => {
+  const dom = new JSDOM('<div id="h"></div>', {url: 'file:///app/src/index.html'}), w = dom.window, host = w.document.getElementById('h');
+  const ops = [], errors = [];
+  const dispose = mountMiniApp(host, {html: APP, storage: {a: '1'}}, {onStorage: o => ops.push(o), onError: m => errors.push(m)});
+  const frame = host.querySelector('iframe.miniapp-frame'), token = frame.src.split('#')[1];
+  assert.match(frame.src, /^willbuddy-preview:\/\/local\/apps\/index\.html#/);
+  assert.equal(frame.getAttribute('sandbox'), 'allow-scripts');
+  const sent = [];
+  frame.contentWindow.postMessage = m => sent.push(m);
+  const msg = data => w.dispatchEvent(new w.MessageEvent('message', {source: frame.contentWindow, data}));
+  msg({kind: 'app-storage', token, op: 'set', key: 'early', value: 'x'});
+  msg({kind: 'app-ready', token});
+  assert.deepEqual(JSON.parse(JSON.stringify(sent[0])), {kind: 'app-document', token, source: APP, storage: {a: '1'}});
+  msg({kind: 'app-storage', token: 'wrong', op: 'set', key: 'x', value: 'y'});
+  msg({kind: 'app-storage', token, op: 'set', key: 'n', value: '1'});
+  msg({kind: 'app-error', token, value: 'boom'});
+  msg({kind: 'app-complete', token});
+  assert.deepEqual(JSON.parse(JSON.stringify(ops)), [{op: 'set', key: 'n', value: '1'}]); assert.deepEqual(errors, ['boom']);
+  dispose();
+  const d2 = new JSDOM('<div id="h"></div>', {url: 'file:///app/src/index.html'}), h2 = d2.window.document.getElementById('h');
+  mountMiniApp(h2, {html: APP});
+  await new Promise(r => setTimeout(r, 5200));
+  assert.match(h2.textContent, /未能启动：隔离环境没有响应/);
+});
+
+test('chat block, page, forms (FormData) and versions view', () => {
+  const {window} = new JSDOM('<body></body>');
+  const {rich} = createRich(window);
+  const html = rich('好的：\n\n```miniapp\n' + APP + '\n```\n\n```miniapp\n<script src="https://cdn/x.js"></script><div></div>\n```\n');
+  const doc = new JSDOM(html).window.document;
+  const fig = doc.querySelector('figure.chat-miniapp');
+  assert.ok(fig); assert.equal(fig.querySelector('b').textContent, '打卡表');
+  assert.equal(doc.querySelectorAll('script, iframe').length, 0, 'nothing runs inside the reply');
+  const btn = fig.querySelector('[data-action="miniappSaveOpen"]');
+  assert.equal(JSON.parse(btn.dataset.id).html.includes('localStorage'), true);
+  assert.match(doc.querySelector('.chart-error').textContent, /小应用未渲染：.*外部脚本/);
+  const action = (l, a, id = '', c = 'secondary') => `<button class="${c}" data-action="${a}" data-id="${id}">${l}</button>`;
+  const heading = (k, t, d, x = '') => `<h1>${t}</h1><p>${d}</p>${x}`, empty = t => `<div class="empty">${t}</div>`, date = () => '今天';
+  const st = {miniapps: [{id: 'a1', name: '<b>记账</b>', updated: 1, versions: 2, dataItems: 3, bytes: 5000, note: '加筛选'}]};
+  const list = new JSDOM(miniappPage(st, {action, heading, empty, date})).window.document;
+  assert.equal(list.querySelector('.miniapp-card h3').textContent, '<b>记账</b>');
+  assert.ok(['miniappOpen', 'miniappRevise', 'miniappVersions', 'miniappRename', 'miniappCopy', 'miniappRemove'].every(a => list.querySelector(`[data-action="${a}"]`)));
+  const view = new JSDOM(miniappPage(st, {action, heading, empty, date, open: 'a1'})).window.document;
+  assert.equal(view.querySelector('#miniappHost').dataset.id, 'a1');
+  assert.match(view.querySelector('.miniapp-bar small').textContent, /第 3 版 · 3 项数据/);
+  assert.match(miniappPage({}, {action, heading, empty, date}), /还没有小应用/);
+  assert.deepEqual(miniappPayload(fd({prompt: '做一个计时器', name: ''})), {action: 'create', prompt: '做一个计时器', name: ''});
+  assert.throws(() => miniappPayload(fd({prompt: 'a'})), /描述/);
+  assert.deepEqual(miniappRevisePayload(fd({instruction: '改成深色'}), 'a1'), {action: 'revise', id: 'a1', instruction: '改成深色'});
+  const vv = new JSDOM(miniappVersionsView({current: {time: 2, note: '当前'}, versions: [{index: 0, time: 1, note: '<i>旧</i>'}]}, {date: () => 'D'})).window.document;
+  assert.equal(vv.querySelector('[data-action="miniappRestore"]').dataset.id, '0'); assert.match(vv.body.textContent, /<i>旧<\/i>/);
+  assert.deepEqual(infographicPayload(fd({prompt: '做一张信息图', template: 'stats', size: ''})), {action: 'create', prompt: '做一张信息图', template: 'stats', size: ''}, 'infographic forms read FormData too');
+});
+
+test('protocol and navigation: /apps/ and /viz/ viewers may load in workspace frames', async () => {
+  for (const u of ['willbuddy-preview://local/apps/index.html#t', 'willbuddy-preview://local/viz/index.html#t']) assert.equal(allowPreviewNavigation(u), true, u);
+  assert.equal(allowPreviewNavigation('willbuddy-preview://local/apps/frame.js'), false);
+  const handler = await preparePreviewProtocol(path.join(here, '../src/preview'));
+  const res = await handler({url: 'willbuddy-preview://local/apps/index.html', method: 'GET'});
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-security-policy'), /connect-src 'none'/);
+  assert.match(await res.text(), /正在启动小应用/);
+  assert.equal((await handler({url: 'willbuddy-preview://local/apps/frame.js', method: 'GET'})).status, 200);
+});
+
+test('app tools read mini app data (read-only) and wiring', async () => {
+  const names = appToolDefinitions().map(d => d.function.name);
+  assert.ok(names.includes('app_miniapp_list') && names.includes('app_miniapp_read'));
+  const store = {data: {}, save() {}};
+  const deps = {miniapps: {view: () => [{id: 'a1', name: '记账', updated: 1, dataItems: 1, versions: 0}], read: id => { if (id !== 'a1') throw new Error('小应用不存在或已删除'); return {id, name: '记账', updated: 1, data: {rows: '[1,2]'}}; }}};
+  const l = await executeAppTool('app_miniapp_list', {}, {store, deps, ask: async () => true});
+  assert.equal(l.apps[0].name, '记账');
+  const r = await executeAppTool('app_miniapp_read', {id: 'a1'}, {store, deps, ask: async () => { throw new Error('reads never ask'); }});
+  assert.deepEqual(r.data, {rows: '[1,2]'});
+  const read = p => readFile(path.join(here, p), 'utf8');
+  const [main, preload, app, conv, md] = await Promise.all(['../main.mjs', '../preload.cjs', '../src/app.js', '../services/conversation.mjs', '../src/ui/markdown.js'].map(read));
+  assert.match(main, /register\('miniapp'/); assert.match(main, /miniapps:_miniapps/); assert.match(main, /get miniapps\(\)/);
+  assert.match(preload, /'miniapp'/);
+  for (const a of ['miniappNew', 'miniappOpen', 'miniappRevise', 'miniappVersions', 'miniappRestore', 'miniappSaveOpen', 'miniappExport']) assert.ok(app.includes(`'${a}'`), a);
+  assert.match(app, /mountMiniApp\(/);
+  assert.match(conv, /MINIAPP_INSTRUCTION \+/);
+  assert.match(md, /willbuddy-miniapp/);
+});

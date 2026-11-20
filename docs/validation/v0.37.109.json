@@ -1,0 +1,32 @@
+{
+  "version": "0.37.109-m4.1",
+  "kind": "internal checkpoint",
+  "baseline": "0.37.108; authority 0.37.22 v60",
+  "changed": [
+    "desktop/runtime/office-kit.mjs",
+    "desktop/tests/office-pipe-failure.test.mjs"
+  ],
+  "tests": {
+    "worker_pool": {
+      "passed": 19,
+      "failed": 0
+    },
+    "office_model": {
+      "passed": 71,
+      "failed": 0
+    },
+    "overlap": "office pipe tests included in both groups",
+    "packaging_python": {
+      "passed": 50,
+      "failed": 0
+    },
+    "full_regression": "not rerun"
+  },
+  "limitations": [
+    "real Linux LibreOfficeKit, malformed Python worker and HTTP model fixtures",
+    "no Mac, native approval or production model acceptance",
+    "no matching Apple arm64 app",
+    "offline OCR/PDFium and ONNX assets not distributed",
+    "M4 incomplete"
+  ]
+}

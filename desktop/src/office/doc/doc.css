@@ -1,0 +1,55 @@
+/* [docx] Word editor layout (body[data-format=docx]); toolbar/popups reuse the .sb-* styles from sheet/sheet.css. */
+body[data-format=docx] #wb-tabs,
+body[data-format=docx] #wb-ribbon,
+body[data-format=docx] #wb-legacy-nav,
+body[data-format=docx] #wb-ribbon-tools,
+body[data-format=docx] #wb-float,
+body[data-format=docx] #wb-free-card,
+body[data-format=docx] #wb-zoom-lite { display: none !important; }
+body[data-format=docx] #wb-ribbon-card { height: auto; min-height: 46px; margin: 0 10px 6px; padding: 4px 6px 4px 8px; border-radius: 10px; }
+body[data-format=docx].sb-collapsed #wb-ribbon-card { display: none; }
+body[data-format=docx] #wb-center, body[data-format=docx] #wb-stage { background: #f2f3f5; }
+body[data-format=docx] canvas#document { cursor: text; box-shadow: 0 1px 8px rgba(20, 30, 50, .10); }
+body[data-format=docx] #document:focus-visible { outline: 0; }
+body[data-format=docx] #pan-y { opacity: .55; }
+.sb-tool.is-soon { opacity: .45; }
+.sb-iconcell.is-on { background: #e6edf9; color: #1f6bff; }
+
+/* outline */
+.dc-outline { flex: none; width: 260px; display: flex; flex-direction: column; background: #fff; border-right: 1px solid #e6e8ec; }
+.dc-outline[hidden] { display: none; }
+.dc-outline-head { flex: none; height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 16px; border-bottom: 1px solid #eceef2; font-size: 15px; }
+.dc-outline-list { flex: 1; min-height: 0; overflow: auto; padding: 8px 6px 16px; }
+.dc-outline-item { display: block; width: 100%; padding: 6px 10px; border: 0; border-radius: 6px; background: transparent; color: #1f2329; font-size: 14px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-outline-item:hover { background: #f2f4f7; border: 0; }
+.dc-lv0 { font-weight: 700; } .dc-lv1 { font-weight: 600; } .dc-lv2 { padding-left: 24px; } .dc-lv3 { padding-left: 38px; } .dc-lv4, .dc-lv5, .dc-lv6 { padding-left: 52px; color: #4e5560; }
+.dc-outline-empty { margin: 16px 12px; color: #8a9099; font-size: 13px; line-height: 1.6; }
+.dc-outline-tab { position: absolute; z-index: 4; left: 0; top: 50%; transform: translateY(-50%); width: 34px; padding: 10px 0; writing-mode: vertical-rl; letter-spacing: 4px; border: 0; border-radius: 0 8px 8px 0; background: #e9ebef; color: #4e5560; font-size: 14px; }
+.dc-outline-tab:hover { background: #dfe2e7; border: 0; }
+.dc-outline-tab[hidden] { display: none; }
+
+/* status bar */
+body[data-format=docx] #wb-statusbar { gap: 2px; padding: 0 10px 0 8px; }
+.dc-status-left { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; font-size: 14px; color: #4e5560; }
+.dc-status-left .sb-btn.is-on { background: #e6edf9; color: #1f6bff; }
+.dc-page, .dc-words { white-space: nowrap; }
+
+/* popups specific to Word */
+.dc-ime { z-index: 3; }
+.dc-style-item { height: auto; min-height: 36px; padding-top: 4px; padding-bottom: 4px; }
+.dc-fonts { max-height: 70vh; }
+.dc-tablegrid { padding: 10px; }
+.dc-symbols { width: 330px; padding: 10px; }
+.dc-symbol-grid { display: grid; grid-template-columns: repeat(10, 28px); gap: 4px; }
+.dc-symbol { width: 28px; height: 28px; padding: 0; border: 1px solid #eceef2; border-radius: 5px; background: #fff; font-size: 15px; }
+.dc-symbol:hover { background: #eef3ff; border-color: #c9d7f7; }
+.dc-form { width: 380px; }
+.dc-para { width: 460px; }
+.dc-form-row { display: flex; align-items: center; gap: 10px; }
+.dc-form-label { flex: none; width: 72px; font-size: 13px; color: #4e5560; }
+.dc-form-row .sb-dialog-input { flex: 1; min-width: 0; }
+.dc-form-area { min-height: 80px; resize: vertical; padding: 6px 8px; }
+.dc-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.dc-seg-btn { height: 30px; padding: 0 10px; font-size: 13px; }
+.dc-seg-btn.is-on { background: #e6edf9; border-color: #1f6bff; color: #1f6bff; }
+.dc-note { font-size: 12px; color: #8a9099; }

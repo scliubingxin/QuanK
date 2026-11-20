@@ -1,0 +1,31 @@
+{
+  "version": "0.37.110-m4.1",
+  "kind": "internal checkpoint",
+  "changed": [
+    "desktop/main.mjs",
+    "desktop/services/ocr-source-open.mjs",
+    "desktop/tests/ocr-source-open-03757.test.mjs"
+  ],
+  "tests": {
+    "node": {
+      "total": 53,
+      "passed": 51,
+      "skipped": 2,
+      "failed": 0
+    },
+    "packaging_python": {
+      "total": 50,
+      "passed": 50
+    }
+  },
+  "native_macos_verified": false,
+  "matching_apple_app": false,
+  "limits": [
+    "OS open cannot be revoked",
+    "pending native dialog or underlying read may continue",
+    "race remains after final file check",
+    "offline OCR/PDFium assets not included",
+    "M4 incomplete",
+    "GitHub prior security rejection"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "version": "0.37.62-m4.1",
+  "status": "development checkpoint",
+  "changes": [
+    "bounded close timeout reports unknown cleanup status",
+    "existing worker destruction starts independently from delayed creation",
+    "late created worker still destroyed, pool remains closed"
+  ],
+  "files": [
+    "desktop/runtime/isolated-worker-pool.mjs",
+    "desktop/tests/isolated-worker-pool-03738.test.mjs"
+  ],
+  "tests": {
+    "pool": {
+      "passed": 17,
+      "failed": 0
+    },
+    "related": {
+      "passed": 43,
+      "failed": 0
+    },
+    "long_soak": "started, not complete at checkpoint"
+  },
+  "limitations": [
+    "No matching Apple ARM64 app",
+    "No Mac native validation or notarization",
+    "WASM OCR assets and Chinese data not included",
+    "Prior GitHub security review rejection not bypassed"
+  ]
+}

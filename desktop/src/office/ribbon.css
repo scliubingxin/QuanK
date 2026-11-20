@@ -1,0 +1,57 @@
+/* [lane:ribbon] */
+.wb-tabs-temp{display:flex;gap:4px;padding:6px 18px 0;background:#fff;border-bottom:1px solid #e6ecf2}
+.wb-tab{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:6px 10px;font-size:13px;color:#33424f}
+.wb-tab.active{color:#0b1f33;font-weight:600;border-bottom-color:#0078cb}
+.wb-tab:hover{background:#f2f7fb}
+.wb-ribbon{display:flex;align-items:stretch;gap:0;background:#fff;border:1px solid #e3e9ef;border-radius:10px;margin:8px 10px;padding:6px 8px;min-height:74px;color:#26343f;font-size:12px;position:relative;overflow-x:auto;overflow-y:hidden}
+.wb-ribbon[hidden]{display:none}
+.wb-ribbon.wb-collapsed{min-height:0}.wb-ribbon.wb-collapsed .wb-groups{display:none}
+.wb-groups{display:flex;align-items:stretch;flex:1;min-width:0}
+.wb-group{display:flex;align-items:center;gap:2px;padding:0 8px;border-right:1px solid #e6ecf2;position:relative}
+.wb-group:last-child{border-right:0}
+.wb-vlabel{writing-mode:vertical-rl;color:#9aa8b4;font-size:11px;letter-spacing:2px;margin-right:2px}
+.wb-rows{display:flex;flex-direction:column;justify-content:center;gap:4px}
+.wb-row{display:flex;align-items:center;gap:2px;min-height:28px}
+.wb-item{display:flex;align-items:center}
+.wb-ribbon .wb-btn,.wb-tool{border:0;background:transparent;border-radius:6px;padding:3px 5px;color:#26343f;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:12px;line-height:1.2}
+.wb-ribbon .wb-btn:hover,.wb-ribbon .wb-btn:focus-visible{background:#eaf3fb}
+.wb-ribbon .wb-btn:focus-visible{outline:2px solid #0078cb;outline-offset:-2px}
+.wb-lg .wb-btn{flex-direction:column;min-width:44px;padding:5px 6px;gap:4px;justify-content:center;height:60px}
+.wb-lg .wb-btn-top{display:flex;align-items:center;gap:2px}
+.wb-lg .wb-label{white-space:nowrap}
+.wb-btn-top{display:inline-flex;align-items:center;position:relative}
+.wb-has-bar{flex-direction:column}
+.wb-colorbar{display:block;position:absolute;left:2px;right:2px;bottom:-3px;height:3px;border-radius:1px}
+.wb-type-split{border-radius:6px}.wb-type-split .wb-arrow{padding:3px 2px;margin-left:-4px}
+.wb-lg.wb-type-split{flex-direction:row;align-items:stretch}.wb-lg.wb-type-split .wb-arrow{align-self:flex-start;margin:4px 0 0 -6px}
+.wb-ico{display:block}
+.wb-ribbon [aria-pressed="true"],.wb-ribbon .wb-on>.wb-btn{background:#dcecfa;color:#005a9e}
+.wb-disabled,.wb-disabled .wb-btn{opacity:.4;cursor:default!important}
+.wb-disabled .wb-btn:hover{background:transparent!important}
+.wb-select .wb-selectbtn{width:100%;justify-content:space-between;border:1px solid #e3e9ef;background:#fff;height:26px;padding:2px 6px}
+.wb-selvalue{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1;text-align:left}.wb-selvalue.wb-ph{color:#8b99a5}
+.wb-check .wb-checkbtn{gap:6px}.wb-box{width:14px;height:14px;border:1px solid #b8c5d0;border-radius:3px;background:#fff;position:relative;display:inline-block}
+.wb-check[class~="wb-on"] .wb-box,.wb-check .wb-checkbtn[aria-checked="true"] .wb-box{background:#0078cb;border-color:#0078cb}
+.wb-check .wb-checkbtn[aria-checked="true"] .wb-box::after{content:"";position:absolute;left:3px;top:0;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.wb-check .wb-checkbtn[aria-checked="true"]{background:transparent}
+.wb-gallery{display:flex;gap:2px;align-items:center}
+.wb-gal{flex-direction:column;min-width:52px;height:60px;justify-content:center;border:2px solid transparent!important}
+.wb-gallery .wb-selected{border-color:#0078cb!important;background:#eaf3fb}
+.wb-palettes{display:flex;gap:6px;padding:2px 6px}
+.wb-palette{border:1px solid #e3e9ef;background:#fff;border-radius:6px;padding:3px;display:grid;grid-template-columns:repeat(4,14px);grid-auto-rows:14px;gap:1px;opacity:.9;cursor:default}
+.wb-palette i{display:block}
+.wb-number{flex-direction:column;align-items:flex-start;gap:2px;padding:0 6px}.wb-numhead{display:flex;align-items:center;gap:4px;color:#8b99a5}
+.wb-numinput{width:78px;border:1px solid #e3e9ef;border-radius:5px;padding:3px 6px;font:inherit;background:#fff}
+.wb-type-button.wb-danger .wb-btn{color:#d93025}
+.wb-tools{display:flex;align-items:flex-start;gap:6px;margin-left:auto;padding-left:8px}
+.wb-pop{position:fixed;z-index:1000;background:#fff;border:1px solid #dfe5ec;border-radius:8px;box-shadow:0 6px 24px rgba(20,40,60,.18);padding:6px;font-size:12px;color:#26343f}
+.wb-pop[hidden]{display:none}
+.wb-menu{display:flex;flex-direction:column;min-width:150px;max-height:320px;overflow:auto}
+.wb-menu-item{display:flex;align-items:center;gap:8px;border:0;background:transparent;text-align:left;padding:6px 10px;border-radius:5px;color:inherit;font:inherit;cursor:pointer}
+.wb-menu-item:hover{background:#eaf3fb}.wb-menu-item.wb-disabled{opacity:.4;cursor:default}
+.wb-colors{display:grid;grid-template-columns:repeat(10,20px);gap:4px}
+.wb-color{width:20px;height:20px;border:1px solid #d5dde5;border-radius:4px;padding:0;cursor:pointer}
+.wb-grid{display:grid;grid-template-columns:repeat(8,18px);gap:2px}.wb-grid-label{margin:2px 2px 6px;color:#58758a}
+.wb-cell{width:18px;height:18px;border:1px solid #cdd7e0;background:#fff;padding:0;border-radius:2px;cursor:pointer}.wb-cell.on{background:#bcdcf6;border-color:#0078cb}
+/* Palettes keep full colour like the reference screenshot; they are inert (aria-disabled) until theme switching lands. */
+.wb-palettes.wb-disabled{opacity:1}.wb-palettes.wb-disabled .wb-palette{cursor:default}

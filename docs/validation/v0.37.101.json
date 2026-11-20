@@ -1,0 +1,17 @@
+{
+  "version": "0.37.101-m4.1",
+  "status": "internal checkpoint",
+  "related_node": {
+    "total": 96,
+    "passed": 93,
+    "failed": 0,
+    "skipped": 3,
+    "reason": "experimental build-time OCR assets absent"
+  },
+  "other_test_failure": "knowledge-evidence.test.mjs cannot load jsdom; not verified",
+  "real": "Linux system Tesseract OCR and knowledge flow",
+  "fixtures": "native approval and model",
+  "mac": "not tested",
+  "matching_apple_bundle": "not built",
+  "github": "not published; prior browser security rejection retained"
+}

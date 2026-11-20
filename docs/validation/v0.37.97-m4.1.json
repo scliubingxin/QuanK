@@ -1,0 +1,42 @@
+{
+  "version": "0.37.97-m4.1",
+  "node_tests": {
+    "total": 778,
+    "pass": 774,
+    "failed": 0,
+    "skipped": 4,
+    "skipped_reason": "ONNX development model or runtime unavailable"
+  },
+  "packaging_python": {
+    "passed": 50,
+    "failed": 0
+  },
+  "targeted_pdf_tests": {
+    "passed": 49,
+    "failed": 0
+  },
+  "image_pdf_focused": {
+    "passed": 16,
+    "failed": 0
+  },
+  "local_default_arm64_candidate": {
+    "size_bytes": 483368413,
+    "sha256": "f5ddeb229a3a796cf92b78e598ccb725c4b62e9fea3b3ac93e1c31117fb8d213",
+    "asar_sha256": "3debb7fd2028fff991dd0b490503350663b48c98f7565fa705a2ed138c4c5fbc",
+    "asar_files_matched": 266,
+    "macho_files": 278,
+    "code_pages": 93545,
+    "archive_closed": true,
+    "persistent_upload": "failed at prepare",
+    "ocr_pdfium_assets_included": false,
+    "mac_tested": false,
+    "notarized": false
+  },
+  "previous_experimental_bundle": {
+    "version": "0.37.96-m4.1",
+    "persisted": false,
+    "linux_electron_asar_pdf_ocr_passed": true,
+    "third_party_license_audit_complete": false
+  },
+  "m4_complete": false
+}

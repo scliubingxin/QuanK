@@ -1,0 +1,21 @@
+{
+  "version": "0.37.71-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "mock_and_state": 17,
+    "mock_and_queue": 31,
+    "office_pool_soak": "previous output lost on environment reset; last observed 1560s and 22865 rounds, incomplete",
+    "current_office_runtime": "real LibreOfficeKit short reuse test passed; long soak must be restarted"
+  },
+  "limitations": [
+    "rcodesign missing; no matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/agent.mjs",
+    "desktop/tests/mock-llm-faults-03740.test.mjs"
+  ]
+}

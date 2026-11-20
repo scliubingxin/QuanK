@@ -1,0 +1,28 @@
+{
+  "version": "0.37.121-m4.1",
+  "status": "internal checkpoint, not release",
+  "files": [
+    "desktop/runtime/run-queue.mjs",
+    "desktop/tests/run-queue-cancel-persistence-037121.test.mjs"
+  ],
+  "queue_related": {
+    "passed": 28,
+    "failed": 0
+  },
+  "ocr_related": {
+    "passed": 70,
+    "skipped": 2
+  },
+  "knowledge_related": {
+    "passed": 60,
+    "skipped": 2
+  },
+  "browser_cli_passed": 41,
+  "pool_passed": 36,
+  "packaging_passed": 50,
+  "mixed_office_soak": "running",
+  "full_regression": "not run for final snapshot",
+  "matching_arm64_package": false,
+  "mac_native_tested": false,
+  "m4_complete": false
+}

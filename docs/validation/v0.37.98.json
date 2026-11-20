@@ -1,0 +1,21 @@
+{
+  "version": "0.37.98-m4.1",
+  "status": "internal checkpoint",
+  "node_tests": {
+    "total": 35,
+    "passed": 27,
+    "skipped": 8,
+    "failed": 0
+  },
+  "packaging_tests": {
+    "passed": 50
+  },
+  "full_regression": "not run",
+  "mac": "not tested",
+  "matching_apple_app": "not built",
+  "limits": "metadata checks detect normal concurrent edits, not malicious metadata manipulation",
+  "changed_files": [
+    "desktop/runtime/pdf-ocr.mjs",
+    "desktop/tests/pdf-stable-read-03798.test.mjs"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "version": "0.37.93-m4.1",
+  "tests": {
+    "full_node": {
+      "total": 768,
+      "pass": 764,
+      "fail": 0,
+      "skip": 4,
+      "skip_reason": "local ONNX development model/dependencies unavailable"
+    },
+    "ocr_related": {
+      "pass": 53,
+      "fail": 0
+    },
+    "packaging_python": {
+      "pass": 41,
+      "fail": 0
+    }
+  },
+  "source_protected_web_python_files": {
+    "compared": 122,
+    "changed": 0
+  },
+  "mac_arm64_bundle_generated": false,
+  "mac_native_tested": false,
+  "notarized": false,
+  "assets_in_source": false,
+  "notes": [
+    "native approval mocked",
+    "real Chinese OCR used staged Linux build assets",
+    "late confirmation ignored on cancellation",
+    "M4 not complete"
+  ]
+}

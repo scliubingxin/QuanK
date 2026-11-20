@@ -1,0 +1,25 @@
+{
+  "version": "0.37.123-m4.1",
+  "status": "internal checkpoint, not release",
+  "files": [
+    "desktop/services/pdf-chat-import.mjs",
+    "desktop/tests/ocr-provenance-validation-037120.test.mjs"
+  ],
+  "pdf_attachment_related": {
+    "passed": 24,
+    "failed": 0,
+    "scope": "real Linux Poppler/Tesseract; confirmation and faulty recognizer mocked"
+  },
+  "model_stream_related": {
+    "passed": 41
+  },
+  "queue_related": {
+    "passed": 28
+  },
+  "mixed_office_soak": "running",
+  "office_edit_stress": "running",
+  "full_regression": "not run for final snapshot",
+  "matching_arm64_package": false,
+  "mac_native_tested": false,
+  "m4_complete": false
+}

@@ -1,0 +1,24 @@
+{
+  "version": "0.37.114-m4.1",
+  "status": "internal_checkpoint",
+  "change": "Bounded token-limit fallback for experimental local ONNX embeddings, preserving all text and versioning vector cache identity",
+  "targeted_tests": {
+    "total": 37,
+    "passed": 35,
+    "skipped": 2,
+    "model_and_approval": "fixtures; real model absent"
+  },
+  "packaging_tests": {
+    "passed": 50
+  },
+  "full_regression": {
+    "total": 776,
+    "passed": 740,
+    "failed": 17,
+    "skipped": 19,
+    "failure": "jsdom test dependency not present"
+  },
+  "office_mixed_soak": "running at checkpoint",
+  "mac_arm64": "matching build unavailable and untested",
+  "m4_complete": false
+}

@@ -1,0 +1,19 @@
+{
+  "version": "0.37.72-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "stream_and_mock": 22,
+    "office_soak": "restarted; no final conclusion"
+  },
+  "limitations": [
+    "No matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/model-stream.mjs",
+    "desktop/tests/streaming.test.mjs"
+  ]
+}

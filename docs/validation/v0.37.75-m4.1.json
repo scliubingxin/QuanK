@@ -1,0 +1,19 @@
+{
+  "version": "0.37.75-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "office_pool": 9,
+    "office_targeted": 47,
+    "office_soak": "running; no final conclusion"
+  },
+  "limitations": [
+    "No matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/tests/office-preview-pool-03739.test.mjs"
+  ]
+}

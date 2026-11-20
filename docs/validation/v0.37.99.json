@@ -1,0 +1,35 @@
+{
+  "version": "0.37.99-m4.1",
+  "status": "internal checkpoint",
+  "base": "0.37.98-m4.1",
+  "source_changes": [
+    "desktop/runtime/pdf-ocr.mjs",
+    "desktop/runtime/local-onnx-embedding.mjs",
+    "desktop/tests/pdf-stable-read-03798.test.mjs",
+    "desktop/tests/local-onnx-integrity-03799.test.mjs"
+  ],
+  "related_tests": {
+    "total": 124,
+    "passed": 112,
+    "failed": 0,
+    "skipped": 12,
+    "reason": "missing experimental OCR/PDFium assets or local ONNX model"
+  },
+  "packaging_tests": {
+    "passed": 50
+  },
+  "office_pool": {
+    "runtime": "real Linux LibreOfficeKit",
+    "workers": 2,
+    "documents": "two synthetic",
+    "seconds": 30,
+    "rounds": 317,
+    "cross_document_content_detected": false
+  },
+  "full_regression": "not run; offline npm cache missing zrender",
+  "arm64_application": "not built; signer and ASAR unavailable",
+  "mac": "not tested",
+  "notarized": false,
+  "experimental_assets_distributed": false,
+  "limits": "metadata checks do not resist malicious metadata manipulation; source path check has a later race; native consent and model semantics are fixtures"
+}

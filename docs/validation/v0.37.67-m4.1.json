@@ -1,0 +1,23 @@
+{
+  "version": "0.37.67-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "ocr_source": {
+      "passed": 13,
+      "native_bridge": "mocked"
+    },
+    "office_pool_soak": "running; no final conclusion"
+  },
+  "limitations": [
+    "rcodesign missing; no matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/main.mjs",
+    "desktop/services/ocr-source-preview.mjs",
+    "desktop/tests/ocr-source-preview-03758.test.mjs"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "version": "0.37.65-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "ocr": {
+      "passed": 24,
+      "skipped": 6,
+      "reason": "WASM runtime assets intentionally omitted"
+    },
+    "packaging": {
+      "passed": 41,
+      "mac_native": "mocked"
+    },
+    "office_pool_soak": "running; no final conclusion"
+  },
+  "limitations": [
+    "No matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/pdf-ocr.mjs",
+    "desktop/runtime/image-ocr.mjs",
+    "desktop/runtime/ocr-wasm.mjs",
+    "desktop/tests/pdf-ocr-03740.test.mjs"
+  ]
+}

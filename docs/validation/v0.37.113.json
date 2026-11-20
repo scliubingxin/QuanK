@@ -1,0 +1,16 @@
+{
+  "version": "0.37.113-m4.1",
+  "status": "internal_checkpoint",
+  "tests": {
+    "knowledge_related": {
+      "passed": 33,
+      "failed": 0,
+      "context": "HTTP LLM and embedding fixtures; native approval mocked"
+    },
+    "full_regression": "not run for this revision; preceding exploratory run had 17 missing jsdom failures",
+    "mixed_office_endurance": "running; no completed result claimed"
+  },
+  "mac_arm64": "matching build unavailable and untested",
+  "m4_complete": false,
+  "next": "verify concurrent checkpoints, complete offline dependencies and licenses, and validate on Mac"
+}

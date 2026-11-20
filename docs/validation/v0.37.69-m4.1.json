@@ -1,0 +1,22 @@
+{
+  "version": "0.37.69-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "run_queue": {
+      "passed": 17,
+      "disk_failure": "real Store with injected save failures"
+    },
+    "office_pool_soak": "running; no final conclusion"
+  },
+  "limitations": [
+    "rcodesign missing; no matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/run-queue.mjs",
+    "desktop/tests/run-queue.test.mjs"
+  ]
+}

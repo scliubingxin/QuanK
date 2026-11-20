@@ -1,0 +1,19 @@
+{
+  "version": "0.37.73-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "cli_related": 17,
+    "office_soak": "running; no final conclusion"
+  },
+  "limitations": [
+    "No matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/command.mjs",
+    "desktop/tests/command-output-fault-03773.test.mjs"
+  ]
+}

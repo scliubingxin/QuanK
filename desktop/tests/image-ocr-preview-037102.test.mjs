@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {previewImageOcrEvidence} from '../services/image-ocr-evidence-preview.mjs';
+import {knowledgeEvidence} from '../src/ui/knowledge-evidence.js';
+const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9FkAAAAASUVORK5CYII=','base64');
+const hash=createHash('sha256').update(png).digest('hex');
+function fixture(){const src={name:'img.png',sha256:hash,width:1,height:1,coordinateSpace:'image-pixel-top-left',regions:[{x:0,y:0,w:1,h:1,start:0,end:1}]};const ref={chatId:'c',row:0,match:0,runId:'r',time:7,expectedHash:hash};const entry={source:{id:'d',name:'doc',revision:1,sha256:'a'.repeat(64)},line:1,endLine:1,offset:0,endOffset:1,text:'x',imageOcrSource:src};const chat={id:'c',knowledgeEvidence:[{runId:'r',time:7,matches:[entry],sources:[]}]};return {store:{data:{chats:[chat],imageAttachments:[{base64:png.toString('base64'),bytes:png.length,sha256:hash}]}},reference:ref,src,chat};}
+test('verified image is returned on explicit evidence reference with bounded boxes',()=>{const f=fixture(),r=previewImageOcrEvidence(f);assert.equal(r.base64,png.toString('base64'));assert.deepEqual(r.boxes,[{x:0,y:0,w:1,h:1}]);const html=knowledgeEvidence(f.chat,'r');assert.match(html,/previewImageOcrEvidence/);assert.ok(!html.includes(png.toString('base64')));});
+test('changed references or absent image fail without returning bytes',()=>{let f=fixture();f.reference.expectedHash='b'.repeat(64);assert.throws(()=>previewImageOcrEvidence(f),/不存在或已变化/);f=fixture();f.store.data.imageAttachments=[];assert.throws(()=>previewImageOcrEvidence(f),/已移除/);f=fixture();f.reference.runId='stale';assert.throws(()=>previewImageOcrEvidence(f),/不存在或已变化/);});
+test('bad geometry, changed bytes and mismatched dimensions fail closed',()=>{for(const mutate of [f=>f.src.regions[0].x=1,f=>f.src.regions.push(...Array(16).fill(f.src.regions[0])),f=>f.store.data.imageAttachments[0].bytes++,f=>f.src.width=2,f=>f.store.data.imageAttachments[0].base64=Buffer.from('wrong').toString('base64')]){const f=fixture();mutate(f);assert.throws(()=>previewImageOcrEvidence(f));}});
