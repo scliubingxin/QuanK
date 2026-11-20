@@ -1,0 +1,27 @@
+{
+  "version": "0.37.107-m4.1",
+  "kind": "internal checkpoint",
+  "changed_files": [
+    "desktop/runtime/agent.mjs",
+    "desktop/tests/agent-cancel-observation-037107.test.mjs"
+  ],
+  "tests": {
+    "node_related": {
+      "passed": 40,
+      "failed": 0
+    },
+    "packaging_python": {
+      "passed": 50,
+      "failed": 0
+    },
+    "full_regression": "not rerun"
+  },
+  "limits": [
+    "late running work is not forcibly interrupted",
+    "Mac native approval and real models not validated",
+    "matching ARM64 app not built",
+    "offline OCR/PDFium and ONNX assets not distributed",
+    "M4 incomplete"
+  ],
+  "source_baseline": "0.37.106 checkpoint; authority 0.37.22 v60"
+}

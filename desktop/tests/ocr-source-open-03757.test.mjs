@@ -1,0 +1,40 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {openOcrSource} from '../services/ocr-source-open.mjs';
+const pdf=Buffer.from('%PDF-1.4\nsynthetic evidence'), hash=createHash('sha256').update(pdf).digest('hex');
+function fixture(){const store={data:{chats:[{id:'c',knowledgeEvidence:[{runId:'r',time:3,matches:[{text:'hello',ocrSource:{name:'original.pdf',sha256:hash,pages:[2]}}]}]}]}};const reference={chatId:'c',row:0,match:0,runId:'r',time:3,expectedHash:hash};let opened=0;const opts={store,reference,choose:async()=>'/test/original.pdf',read:async()=>pdf,open:async()=>{opened++;return ''}};return {store,reference,opts,opened:()=>opened};}
+test('explicitly selected matching PDF is opened and only page numbers returned',async()=>{const f=fixture();assert.deepEqual(await openOcrSource(f.opts),{opened:true,pages:[2]});assert.equal(f.opened(),1);});
+test('wrong PDF, malformed evidence, cancellation and failed open are handled',async()=>{let f=fixture();f.opts.read=async()=>Buffer.from('%PDF-different');await assert.rejects(openOcrSource(f.opts),/不一致/);assert.equal(f.opened(),0);f=fixture();f.opts.choose=async()=>null;assert.equal(await openOcrSource(f.opts),false);f=fixture();f.reference.expectedHash='a'.repeat(64);await assert.rejects(openOcrSource(f.opts),/不存在或已变化/);f=fixture();f.opts.open=async()=> 'open failed';await assert.rejects(openOcrSource(f.opts),/无法打开/);});
+test('changes to evidence or selected PDF while choosing or reading stop opening',async()=>{let f=fixture();f.opts.choose=async()=>{f.store.data.chats[0].knowledgeEvidence=[];return '/a.pdf'};await assert.rejects(openOcrSource(f.opts),/不存在或已变化/);assert.equal(f.opened(),0);f=fixture();let n=0;f.opts.read=async()=>++n===1?pdf:Buffer.from('%PDF-altered');await assert.rejects(openOcrSource(f.opts),/已变化/);assert.equal(f.opened(),0);});
+test('real bounded reader rejects a symlink and opens verified bytes through the injected OS adapter',async()=>{const {mkdtemp,writeFile,symlink,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),path=await import('node:path'),{readDocumentSource}=await import('../main/document-files.mjs');const dir=await mkdtemp(path.join(tmpdir(),'wb-ocr-source-'));try{const original=path.join(dir,'source.pdf'),link=path.join(dir,'link.pdf');await writeFile(original,pdf);await symlink(original,link);let f=fixture();f.opts.choose=async()=>link;f.opts.read=p=>readDocumentSource(p,{noFollow:true,maxBytes:16*1024*1024,label:'PDF'});await assert.rejects(openOcrSource(f.opts));assert.equal(f.opened(),0);f=fixture();f.opts.choose=async()=>original;f.opts.read=p=>readDocumentSource(p,{noFollow:true,maxBytes:16*1024*1024,label:'PDF'});assert.equal((await openOcrSource(f.opts)).opened,true);assert.equal(f.opened(),1);}finally{await rm(dir,{recursive:true,force:true});}});
+test('evidence card supplies only bounded evidence references, never a file path',async()=>{const {knowledgeEvidence}=await import('../src/ui/knowledge-evidence.js');const f=fixture();const chat=f.store.data.chats[0],entry=chat.knowledgeEvidence[0].matches[0];Object.assign(entry,{source:{id:'d',name:'doc',revision:1,sha256:'b'.repeat(64)},line:1,endLine:1,offset:0,endOffset:5});chat.knowledgeEvidence[0].sources=[];const html=knowledgeEvidence(chat,'r',[]);assert.match(html,/data-action="openOcrSource"/);assert.match(html,/选择并核对原 PDF/);assert.ok(!html.includes('/test/original.pdf'));assert.match(html,/自行翻到上述页码/);});
+
+test('aborting a pending selector or read discards late results without opening',async()=>{
+  for (const stage of ['choose','first-read','second-read']) {
+    const f=fixture(), ac=new AbortController(); f.opts.signal=ac.signal;
+    let release, started;
+    const entered=new Promise(resolve=>{started=resolve;});
+    const pending=new Promise(resolve=>{release=resolve;});
+    let reads=0;
+    if(stage==='choose') f.opts.choose=()=>{started();return pending;};
+    else f.opts.read=()=>{reads++;if((stage==='first-read'&&reads===1)||(stage==='second-read'&&reads===2)){started();return pending;}return Promise.resolve(pdf);};
+    const operation=openOcrSource(f.opts);
+    await entered; ac.abort(new Error('stopped'));
+    await assert.rejects(operation,/stopped/);
+    release(stage==='choose'?'/a.pdf':pdf);
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(f.opened(),0,stage);
+  }
+});
+
+test('already aborted request never invokes the selector; an issued OS open is not claimed cancelled',async()=>{
+  let f=fixture(),ac=new AbortController();ac.abort(new Error('stopped'));f.opts.signal=ac.signal;
+  let selected=0;f.opts.choose=()=>{selected++;return '/a.pdf';};
+  await assert.rejects(openOcrSource(f.opts),/stopped/);assert.equal(selected,0);
+  f=fixture();ac=new AbortController();f.opts.signal=ac.signal;
+  let release,started;const entered=new Promise(r=>{started=r;});
+  f.opts.open=()=>{started();return new Promise(r=>{release=r;});};
+  const operation=openOcrSource(f.opts);await entered;ac.abort(new Error('stopped'));release('');
+  assert.deepEqual(await operation,{opened:true,pages:[2]});
+});

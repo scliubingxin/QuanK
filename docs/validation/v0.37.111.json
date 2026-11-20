@@ -1,0 +1,44 @@
+{
+  "version": "0.37.111-m4.1",
+  "kind": "internal checkpoint",
+  "changed": [
+    "desktop/runtime/browser.mjs",
+    "desktop/runtime/browser-dom.mjs",
+    "desktop/runtime/command.mjs",
+    "desktop/runtime/tools.mjs",
+    "desktop/tests/browser-click-pixels-037111.test.mjs",
+    "desktop/tests/browser-click-stale-037111.test.mjs",
+    "desktop/tests/command-unicode-output-037111.test.mjs",
+    "desktop/tests/commands.test.mjs"
+  ],
+  "tests": {
+    "targeted_node": {
+      "total": 47,
+      "passed": 47,
+      "failed": 0
+    },
+    "packaging_python": {
+      "total": 50,
+      "passed": 50
+    },
+    "exploratory_full_during_edits": {
+      "total": 750,
+      "passed": 714,
+      "failed": 17,
+      "skipped": 19,
+      "failure": "jsdom missing"
+    },
+    "actual_chromium": "failed to launch: socket Operation not permitted"
+  },
+  "protected_web_python_files": 122,
+  "native_macos_verified": false,
+  "matching_apple_app": false,
+  "limitations": [
+    "browser navigation can race input after final check",
+    "already-sent input cannot be undone",
+    "real model and native IPC not validated",
+    "offline OCR/PDFium assets and local ONNX model not distributed",
+    "M4 incomplete",
+    "GitHub prior security rejection"
+  ]
+}

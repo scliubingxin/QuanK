@@ -1,0 +1,41 @@
+{
+  "version": "0.37.100-m4.1",
+  "base": "0.37.99-m4.1",
+  "status": "internal checkpoint",
+  "related_node_tests": {
+    "total": 91,
+    "passed": 88,
+    "failed": 0,
+    "skipped": 3,
+    "reason": "experimental OCR assets absent"
+  },
+  "browser_cli_tests": {
+    "initial_total": 54,
+    "initial_pass": 53,
+    "initial_fail": 1,
+    "failure": "browser-runtime missing jsdom",
+    "available_subset_pass": 53
+  },
+  "packaging_tests": {
+    "passed": 50
+  },
+  "actual_ocr": "Linux Tesseract English synthetic image; approvals fixtures",
+  "model": "local HTTP fixture; not a paid model",
+  "image_tasks_parallel": 4,
+  "full_regression": "not run",
+  "matching_arm64_application": "not built; signer and ASAR dependency missing",
+  "mac": "not tested",
+  "notarized": false,
+  "experimental_assets_distributed": false,
+  "image_source_citations": "human-readable name and SHA only, no structured image-coordinate citation",
+  "files": [
+    "desktop/runtime/tools.mjs",
+    "desktop/runtime/image-ocr.mjs",
+    "desktop/runtime/agent.mjs",
+    "desktop/services/agent-session.mjs",
+    "desktop/services/conversation.mjs",
+    "desktop/src/ui/agent-editor.js",
+    "desktop/src/app.js",
+    "desktop/tests/image-ocr-03737.test.mjs"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "version": "0.37.105-m4.1",
+  "target": {
+    "total": 70,
+    "passed": 68,
+    "failed": 0,
+    "skipped": 2
+  },
+  "packaging": {
+    "passed": 50,
+    "failed": 0
+  },
+  "limitations": [
+    "recognizer may continue after cancellation",
+    "OCR WASM assets missing",
+    "no matching Apple app or Mac validation",
+    "full suite not established",
+    "M4 incomplete"
+  ],
+  "exploratory_suite": {
+    "total": 719,
+    "passed": 683,
+    "failed": 17,
+    "skipped": 19,
+    "note": "17 jsdom missing; test added and version edited during run, not a final full regression"
+  }
+}

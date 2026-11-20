@@ -1,0 +1,41 @@
+{
+  "version": "0.37.125-m4.1",
+  "status": "internal checkpoint, not release",
+  "files": [
+    "desktop/runtime/model-stream.mjs",
+    "desktop/tests/model-sse-choice-037125.test.mjs"
+  ],
+  "model_related": {
+    "passed": 44,
+    "failed": 0
+  },
+  "mixed_office_soak": {
+    "seconds": 1800,
+    "rounds": 4804,
+    "result": "passed",
+    "scope": "real Linux LibreOfficeKit, synthetic Word/Excel/PPT"
+  },
+  "office_edit_stress": {
+    "seconds": 602.9,
+    "rounds": 17,
+    "failures": 0,
+    "scope": "real Linux LibreOfficeKit synthetic documents"
+  },
+  "full_regression": {
+    "total": 823,
+    "passed": 787,
+    "failed": 17,
+    "skipped": 19,
+    "failures": "jsdom unavailable",
+    "skip_reason": "local ONNX or OCR/PDFium experimental assets unavailable",
+    "log_library_file_id": "libfile_667518aacf50819188c64707dd3867ba"
+  },
+  "matching_arm64_package": false,
+  "mac_native_tested": false,
+  "m4_complete": false,
+  "packaging_tests": {
+    "passed": 50,
+    "failed": 0
+  },
+  "office_verification_log_library_file_id": "libfile_ae7a403e2e988191a37a16eb0f2c3977"
+}

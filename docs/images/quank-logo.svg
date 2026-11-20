@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="80 90 600 600" width="1024" height="1024"><defs>
+<linearGradient id="qq" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b2ba6"/><stop offset="1" stop-color="#2f62f5"/></linearGradient>
+<linearGradient id="qc" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#4a8dff"/><stop offset=".6" stop-color="#7c8cff"/><stop offset="1" stop-color="#b38cff"/></linearGradient>
+<linearGradient id="qr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f87171"/><stop offset=".55" stop-color="#ef4444"/><stop offset="1" stop-color="#dc2626"/></linearGradient>
+</defs><g fill="none" stroke-linecap="butt" stroke-linejoin="round">
+  <rect x="197" y="173" width="296" height="350" rx="148" stroke="url(#qq)" stroke-width="74"/>
+  <path d="M150 505 V627 H620" stroke="url(#qq)" stroke-width="42" stroke-linejoin="miter"/>
+  <path d="M384 438 L528 606" stroke="#fff" stroke-width="66"/>
+  <path d="M384 438 L524 602" stroke="url(#qc)" stroke-width="42"/>
+  <path d="M128 500 C210 492 250 455 300 385 C330 345 360 335 392 356 C412 368 430 360 452 338 L566 214" stroke="#fff" stroke-width="66"/>
+  <path d="M128 500 C210 492 250 455 300 385 C330 345 360 335 392 356 C412 368 430 360 452 338 L566 214" stroke="url(#qr)" stroke-width="38"/>
+  <path d="M536 160 L616 138 L604 220 Z" fill="#dc2626" stroke="#dc2626" stroke-width="6"/>
+</g></svg>

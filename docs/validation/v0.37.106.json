@@ -1,0 +1,26 @@
+{
+  "version": "0.37.106-m4.1",
+  "target": {
+    "total": 111,
+    "passed": 109,
+    "failed": 0,
+    "skipped": 2
+  },
+  "packaging": {
+    "passed": 50,
+    "failed": 0
+  },
+  "exploratory_full_suite": {
+    "total": 722,
+    "passed": 686,
+    "failed": 17,
+    "skipped": 19,
+    "note": "missing jsdom, implementation changed during run"
+  },
+  "limits": [
+    "underlying checks/native dialog may continue",
+    "offline OCR assets missing",
+    "Apple app and Mac not verified",
+    "M4 incomplete"
+  ]
+}

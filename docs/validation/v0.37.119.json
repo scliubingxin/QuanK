@@ -1,0 +1,24 @@
+{
+  "version": "0.37.119-m4.1",
+  "status": "internal checkpoint, not release",
+  "files": [
+    "desktop/runtime/long-embedding.mjs",
+    "desktop/runtime/local-onnx-embedding.mjs",
+    "desktop/tests/long-embedding-037114.test.mjs",
+    "desktop/tests/office-pool-cancel-isolation-037118.test.mjs"
+  ],
+  "knowledge_tests": {
+    "passed": 60,
+    "skipped": 2,
+    "failed": 0
+  },
+  "pool_real_cancel_isolation": {
+    "passed": 1
+  },
+  "mixed_office_soak": "in progress",
+  "full_regression": "not run for final snapshot",
+  "matching_arm64_package": false,
+  "mac_native_tested": false,
+  "m4_complete": false,
+  "pool_cancel_stress": "100 rounds, 600 mock tasks; 300 pre-dispatch cancellations"
+}

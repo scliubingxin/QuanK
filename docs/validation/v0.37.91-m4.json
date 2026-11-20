@@ -1,0 +1,46 @@
+{
+  "version": "0.37.91-m4.1",
+  "source_status": "internal candidate; not released",
+  "core_tests": {
+    "total": 764,
+    "passed": 758,
+    "failed": 0,
+    "skipped": 6,
+    "scope": "serial Node tests; real Linux LibreOfficeKit and real local ONNX model where explicit; native approvals and model HTTP fixtures otherwise"
+  },
+  "packaging_tests": {
+    "passed": 41,
+    "scope": "development environment; Mac signing checks may use fixtures"
+  },
+  "office_pool_soak": {
+    "seconds": 1800,
+    "rounds": 24793,
+    "workers": 2,
+    "result": "passed",
+    "scope": "real Linux LibreOfficeKit synthetic two-doc preview; not Mac or complex documents"
+  },
+  "mac_candidate": {
+    "file": "WillBuddy-v0.37.91-mac-arm64-candidate.zip",
+    "bytes": 483363608,
+    "sha256": "93f76950732f1721c42bdbb446fa965ef3afdb5cddd465258ab70084ba011408",
+    "asar_sha256": "b157c371feb3740fffee54a5f286469281434ec40b0e7fb72dcd5e93acb7b38d",
+    "app_files_match_asar": 263,
+    "mach_o": 278,
+    "verified_code_pages": 93545,
+    "app_entries": 20727,
+    "extra_entries": 5,
+    "zip_crc": "passed",
+    "library_upload": "prepare_uploads failed",
+    "notarized": false,
+    "mac_native_tested": false,
+    "local_onnx_assets_included": false,
+    "chinese_ocr_assets_included": false
+  },
+  "limitations": [
+    "Chromium blocked by socket Operation not permitted",
+    "six OCR tests skipped: build-time assets unavailable",
+    "offline Apple ONNX/OCR components and real Mac unverified",
+    "GitHub prior security rejection; no publication"
+  ],
+  "next": "Resolve upload and macOS validation; complete licensed offline OCR and ONNX dependencies; preserve concurrency checks."
+}

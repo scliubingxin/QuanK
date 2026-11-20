@@ -1,0 +1,1146 @@
+{
+  "schema_version": 2,
+  "brand": "QuanK",
+  "version": "0.45.0",
+  "checked_date": "2026-11-16",
+  "source_status": "m4_development_checkpoint_not_a_release",
+  "original_web_release_record": "docs/WEB_RELEASE_STATUS_ORIGINAL.json",
+  "desktop": {
+    "electron": "42.0.0",
+    "entry": "desktop/main.mjs",
+    "native_build_generated": false,
+    "mac_arm_runtime_verified": false,
+    "cloud_sync": false,
+    "tool_runtime": "agent_loop+native_approval+browser_snapshot_ref_click_fill+cli+document_create_read_edit + document_write/document_convert + document_patch",
+    "product_name": "QuanK",
+    "theme": "White #FFFFFF canvas; logo blue #0078CB primary; restrained logo red",
+    "offline_app_bundle_generated": false,
+    "offline_architecture": "arm64",
+    "minimum_macos": "12.0",
+    "signature": "ad-hoc shell/Python; upstream LibreOffice preserved; overall unnotarized",
+    "notarized": false,
+    "streaming": "SSE text/tool deltas with JSON response compatibility; no hidden retries",
+    "content_rendering": "Marked18 + DOMPurify3; bounded data-only bar/line/pie; click-to-load isolated HTTPS image/video; links use existing approved browser",
+    "persistent_commands": "manual CLI FIFO; stable ID deduplication; persisted v1 status events; restart pauses; fresh approval on retry",
+    "persistent_model_runs": "shared conversation/task FIFO; versioned journal; cancellation; scheduled-occurrence deduplication; restart pause; CLI shares capacity but retains separate queue",
+    "documents": "real DOCX/XLSX/PPTX generation/import/targeted edits; md/html text edits; 5 previous revisions; native export with readback",
+    "concurrent_ui": "per-chat pending/drafts/workspaces; two shared model slots; background navigation and isolated cancellation; no automatic subtask groups",
+    "browser_approvals": "explicit volatile exact-run/exact-origin consent; revoke/release; CLI/documents stay per-operation",
+    "native_confirmations": "bounded summary; AbortSignal+60s timeout+emergency cancellation; no parentless Mac dialogs",
+    "document_delivery": "trusted run-linked binary cards; reply/workspace export routes to actual Office bytes; chat export explicitly Markdown",
+    "document_editor": "QuanK Office separate document window; embedded LibreOfficeKit via private worker, basic selected text/font/outline edits and native history; not complete Office/IME",
+    "genoffice": "bundled Apache-2.0 HTML→DOCX engine subset, pinned 342abce; local Word canvas and md/html conversion; full suite not embedded",
+    "spreadsheet_formulas": "pure JS bounded 7-function evaluator; A1/cross-sheet dependencies; live preview + independent main recalculation and real XLSX typed caches; unsupported formulas/derived objects fail closed",
+    "word_paragraphs": "bounded top-level plain body paragraph insertAfter/deleteParagraph; pPr/first rPr retention; anchored revision approval, undo before save; complex/style/section/range protection",
+    "office_preview": "Bundled LibreOffice -> bounded PDF -> isolated offline PDF.js; source development JS retained",
+    "external_genoffice_ui": false,
+    "preview_transport": "fixed immutable Office/media/HTML custom-protocol resources; Office engine/media SHA validation; opaque frames; new HTML native adapter not runtime-verified this iteration",
+    "preview_timeout": "5s boot;60s conversion;95s render deadline",
+    "preview_lifecycle": "same scope/id/revision keeps connected frame; chrome-only reconciliation; close/switch/version disposes; no cross-document cache",
+    "spreadsheet_preview_images": "worksheet relationship-bound one/two/absolute cell anchor positioning; bounded raster decode; no gallery/orphan media; crop/rotation unsupported",
+    "chat_rich_media": "bundled opaque iframe classic script + SHA manifest; per-frame one-shot token/source; 5s/15s timeouts; anonymous CORS/no-referrer; no autoplay; unchanged-message redraw retains current media",
+    "agent_capabilities": "bound Skills eagerly read and audited before conversation model call; approved knowledge and MCP tools retained",
+    "html_interactive_preview": "full bounded authorized source; two opaque sandboxes; inline JS + ephemeral storage, no network/backend; actual private user sample Chromium passed",
+    "local_images": "PNG/JPEG32MiB/64Mp input; host resize PNG4MiB/4096edge/16Mp;8 per turn;100 library/128MiB; explicit send; local thumbnails; image-only prompt and failure draft restore",
+    "capability_library": "13 Skills including actual Node budget script;8 MCP templates;approved script runtime;no OAuth/stdio",
+    "knowledge_retrieval": "persistent bounded lexical prefix-postings index; current approved original text scoring; revision/fileSHA/extractedTextSHA/locale/algorithm/checksum/geometry; exact scans on index overflow, not embeddings",
+    "knowledge_evidence": "trusted successful retrieval observation snapshots; run-scoped escaped text cards; revision/SHA drift labels; max12 groups/96000 serialized chars per chat; no extra read/model call",
+    "mcp_authentication": "manual bearer only; host safeStorage adapter, explicit metadata view, approved exact-endpoint private token, revision/cipher drift guard, no redirect/retry/anonymous fallback, literal echo redaction; not OAuth",
+    "knowledge_index": "private Store field, removed from renderer state;16 entries/8MiB total/2MiB per entry; serial build/reuse/clear; cancellation/save rollback; approval never cached",
+    "chat_attachments": "native single-file picker imports private validated Office/text copy; turn-scoped current-target text Q&A without tools; version/hash and queue checks; no PDF/OCR/media upload",
+    "chat_archives": "ZIP only; in-memory bounded validation/decompression and real document/text/code extraction; atomic import32 docs, skipped report; no RAR/7z/PDF/OCR/media understanding",
+    "model_profiles": "20 independent endpoint/key/capability profiles; legacy retained; explicit or fast/balanced/extreme type-priority routing; per-run snapshot; real reasoning params; no hidden fallback",
+    "composer": "single input and toolbar; scoped accessible add/model menus, conditional consent, no new execution permissions",
+    "code_projects": "host staged complete ZIP; npm/Python manifests; explicit approved install/run commands using durable CLI queue;5min cap;not OS sandbox/daemon/cloud deployment",
+    "project_services": "Host-only30min startup lease, one service/shared2 slots,64KiB newest output, explicit stop/fresh restart; no daemon/OSsandbox",
+    "capability_presets": "12 skills:4 MIT pinned public/8 independent workflows;8 official HTTP MCP templates;no automatic network or execution",
+    "word_selection": "imported DOCX single paragraph text or whole simple table; trusted source validation and patch bounds; native approval unchanged",
+    "xlsx_text_patch": "literal shared/inline text only; unchanged OOXML parts byte-identical; no recalculation",
+    "skill_runtime": "Actual Node/baseline installed Python subprocess;120s64KiB;private verified resources;fresh per-action approval and output import;not OS sandbox/full SDK",
+    "bundled_python": "3.12.16+20261026;20 locked offline wheels",
+    "bundled_libreoffice": "26.8.1.1 original upstream bytes/signatures retained",
+    "word_images": "selected local PNG approved ordinary DOCX append with revision/imageSHA guards",
+    "office_workspace": "LibreOfficeKit native pixels/selection/basic edits and document-scoped model loop; automatic revision save; Mac not run",
+    "version": "0.37.19",
+    "validation": "docs/validation/v0.37.19.json",
+    "keyboard_navigation": "DOCX only fixed Arrow/Home/End plus Shift/Control; charCode zero; bounded UI repeat backlog; no raw key injection, text input or native IME",
+    "office_pdf": "Installed: shared Kit adapter/fixed private PDF export; 60s whole operation, cancellation during startup/export/readback; no CLI fallback. Legacy explicit CLI path retained.",
+    "office_table_grid": "optional explicit logical perimeter edges;omission retains full grid;unique whole unmerged table;approved reload clears native history",
+    "ppt_selection_format": "office_format_presentation: unique simple single-paragraph current text selection;size6-96 half pt/RGB;known styles/text preservation receipt",
+    "office_viewport": "native tile vertical wheel and range pan; user screenshots Chinese glyph issue still unresolved on Mac",
+    "cli_approvals": "narrow read-only system find automatically allowed after workspace authorization and persisted audit; shell and other commands require approval",
+    "offline_app_bundle_sha256": "22deb81809c7e783c835879f71c55bcd8fadde0bba251162979fb3f86fbf7f98",
+    "github_status": "not requested",
+    "office_fonts": "User reports prior font candidate resolves screenshot issue; scope of actual user document and system font coverage not independently verified",
+    "office_manual_selection": "PPT selected plain text manual edit with selection sequence, audit, native verification and preserved revisions; bounded single paragraph",
+    "model_rounds": "Explicit per-model limit 1–96; missing value retains agent limit; no implicit replay",
+    "legacy_model_settings": "Staged legacy configuration with serialized writes, failed encryption and save rollback",
+    "office_pdf_export": "Native-save-dialog export DOCX/XLSX/PPTX via LibreOffice preview conversion, revision and PDF SHA check; Linux real PPTX test",
+    "latest_candidate_change": "Legacy model form shows inherited agent tool-round limit and allows explicit 1-96 override; Office embedded worker validated but Mac cause unconfirmed",
+    "model_budget_summary": "Conversation reserves final configured round for synthesis; no tool execution in that round; incomplete status retained",
+    "screenshot_feedback": "Background browser; task+document revision read consent; bounded Office preview FIFO; editable shape-based bar charts",
+    "office_editing_increment": "Excel selected cells native bold and italic; PPT editable cards and native table",
+    "ppt_layer_increment": "Ordered editable shape/text/image layers, validated selected PNG and fade slide transition",
+    "ppt_layer_targeted_edit": "Approved read provides bounded top-level shape/picture inventory with revision and anchor; document_edit supports one anchored move/resize/z-order or solid fill; animated slides and signed packages fail closed; fixture-tested, Mac unverified",
+    "feedback_03734": "public-domain browser open auto, read and actions still approved; model network failure classification; conservative PPT bullet font and wrapping, no Mac fidelity claim",
+    "m4_checkpoint": "run state transition guard and mock model error tests only; embedding/OCR/process pool not implemented",
+    "m4_vector": "optional approved localhost Ollama embedding and versioned persistent cosine index; model runtime not bundled; mock-only semantic tests",
+    "m4_ocr": "approved selected-image OCR pipeline; Linux real tesseract English tested, Mac OCR executable and Chinese data not bundled",
+    "m4_worker_pool": "opt-in LibreOfficeKit preview pool, real Linux tests; Mac isolation/performance unverified",
+    "m4_pdf_ocr": "approved bounded multi-page PDF OCR pipeline, real Linux poppler/tesseract fixtures; ARM64 OCR and renderer not bundled",
+    "m4_mock_llm": "batch tool calls validated before any side effect; incomplete SSE end rejected",
+    "m4_safety_03741": "idempotent concurrent cancellation and bounded PDF/PNG reads, encrypted PDF and grant escape tests",
+    "m4_hybrid_03742": "approved local semantic vectors and lexical reciprocal-rank fusion; missing OCR pages retained with explicit uncertainty",
+    "m4_03743": "bounded hybrid retrieval preserves matching source diversity; real Linux LibreOfficeKit two-worker concurrency fixture",
+    "m4_ocr_coordinates": "Tesseract TSV word boxes and image-pixel coordinate spaces, bounded return; Linux fixture only",
+    "m4_ocr_import": "same-run single-use approved PDF OCR receipt creates source-cited Markdown; real Linux OCR and HTTP model fixture; Mac engine unbundled",
+    "m4_ocr_provenance": "Host-created OCR document metadata binds source PDF SHA and page ranges to the exact recognized Markdown; approved retrieval and evidence derive intersecting pages. Linux OCR fixtures only; not original PDF geometry or UI highlighting.",
+    "m4_pdf_chat_attachment": "Native-selected PDF OCR, up to first five pages, explicit language confirmation, source SHA guarded, approved text becomes Markdown chat attachment. Mac ARM64 OCR/PDF binaries and Chinese data not bundled; Linux fixtures only.",
+    "m4_pdf_page_range": "Optional chat PDF page range, 1–100, contiguous max 5, validated in UI and trusted host; Linux OCR fixture only, Mac OCR/PDF binaries and Chinese data not bundled.",
+    "pdf_attachment_cancel": "Transient per-job abort controller, user stop and cancellation guard; no Mac or Electron UI acceptance",
+    "pdf_attachment_progress": "Per-page OCR progress from actual bounded recognition; native UI and Mac not accepted",
+    "model_tool_finish_guard": "Batch rejects unknown/type-invalid tools before execution; reject explicit bad finish and filtered JSON, SSE requires tool finish; legacy JSON missing finish remains compatible",
+    "m4_evidence_integrity": "Approved source text must match search excerpt before citation; malformed OCR provenance cannot crash retrieval. No new Mac or application build validation.",
+    "m4_evidence_source_open": "User selects PDF; host compares persisted evidence SHA and rechecks bytes before system open. Does not jump to page or highlight; source may change after verification.",
+    "m4_evidence_source_page_preview": "Native selection and SHA guarded; renders first page with checked OCR pixel boxes; private temp cleanup; Mac OCR dependencies unavailable and native UI not validated.",
+    "ocr_chinese_experimental": "Optional build stages pinned English/Chinese WASM data into app ASAR; exact submodule license audit and native Mac validation incomplete.",
+    "pdf_ocr_experimental": "WASM PDFium fallback and OCR exercised on Linux with separately staged fixed assets; third-party transitive license audit and Mac runtime validation incomplete.",
+    "native_bundle_persisted": false,
+    "native_bundle_note": "No matching 0.37.100 application produced or installed. Experimental OCR and PDFium data are not in the source ZIP. No Mac or notarization verification.",
+    "image_ocr_import": "Same-run image OCR receipt can be explicitly approved once for Markdown import; document-create and image-OCR permissions are required; not bundled OCR assets or structured image-coordinate citations."
+  },
+  "validation": "docs/validation/v0.37.125.json",
+  "rea": {
+    "version": "6.7.0",
+    "dmg_inventory": "root_hash_observed",
+    "javascript_analysis": "partial_host_process_ownership_blocked",
+    "report": "docs/REA_FINDINGS.md"
+  },
+  "notes": "13 Skills/8 MCP templates retained; embedded LibreOfficeKit basic Office and document-scoped AI; see validation",
+  "architecture": {
+    "guide": "docs/ARCHITECTURE.md",
+    "layers": [
+      "electron host",
+      "main adapters",
+      "services",
+      "agent runtime",
+      "core compatibility API",
+      "UI controller",
+      "pure views"
+    ],
+    "web_desktop_shared_core": false
+  },
+  "current_iteration": "M4 checkpoint: isolate indexed primary choice in SSE model streams",
+  "github_last_published": {
+    "version": "0.37.1",
+    "main": "27bd38f6b43806fb702c62ec4586426730b8190a",
+    "pr": "https://github.com/scliubingxin/WillBuddy/pull/11"
+  },
+  "documentation_policy": "product README only; version/test/limits in downloads and release pages",
+  "github_hotfix_publication": "0.37.1 merged/published;0.37.2 branch uploaded;0.37.4-0.37.7 local deliveries only",
+  "previous_public_release": {
+    "version": "0.37.1",
+    "main": "27bd38f6b43806fb702c62ec4586426730b8190a",
+    "pr": "https://github.com/scliubingxin/WillBuddy/pull/11"
+  },
+  "current_publication": "not attempted: Nov2 03:xx still before prior safe-browser quota retry Nov2 07:24;standing user authorization remains",
+  "previous_published": {
+    "version": "0.37.1",
+    "main": "27bd38f6b43806fb702c62ec4586426730b8190a",
+    "pr": "https://github.com/scliubingxin/WillBuddy/pull/11"
+  },
+  "github_current_version": "0.37.19 not uploaded/PR/main/tag/Release;read-only main27bd38f remains0.37.1;no alternate write route",
+  "installation_fix_candidate": {
+    "status": "r2 diagnostic retained; Mac codesign/performance still unresolved; no new small updater for 0.37.2",
+    "guide": "docs/UPDATE_REPAIR_R2.md"
+  },
+  "office_interaction": {
+    "status": "379 core, 3 Chromium, 20 packaging pass; native Mac unverified",
+    "guide": "docs/OFFICE_INTERACTION_0372.md",
+    "mac_cjk_fixed": false,
+    "native_mac_tested": false,
+    "explicit_send_version_selection_guard": true,
+    "ai_write_approval_retained": true
+  },
+  "offline_delivery_0372": {
+    "bytes": 483213472,
+    "sha256": "d3b548d30c3de60a2575ee90f00e9bf82f2c1f35e7d8c8dfc63ca5729410afd2",
+    "asar_sha256": "d6ab66935a8c1a1210117d78e71c636ffaa462f623714b7bd334b4bd032415d5",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "symlinks": 47,
+    "residual": 0,
+    "tamper_negative_passed": true,
+    "scope": "previous baseline package only, not this candidate"
+  },
+  "office_format_0373": {
+    "tool": "office_format_selection",
+    "scope": "DOCX real selected Latin font properties and size",
+    "core_tests": 382,
+    "chromium_related": 1,
+    "east_asian_font": false,
+    "native_mac_tested": false,
+    "publication": "blocked by prior automatic approval review quota; not attempted",
+    "offline_build": "two clean builds rejected by rcodesign Electron Framework temporary Mach-O parse; no app delivery",
+    "authority_replaced": false
+  },
+  "build_input_guard_0373r1": {
+    "packaging_tests": 25,
+    "core_tests_rerun": 382,
+    "offline_bundle_generated": false,
+    "authority_replaced": false,
+    "pre_sign_gate_rejected": true,
+    "unknown_writer": true,
+    "input_output_separation_full_build_tested": false,
+    "scope": "historical failed workspace candidate; guard retained; current private tmp build passed"
+  },
+  "office_cjk_0374": {
+    "fontName": "Latin",
+    "fontNameAsian": "eastAsia CJK",
+    "core_tests": 385,
+    "related_tests": 14,
+    "chromium_tests": 2,
+    "packaging_tests": 26,
+    "audit_cancel_guard": true,
+    "mac_native_tested": false,
+    "fonts_bundled": false,
+    "publication": "blocked by prior review quota; not attempted",
+    "full_app_verified": true
+  },
+  "offline_delivery_0374": {
+    "bytes": 483215507,
+    "sha256": "3470dcff2fddb3ad27c7fe0ea9e6f9d0237af7ac0f8b07443ab69c1190a43a8a",
+    "asar_sha256": "fd0922c1300ca4958f0e58746b478e25615c80e9b94961ae0d9a4b1c104a3470",
+    "production_asar_exact": 149,
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "symlinks": 47,
+    "closed_inventory": true,
+    "tamper_negative": true,
+    "runtime_entries_changed": 0
+  },
+  "office_history_0375": {
+    "native_counts": true,
+    "queued_and_worker_guard": true,
+    "persistent_undo_stack": false,
+    "core_passed": 389,
+    "related_passed": 16,
+    "chromium_passed": 2,
+    "packaging_tests_passed": 26,
+    "mac_native_tested": false,
+    "paid_model_tested": false
+  },
+  "offline_delivery_0375": {
+    "bytes": 483216299,
+    "sha256": "1aba94bb84cdc4c2d3688eba1d7c5a69538c2475c9088c32a0c47ee87c1a9baf",
+    "asar_sha256": "70c1d2a67b83380b8a585c7c3a864a8a3759b9baddf6ee6a10096a47f36febe4",
+    "production_asar_exact": 150,
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "closed_inventory": true,
+    "zero_residuals": true,
+    "tamper_negative": true,
+    "changed_app_entries_from_0374": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_entries_changed": 0
+  },
+  "office_table_outline_0376": {
+    "scope": "Word rectangular table selection outline; clear inner lines; explicit padding",
+    "core_passed": 395,
+    "related_passed": 6,
+    "chromium_passed": 3,
+    "packaging_tests_passed": 26,
+    "mac_native_tested": false,
+    "paid_model_tested": false
+  },
+  "offline_delivery_0376": {
+    "bytes": 483218125,
+    "sha256": "e3b239241f2e8173c33df46c88dd7514a931d827d8134f041e2e74445a0ad352",
+    "asar_sha256": "a5fd8419a48c8a049afc1f40ed5c5ae3ecf1a5b89238949663155d88fc9e28ae",
+    "production_asar_exact": 151,
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "symlinks": 47,
+    "closed_inventory": true,
+    "zero_residuals": true,
+    "tamper_negative": true,
+    "runtime_entries_changed": 0
+  },
+  "office_navigation_0377": {
+    "guide": "docs/OFFICE_KEYBOARD_SELECTION_0377.md",
+    "keys": [
+      "ArrowDown",
+      "ArrowUp",
+      "ArrowLeft",
+      "ArrowRight",
+      "Home",
+      "End"
+    ],
+    "shift_control": true,
+    "max_pending_ui": 16,
+    "native_mac_tested": false,
+    "native_ipc_approval_model_semantics": "fixtures",
+    "core_tests": {
+      "passed": 399,
+      "failed": 1,
+      "total": 400,
+      "concurrency": 1,
+      "complete_regression_pass": false,
+      "failure": "tests/native-office.test.mjs XLSX/PPTX PDF test: XLSX conversion timed_out after 60s"
+    },
+    "first_core_run": {
+      "pass": 397,
+      "fail": 3,
+      "total": 400,
+      "failures": [
+        "native-office PDF timeout",
+        "selected Word font output assertion",
+        "CLI short deadline truncation assertion"
+      ]
+    },
+    "chromium_related": 4,
+    "packaging_tests": 26,
+    "authority_replaced": false,
+    "diagnostic": {
+      "word": "passed in full core",
+      "xlsx": "failed: production 60s timeout; diagnostic bare and explicit calc_pdf_Export also time out; SAL_DISABLE_OPENCL=1 and svp did not fix",
+      "pptx": "separate direct CLI bare/explicit filter succeeded ~3.0/1.9s; full grouped test stops at XLSX"
+    }
+  },
+  "offline_delivery_0377": {
+    "asar_source_files": 152,
+    "minimal_package": true,
+    "protected_files": 122,
+    "tamper_negative": true,
+    "bytes": 483218919,
+    "sha256": "084c3d65b12304b4f0240f180f8733e26db205eda3f2cc11a43c5efe66b478ef",
+    "app_asar_sha256": "a7cf5d6d56da93e63b79027768327fd38f7933204a159ef9f2b5d8ab2daea1b8",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "symlinks": 47,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_entries_unchanged": true,
+    "crc": true,
+    "signature": "ad-hoc shell/Python and preserved upstream LO; unnotarized",
+    "native_mac_tested": false,
+    "extra_files": 5,
+    "residual": 0
+  },
+  "office_pdf_0378": {
+    "core": 407,
+    "related": 7,
+    "chromium": 6,
+    "packaging": 26,
+    "legacy_cli_this_run": "unchanged baseline and full core passed; previous failure not reproduced, root cause unknown",
+    "guide": "docs/OFFICE_PDF_RUNTIME_0378.md",
+    "native_mac_tested": false,
+    "legacy_failed_candidate_preserved": true
+  },
+  "offline_delivery_0378": {
+    "production_files_asar_exact": 153,
+    "minimal_package": true,
+    "host_pyc_absent": true,
+    "electron_page_tamper_rejected": true,
+    "bytes": 483219295,
+    "sha256": "4728e067d4ddf214c5d49edbffdfc16e5ef3d52e1b7afa38ced380b47cc6048b",
+    "asar_sha256": "6b1044e93f341ec8e28e32f84cf504aeec91233549e43cfb9b8e12d4744cf131",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "symlinks": 47,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true
+  },
+  "authority_writeback": "planned expected57 guarded replacement;actual final save/readback receipt separate",
+  "office_colors_0379": {
+    "core": 411,
+    "chromium": 7,
+    "packaging": 26,
+    "guide": "docs/OFFICE_SELECTION_COLORS_0379.md",
+    "grid": "prototype rejected by independent DOCX evidence; not shipped",
+    "native_mac_tested": false
+  },
+  "offline_delivery_0379": {
+    "production_files_asar_exact": 153,
+    "minimal_package": true,
+    "host_pyc_absent": true,
+    "electron_page_tamper_rejected": true,
+    "bytes": 483219407,
+    "sha256": "647ac93e22a8e0b8aae98335945558e44c2e5abc3b69993f2e1e9ae68c7833ac",
+    "asar_sha256": "866ef2b82745337fc8e1be485289fa91ed51d2de840a1969ea1ba6a31e563a75",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "symlinks": 47,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true
+  },
+  "office_cells_03710": {
+    "guide": "docs/OFFICE_CELLS_03710.md",
+    "core": 419,
+    "related": 12,
+    "chromium": 8,
+    "packaging": 26,
+    "native_mac_tested": false,
+    "model_semantics": "fixture",
+    "scope": "exact native Calc rectangle,strings only,constant input,not arbitrary formulas or perfect OOXML roundtrip"
+  },
+  "offline_delivery_03710": {
+    "production_files_asar_exact": 154,
+    "minimal_package": true,
+    "host_pyc_absent": true,
+    "electron_page_tamper_rejected": true,
+    "bytes": 483223518,
+    "sha256": "2a5e5cb61100db9d5cc3510ec83cf91a6733ed11a211fe81080870e465420b50",
+    "asar_sha256": "198f5fed7b59ad04b947c2f63453c80e0c0261bd5cd5648fd1cc1f9cae2d86cb",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "symlinks": 47,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true,
+    "signature": "ad-hoc shell/Python;upstream LO preserved;unnotarized",
+    "mac_native_tested": false
+  },
+  "office_literal_03711": {
+    "guide": "docs/OFFICE_LITERAL_TEXT_03711.md",
+    "core": 424,
+    "chromium": 8,
+    "packaging": 26,
+    "native_mac_tested": false,
+    "model_semantics": "fixture",
+    "scope": "exact native Calc rectangle;explicit text objects preserve type and content;not formulas or perfect OOXML roundtrip"
+  },
+  "offline_delivery_03711": {
+    "version": "0.37.11",
+    "bytes": 483224055,
+    "sha256": "9c520e74cea62e3f895540dc7fda4948f301a2617c30ff1c6330f4c005753f5c",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "symlinks": 47,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true,
+    "closed_crc": true,
+    "electron_page_tamper_rejected": true,
+    "mac_native_tested": false,
+    "production_files_asar_exact": 154,
+    "minimal_package": true,
+    "host_pyc_absent": true,
+    "asar_sha256": "c0f825feea184e9304333e30ce9d994779aa421a8dac2311d3c6142d45fbf6b3",
+    "zero_residuals": true
+  },
+  "office_cell_format_03712": {
+    "guide": "docs/OFFICE_CELL_FORMAT_03712.md",
+    "core": 433,
+    "format_related_final": 9,
+    "chromium": 9,
+    "packaging": 26,
+    "native_mac_tested": false,
+    "model_semantics": "fixture",
+    "scope": "native Calc rectangle;explicit size/RGB font/fill;real XLSX style/content/formula validation;not full fidelity"
+  },
+  "offline_delivery_03712": {
+    "version": "0.37.12",
+    "bytes": 483226544,
+    "sha256": "df398c7c02547a676a2245fa15955b7392790be98e0089d91be4a6e690625048",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "symlinks": 47,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "electron_page_tamper_rejected": true,
+    "mac_native_tested": false,
+    "production_files_asar_exact": 155,
+    "minimal_package": true,
+    "host_pyc_absent": true,
+    "asar_sha256": "63fdb45a53727956f01d84ca71e24d1931b2b035bcff80a37445a471248a64bb"
+  },
+  "office_presentation_03713": {
+    "keyboard": "fixed six text navigation keys; native text selection required; reset on mouse/part/commands",
+    "scope": "PPT ordinary top-level single-paragraph text box; unique selected substring on current slide",
+    "verification": "all slide order, ordered shape kinds and paragraph text; generated shape IDs may renumber",
+    "limits": "50 slides/2000 shape IDs/100000 text chars;600 replacement;no groups/tables/links/fields/multiline",
+    "core_passed": 440,
+    "chromium": 10,
+    "packaging_tests": 26,
+    "mac_native_tested": false
+  },
+  "offline_delivery_03713": {
+    "version": "0.37.13",
+    "bytes": 483229339,
+    "sha256": "fefb67eb65b08ff64ee25a4b97f0682299231a5d0f25499b081e651256837be4",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "closed_inventory": true,
+    "residual_entries": 0,
+    "symlinks": 47,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "electron_page_tamper_rejected": true,
+    "mac_native_tested": false,
+    "production_files_asar_exact": 156,
+    "minimal_package": true,
+    "host_pyc_absent": true,
+    "asar_sha256": "240b17ef936b952941e4abfcfbaddabd0b89ac732ea12e826c4a07d998df0620"
+  },
+  "office_formula_03714": {
+    "tool": "office_set_formula",
+    "single_cell_only": true,
+    "same_sheet_only": true,
+    "numeric_result_max_abs": 9007199254740991,
+    "functions": [
+      "SUM",
+      "AVERAGE",
+      "MIN",
+      "MAX",
+      "COUNT",
+      "IF",
+      "ROUND"
+    ],
+    "no_external_names_or_functions": true,
+    "same_mutation_approval_audit_cas_guard": true,
+    "receipt": "exact workbook constants/formulas; independent all formula numeric caches; integer exact, noninteger bounded ULP tolerance",
+    "limits": "400 ASCII chars/200 tokens/10000 referenced cells per formula;128cols5000rows;10 sheets5000 stored cells1000formulas100000 work budget;no shared-array/chart/merged/complex formulas",
+    "core": 449,
+    "chromium": 11,
+    "mac_native_tested": false,
+    "packaging_tests": 26,
+    "first_ui_cjk_failure": "final full repeat11pass;baseline/control pass;root unknown;not a fixed-stability claim"
+  },
+  "offline_delivery_03714": {
+    "version": "0.37.14",
+    "bytes": 483234600,
+    "sha256": "a7a0e355d8360fdb434208e329aed0e8d9a3b74dfc1aeb53b3b37bda68b1a87c",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "closed_inventory": true,
+    "residual_entries": 0,
+    "symlinks": 47,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "electron_page_tamper_rejected": true,
+    "mac_native_tested": false,
+    "production_files_asar_exact": 157,
+    "minimal_package": true,
+    "host_pyc_absent": true,
+    "asar_sha256": "9ddbb5e861ffb44b47335c9963198873aa9e235c8f5df7325d01dd31e0505989"
+  },
+  "office_word_receipt_03715": {
+    "properties": [
+      "fontName",
+      "fontNameAsian",
+      "fontSize",
+      "fontColor",
+      "backgroundColor"
+    ],
+    "scope": "unique contiguous simple main-document paragraph text; native run splitting supported",
+    "receipt": "main/header/footer paragraph text and order; requested direct properties on every selected character",
+    "completion": "per-command fixed-name native completion; boolean false alone never establishes success",
+    "draft": "set verifier before native; partial failure/manual save cannot bypass receipt",
+    "limits": "2000 paragraphs/100000 text/12000 selection; complex targets and ambiguous text rejected; no inherited styles/layout/glyph/whole OOXML guarantee",
+    "mac_native_tested": false,
+    "core": 453,
+    "chromium": 12,
+    "packaging_tests": 26
+  },
+  "offline_delivery_03715": {
+    "version": "0.37.15",
+    "bytes": 483236512,
+    "sha256": "a516de81b28d37ebff5dae6d70cf304ac9fa6190b958da8776bf1e2f7c42dfc1",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "closed_inventory": true,
+    "symlinks": 47,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "electron_page_tamper_rejected": true,
+    "mac_native_tested": false,
+    "production_files_asar_exact": 158,
+    "minimal_package": true,
+    "host_pyc_absent": true,
+    "asar_sha256": "c078da2c71580d5d9f4ef18fbff5d5f61a774d024baa5fdc9111a7ba201ae447"
+  },
+  "office_table_grid_03716": {
+    "tool": "office_table_grid",
+    "core": 462,
+    "chromium": 13,
+    "new_tests": 9,
+    "packaging": 26,
+    "same_session_reload": true,
+    "native_history_reset": true,
+    "mac_native_tested": false
+  },
+  "offline_delivery_03716": {
+    "version": "0.37.16",
+    "bytes": 483239961,
+    "sha256": "7edba54d9cfca6cd29284a8b0ce35fa182cbaaf1ddeb29be685037208546a181",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "independent_all_macho_pages": true,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "closed_inventory": true,
+    "symlinks": 47,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "electron_page_tamper_rejected": true,
+    "mac_native_tested": false,
+    "production_files_asar_exact": 159,
+    "minimal_package": true,
+    "host_pyc_absent": true,
+    "asar_sha256": "acd017227bc5170424b86959ca3e1989fa029ffe381af5c6855d853602f0241e"
+  },
+  "office_perimeter_03717": {
+    "tool": "office_table_grid.edges",
+    "core": 466,
+    "chromium": 14,
+    "new_tests": 4,
+    "related": 13,
+    "packaging": 26,
+    "native_history_reset": true,
+    "mac_native_tested": false
+  },
+  "offline_delivery_03717": {
+    "version": "0.37.17",
+    "bytes": 483240717,
+    "sha256": "c7f5198fe2e8f17aa7eded5121f48b1c1030600a08507fd3ec1b8f3117315593",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "closed_inventory": true,
+    "symlinks": 47,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "electron_page_tamper_rejected": true,
+    "mac_native_tested": false,
+    "asar_sha256": "97102c9c7315b69f26d1afd54b573a9453cf66ebcb801a12ce754f49a98efa2d",
+    "production_files_asar_exact": 159,
+    "minimal_package": true,
+    "host_pyc_absent": true
+  },
+  "previous_delivery_03716": {
+    "full_app_library_save": "two explicit transfer_failed;no Library ID",
+    "recovery_checkpoint": "libfile_961a82721aec8191b7414d1b81043e93",
+    "base": "libfile_0b9f5b618c888191b3262111e99ac605",
+    "scope": "checkpoint readback restored exact complete app;not installer/update"
+  },
+  "office_ppt_format_03718": {
+    "tool": "office_replace_selection",
+    "core": 472,
+    "chromium": 15,
+    "new_tests": 6,
+    "related": 13,
+    "packaging": 26,
+    "mac_native_tested": false
+  },
+  "offline_delivery_03718": {
+    "version": "0.37.18",
+    "bytes": 483242150,
+    "sha256": "e365aa9d15e1a9f988c5ffbbc7e4daa63124f5ae1c60cc7dcf69d010ceaf4d27",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "closed_inventory": true,
+    "symlinks": 47,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "electron_page_tamper_rejected": true,
+    "mac_native_tested": false,
+    "asar_sha256": "01c2f6c822bfaa4081553f1207b75b4f4189bfeedaa2ece0fc7e87f1de60e4a0",
+    "production_files_asar_exact": 159,
+    "minimal_package": true,
+    "host_pyc_absent": true
+  },
+  "previous_delivery_03718": {
+    "full_app_library_save": "two explicit transfer_failed;no whole-app Library ID",
+    "recovery_checkpoint": "libfile_eec14c625f0c8191a62067e462f4a1ab",
+    "recovery_sha256": "882ba2d4a6678388a8a5ce096afe7a89f9b1f96244517c576b035387604649a3",
+    "scope": "remote checkpoint+exact.15 base actually restored complete483242150byte app;not installer/update"
+  },
+  "office_ppt_direct_format_03719": {
+    "tool": "office_format_presentation",
+    "properties": [
+      "fontSize",
+      "fontColor"
+    ],
+    "scope": "unique same-style simple single-paragraph current PPT text selection;fixed native commands plus per-character output receipt",
+    "core": 478,
+    "chromium": 16,
+    "new_tests": 6,
+    "related": 19,
+    "packaging": 26,
+    "mac_native_tested": false
+  },
+  "offline_delivery_03719": {
+    "version": "0.37.19",
+    "bytes": 483243002,
+    "sha256": "31eca8de40974cd6ef8f6339f13e34a7060f3d7332dbc660df6cab59de5bb510",
+    "mach_o": 278,
+    "code_pages": 93545,
+    "app_entries": 20727,
+    "extra_files": 5,
+    "closed_inventory": true,
+    "symlinks": 47,
+    "changed_app_entries": [
+      "QuanK.app/Contents/Info.plist",
+      "QuanK.app/Contents/MacOS/Electron",
+      "QuanK.app/Contents/Resources/app.asar",
+      "QuanK.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "runtime_unchanged": true,
+    "zero_residuals": true,
+    "closed_crc": true,
+    "electron_page_tamper_rejected": true,
+    "mac_native_tested": false,
+    "asar_sha256": "37166f172f8e3e0238b5d1358d257f4682dafca0aa51f1fbfc9ab6b7865c9235",
+    "production_files_asar_exact": 159,
+    "minimal_package": true,
+    "host_pyc_absent": true
+  },
+  "office_work_checkpoint_20261106": {
+    "source_candidate_only": true,
+    "notes": "Word inline picture checks; Excel bounded manual matrix and workbook content guards; offline dependency/UI and Mac verification incomplete",
+    "core_office_regression_passed": 116,
+    "excel_specialized_passed": 16,
+    "preload_tsv_passed": 2,
+    "packaging_passed": 26,
+    "full_regression_passed": false,
+    "mac_native_tested": false,
+    "app_built": false,
+    "github_released": false,
+    "manual_excel_literal_text": true,
+    "real_browser_ui_tested": false,
+    "packaging_and_diagnostic_passed": 28,
+    "stress_seconds_minimum": 1800,
+    "stress_rounds": 153,
+    "stress_failed_rounds": 5,
+    "stress_passed": false,
+    "web_protected_files_unchanged": 122
+  },
+  "office_crop_checkpoint_20261106": {
+    "candidate_only": true,
+    "ppt_picture_source_crop_guard": true,
+    "native_rounding_observed": true,
+    "crop_loss_blocks_publish": true,
+    "stress_failure_observed": true,
+    "stress_root_cause_known": false,
+    "full_regression_passed": false,
+    "mac_native_tested": false,
+    "app_built": false,
+    "github_released": false
+  },
+  "excel_media_work_checkpoint_20261106": {
+    "candidate_only": true,
+    "native_linux_test": true,
+    "excel_tests_passed": 18,
+    "external_reference_negative_test": true,
+    "anchor_or_crop_verified": false,
+    "mac_native_tested": false,
+    "full_regression_passed": false,
+    "app_built": false,
+    "github_released": false,
+    "worksheet_ordered_image_identity_verified": true,
+    "image_anchor_verified": false,
+    "image_start_anchor_verified": true,
+    "image_size_crop_verified": false,
+    "packaging_tests_passed": 28,
+    "same_cell_image_size_verified": true,
+    "cross_cell_size_verified": false,
+    "cross_cell_end_marker_guard": true,
+    "cross_cell_equivalence_supported": false,
+    "source_crop_guard": true,
+    "browser_runtime_test_passed": false,
+    "browser_runtime_blocker": "missing jsdom",
+    "command_queue_tests_passed": 14,
+    "final_office_combined_passed": 56,
+    "older_baseline_stress": {
+      "rounds": 111,
+      "failures": 0,
+      "seconds": 1694.7,
+      "completed_30min": false,
+      "matches_final_code": false
+    }
+  },
+  "m4_03752": {
+    "status": "internal checkpoint; incomplete M4",
+    "changes": "bounded structural batch validation before any tool runs",
+    "limits": "JSON Schema subset; patterns, references and business rules are not fully validated before execution; no Mac validation or app build"
+  },
+  "m4_03753": {
+    "status": "internal checkpoint; incomplete M4",
+    "changes": "OCR word boxes now carry per-page UTF-16 offsets into recognized text",
+    "limits": "no PDF native coordinates or highlight UI; no Mac OCR or app build"
+  },
+  "m4_03754": {
+    "status": "internal checkpoint; M4 incomplete",
+    "changes": "Persist bounded OCR word boxes and expose matching rendered-page pixel regions with OCR knowledge evidence",
+    "limits": "digest detects accidental corruption only; no PDF native coordinates or visual highlight, no Mac OCR or app build"
+  },
+  "m4_03755": {
+    "status": "internal checkpoint; M4 incomplete",
+    "changes": "Show escaped, bounded OCR word highlights in historical knowledge evidence",
+    "limits": "OCR text highlight only; no original PDF preview or page-overlay; no Mac OCR or app build"
+  },
+  "candidate_build_note": "0.37.91-m4.1 built locally; persistent upload preparation failed; no GitHub release or macOS native validation",
+  "m4_image_evidence_037101": {
+    "status": "internal source checkpoint; not a release",
+    "change": "approved image OCR import retains bounded source-image SHA and pixel word locations; verified knowledge excerpts and snapshots include validated provenance",
+    "validation": "93 passed, 3 skipped in 96 related Node tests; system Tesseract real Linux, approvals fixture; jsdom unavailable for separate test",
+    "limitations": "no matching Apple app, no Mac test, no image overlay or source reopening; source metadata hash is not an adversarial signature; experimental OCR binaries not included"
+  },
+  "m4_image_preview_037102": {
+    "status": "internal source checkpoint; not release",
+    "change": "explicit evidence preview of normalized local image with validated OCR pixel rectangles; source digest, dimensions, snapshot reference and box bounds verified",
+    "tests": "56 related Node tests: 54 pass, 2 skipped; 50 packaging tests pass; Linux Tesseract real, approval fixture; no browser or Mac GUI acceptance",
+    "limitations": "only normalized image retained in image library; removed images fail; no matching Mac app; no OCR binary/model distribution; no Mac or notarization"
+  },
+  "m4_stream_callback_cancel_037103": {
+    "status": "internal source checkpoint",
+    "change": "abort bounds waiting for stalled stream delta callback in JSON and SSE; prevents dispatch of later chunks",
+    "tests": "28 related Node pass; 50 packaging pass; full regression running and not complete",
+    "limit": "callback already entered may continue its own side effects; no matching macOS application, no Mac GUI test"
+  },
+  "m4_attachment_cancel_037104": {
+    "status": "internal_checkpoint",
+    "change": "cancel both conversation attachment preflight and dequeued reads without waiting for late results",
+    "tests": "36 queue and streaming tests passed; 50 packaging tests passed",
+    "limitations": [
+      "underlying filesystem work may continue",
+      "no matching Apple application or Mac validation",
+      "full regression not run in this iteration"
+    ]
+  },
+  "m4_pdf_recognizer_cancel_037105": {
+    "status": "internal_checkpoint",
+    "change": "stop awaiting a nonresponsive PDF recognizer and suppress late progress and results",
+    "tests": "68 target tests passed, two skipped; 50 packaging tests passed",
+    "limitations": [
+      "the underlying recognizer may continue",
+      "OCR WASM build assets not supplied; two tests skipped",
+      "no matching Apple application or Mac validation",
+      "M4 incomplete"
+    ],
+    "exploratory_full_suite": "719 total: 683 pass, 17 fail (jsdom missing), 19 skip; tests changed during run; not final validation"
+  },
+  "m4_pdf_cli_cancel_037106": {
+    "status": "internal_checkpoint",
+    "target_tests": {
+      "total": 111,
+      "passed": 109,
+      "skipped": 2
+    },
+    "packaging_tests": 50,
+    "exploratory_full_suite": {
+      "total": 722,
+      "passed": 686,
+      "failed": 17,
+      "skipped": 19,
+      "note": "17 missing jsdom; implementation changed during suite, not final verification"
+    },
+    "limitations": [
+      "underlying validation and native dialog may continue",
+      "offline OCR assets unavailable",
+      "no matching Apple app or Mac validation",
+      "M4 incomplete"
+    ]
+  },
+  "current_iteration_037107": {
+    "status": "internal_checkpoint",
+    "tests": "40 relevant Node tests and 50 packaging tests passed; full regression not rerun",
+    "mac_arm_runtime_verified": false,
+    "matching_offline_app_available": false,
+    "m4_complete": false
+  },
+  "current_iteration_037108": {
+    "status": "internal_checkpoint",
+    "relevant_node_tests": "78 passed, 8 skipped: missing PDFium/OCR assets",
+    "packaging_python_tests": "50 passed",
+    "full_regression": "exploratory 734 tests: 698 passed, 17 failed (missing jsdom), 19 skipped; code changed during run",
+    "mac_arm_runtime_verified": false,
+    "matching_offline_app_available": false,
+    "m4_complete": false
+  },
+  "current_iteration_037109": {
+    "status": "internal_checkpoint",
+    "office_tests": "19 pool/worker tests passed and 71 editing/model tests passed; groups overlap",
+    "packaging_tests": "50 passed",
+    "full_regression": "not rerun",
+    "mac_arm_runtime_verified": false,
+    "matching_offline_app_available": false,
+    "m4_complete": false
+  },
+  "current_iteration_037120": {
+    "status": "internal_checkpoint",
+    "source_baseline": "0.37.119 internal checkpoint",
+    "ocr_tests": "70 passed, 2 skipped: Chinese OCR build assets unavailable",
+    "knowledge_tests": "60 passed, 2 skipped: local ONNX model unavailable",
+    "browser_cli_tests": "41 passed (browser adapter fixtures, real Node subprocess)",
+    "office_pool_tests": "36 passed including real Linux LibreOfficeKit; separate real cancellation isolation passed",
+    "packaging_tests": "50 passed",
+    "mixed_office_soak": "running",
+    "full_regression": "not yet run for this snapshot",
+    "mac_arm_runtime_verified": false,
+    "matching_offline_app_available": false,
+    "m4_complete": false
+  },
+  "current_iteration_037121": {
+    "version": "0.37.125-m4.1",
+    "status": "internal checkpoint, not release",
+    "files": [
+      "desktop/runtime/run-queue.mjs",
+      "desktop/tests/run-queue-cancel-persistence-037121.test.mjs"
+    ],
+    "queue_related": {
+      "passed": 28,
+      "failed": 0
+    },
+    "ocr_related": {
+      "passed": 70,
+      "skipped": 2
+    },
+    "knowledge_related": {
+      "passed": 60,
+      "skipped": 2
+    },
+    "browser_cli_passed": 41,
+    "pool_passed": 36,
+    "packaging_passed": 50,
+    "mixed_office_soak": "running",
+    "full_regression": "not run for final snapshot",
+    "matching_arm64_package": false,
+    "mac_native_tested": false,
+    "m4_complete": false
+  },
+  "current_iteration_037122": {
+    "version": "0.37.125-m4.1",
+    "status": "internal checkpoint, not release",
+    "files": [
+      "desktop/runtime/model-stream.mjs",
+      "desktop/tests/model-json-choice-037122.test.mjs"
+    ],
+    "model_stream_related": {
+      "passed": 41,
+      "failed": 0,
+      "scope": "includes real HTTP model fixture"
+    },
+    "queue_related": {
+      "passed": 28
+    },
+    "ocr_related": {
+      "passed": 70,
+      "skipped": 2
+    },
+    "knowledge_related": {
+      "passed": 60,
+      "skipped": 2
+    },
+    "packaging_passed": 50,
+    "mixed_office_soak": "running",
+    "full_regression": "not run for final snapshot",
+    "matching_arm64_package": false,
+    "mac_native_tested": false,
+    "m4_complete": false
+  },
+  "current_iteration_037123": {
+    "version": "0.37.125-m4.1",
+    "status": "internal checkpoint, not release",
+    "files": [
+      "desktop/services/pdf-chat-import.mjs",
+      "desktop/tests/ocr-provenance-validation-037120.test.mjs"
+    ],
+    "pdf_attachment_related": {
+      "passed": 24,
+      "failed": 0,
+      "scope": "real Linux Poppler/Tesseract; confirmation and faulty recognizer mocked"
+    },
+    "model_stream_related": {
+      "passed": 41
+    },
+    "queue_related": {
+      "passed": 28
+    },
+    "mixed_office_soak": "running",
+    "office_edit_stress": "running",
+    "full_regression": "not run for final snapshot",
+    "matching_arm64_package": false,
+    "mac_native_tested": false,
+    "m4_complete": false
+  },
+  "current_iteration_037124": {
+    "version": "0.37.125-m4.1",
+    "status": "internal checkpoint, not release",
+    "files": [
+      "desktop/runtime/tools.mjs",
+      "desktop/tests/tool-approval-abort-037124.test.mjs"
+    ],
+    "tool_approval_related": {
+      "passed": 50,
+      "failed": 0,
+      "scope": "real Node command; approval and browser adapters mocked"
+    },
+    "model_stream_related": {
+      "passed": 41
+    },
+    "pdf_attachment_related": {
+      "passed": 24
+    },
+    "queue_related": {
+      "passed": 28
+    },
+    "mixed_office_soak": "running",
+    "office_edit_stress": "running",
+    "full_regression": "not run for final snapshot",
+    "matching_arm64_package": false,
+    "mac_native_tested": false,
+    "m4_complete": false
+  },
+  "current_iteration_037125": {
+    "version": "0.37.125-m4.1",
+    "status": "internal checkpoint, not release",
+    "files": [
+      "desktop/runtime/model-stream.mjs",
+      "desktop/tests/model-sse-choice-037125.test.mjs"
+    ],
+    "model_related": {
+      "passed": 44,
+      "failed": 0
+    },
+    "mixed_office_soak": {
+      "seconds": 1800,
+      "rounds": 4804,
+      "result": "passed",
+      "scope": "real Linux LibreOfficeKit, synthetic Word/Excel/PPT"
+    },
+    "office_edit_stress": {
+      "seconds": 602.9,
+      "rounds": 17,
+      "failures": 0,
+      "scope": "real Linux LibreOfficeKit synthetic documents"
+    },
+    "full_regression": {
+      "total": 823,
+      "passed": 787,
+      "failed": 17,
+      "skipped": 19,
+      "failures": "jsdom unavailable",
+      "skip_reason": "local ONNX or OCR/PDFium experimental assets unavailable",
+      "log_library_file_id": "libfile_667518aacf50819188c64707dd3867ba"
+    },
+    "matching_arm64_package": false,
+    "mac_native_tested": false,
+    "m4_complete": false,
+    "packaging_tests": {
+      "passed": 50,
+      "failed": 0
+    },
+    "office_verification_log_library_file_id": "libfile_ae7a403e2e988191a37a16eb0f2c3977"
+  }
+}

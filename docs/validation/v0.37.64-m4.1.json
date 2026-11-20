@@ -1,0 +1,22 @@
+{
+  "version": "0.37.64-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "related_passed": 54,
+    "office_pool_soak": "running; no final conclusion"
+  },
+  "limitations": [
+    "No matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/isolated-worker-pool.mjs",
+    "desktop/services/ocr-source-preview.mjs",
+    "desktop/main.mjs",
+    "desktop/tests/isolated-worker-pool-03738.test.mjs",
+    "desktop/tests/ocr-source-preview-03758.test.mjs"
+  ]
+}

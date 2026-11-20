@@ -1,0 +1,36 @@
+{
+  "version": "0.37.66-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "desktop_full_before_final_two_tests": {
+      "passed": 612,
+      "failed": 17,
+      "failed_reason": "jsdom unavailable",
+      "skipped": 6,
+      "skipped_reason": "WASM OCR assets intentionally omitted"
+    },
+    "pool_final": {
+      "passed": 20
+    },
+    "office_preview_pool_final": {
+      "passed": 8
+    },
+    "packaging": {
+      "passed": 41,
+      "mac_native": "mocked"
+    },
+    "office_pool_soak": "running; no final conclusion"
+  },
+  "limitations": [
+    "No matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/office-preview-pool.mjs",
+    "desktop/tests/office-preview-pool-03739.test.mjs",
+    "desktop/tests/isolated-worker-pool-03738.test.mjs"
+  ]
+}

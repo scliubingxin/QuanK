@@ -1,0 +1,15 @@
+{
+  "version": "0.37.103-m4.1",
+  "status": "internal checkpoint",
+  "targeted_node": {
+    "passed": 28,
+    "failed": 0
+  },
+  "packaging_python": {
+    "passed": 50
+  },
+  "full_suite": "not completed; missing jsdom observed; overlapping exploratory run changed code while running, not a final validation",
+  "approval_and_model": "HTTP model fixture; no Mac native acceptance",
+  "matching_apple_bundle": "not built; missing asar and signing tool",
+  "next": "offline assets licensing, dependencies and Mac testing"
+}

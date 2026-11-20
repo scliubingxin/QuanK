@@ -1,0 +1,72 @@
+name: QuanK Apple Silicon installer
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mac-arm64:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Independent Office parser test dependencies (build host only)
+        run: python3 -m pip install -r ../scripts/requirements-office-tests.txt
+      - name: Prepare pinned offline Python and LibreOffice (build time only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "$(uname -m)" = arm64 ]
+          python3 - <<'PYCODE'
+          import importlib.util, pathlib, urllib.request
+          s=importlib.util.spec_from_file_location('native','../scripts/prepare-native-runtimes.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          c=pathlib.Path('../native-cache');c.mkdir()
+          for n,(h,u) in m.PINS.items(): urllib.request.urlretrieve(u,c/n)
+          PYCODE
+          python3 -m pip download --dest ../native-cache/python-wheels --only-binary=:all: --require-hashes -r requirements-native-python.txt
+          python3 ../scripts/prepare-native-runtimes.py --cache ../native-cache --output ../native-runtimes
+      - run: npm test
+        env:
+          WB_TEST_SOFFICE: ${{ github.workspace }}/native-runtimes/WillBuddyEngine/Contents/MacOS/soffice
+          WB_TEST_PYTHON: ${{ github.workspace }}/native-runtimes/python/bin/python3.12
+      - name: Native file-host Office preview (actual Electron, fixture documents)
+        run: npm run test:preview-native
+      - name: Packaging boundary tests
+        run: python3 -m unittest discover -s ../scripts/tests -v
+      - name: Build arm64 DMG and ZIP
+        run: npm run dist:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Native macOS extracted bundle gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+          for archive in release/*.zip; do
+            [ -f "$archive" ] || continue
+            found=1
+            validation_dir="$(mktemp -d "$RUNNER_TEMP/willbuddy-verify.XXXXXX")"
+            /usr/bin/ditto -x -k "$archive" "$validation_dir"
+            residue_path="$(/usr/bin/find "$validation_dir" \( -name '.BC.*' -o -name '._*' -o -name '__MACOSX' -o -name '.DS_Store' \) -print -quit)"
+            [ -z "$residue_path" ] || { echo 'Unsealed build residue in extracted bundle'; exit 1; }
+            /usr/bin/codesign --verify --deep --strict --verbose=2 "$validation_dir/QuanK.app"
+          done
+          [ "$found" = 1 ]
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QuanK-Apple-Silicon-installers
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.zip
+            desktop/release/*.blockmap
+          if-no-files-found: error

@@ -1,0 +1,22 @@
+{
+  "version": "0.37.116-m4.1",
+  "status": "internal_checkpoint",
+  "tests": {
+    "browser_cli": {
+      "passed": 35,
+      "browser": "adapter fixtures",
+      "cli": "real Node subprocess"
+    },
+    "packaging": 50,
+    "chromium": "socket Operation not permitted",
+    "full": {
+      "total": 783,
+      "passed": 747,
+      "failed": 17,
+      "skipped": 19,
+      "cause": "missing jsdom"
+    }
+  },
+  "mac_arm64": "matching bundle unavailable and not tested",
+  "m4_complete": false
+}

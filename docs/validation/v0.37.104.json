@@ -1,0 +1,20 @@
+{
+  "version": "0.37.104-m4.1",
+  "tests": {
+    "queue_and_streaming": {
+      "passed": 36,
+      "failed": 0
+    },
+    "packaging": {
+      "passed": 50,
+      "failed": 0
+    }
+  },
+  "limits": [
+    "injected hanging read fixture",
+    "underlying reads may continue",
+    "full suite not run",
+    "no matching Mac build or native validation",
+    "M4 incomplete"
+  ]
+}

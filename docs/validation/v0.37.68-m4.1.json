@@ -1,0 +1,22 @@
+{
+  "version": "0.37.68-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "mock_llm_faults": {
+      "passed": 11,
+      "backend": "local HTTP fixture"
+    },
+    "office_pool_soak": "running; no final conclusion"
+  },
+  "limitations": [
+    "rcodesign missing; no matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/agent.mjs",
+    "desktop/tests/mock-llm-faults-03740.test.mjs"
+  ]
+}

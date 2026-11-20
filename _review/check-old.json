@@ -1,0 +1,180 @@
+{
+ "file": "_review/old.pptx",
+ "stats": {
+  "slides": 14,
+  "shapes": 28,
+  "texts": 28
+ },
+ "errors": 14,
+ "warnings": 14,
+ "issues": [
+  {
+   "level": "error",
+   "slide": 1,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 1,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 2,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 2,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 3,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 3,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 4,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 4,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 5,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 5,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 6,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 6,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 7,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 7,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 8,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 8,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 9,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 9,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 10,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 10,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 11,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 11,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 12,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 12,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 13,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 13,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  },
+  {
+   "level": "error",
+   "slide": 14,
+   "shape": "Text 0",
+   "msg": "字体 'Arial' 不在 ['Microsoft YaHei', 'PingFang SC']"
+  },
+  {
+   "level": "warn",
+   "slide": 14,
+   "shape": "Text 1",
+   "msg": "依赖 normAutofit 自动缩放，渲染器不一定生效（应由排版引擎保证不溢出）"
+  }
+ ]
+}

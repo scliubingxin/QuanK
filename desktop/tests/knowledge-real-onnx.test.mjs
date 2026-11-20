@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {spawn} from 'node:child_process';import {createHash} from 'node:crypto';import {once} from 'node:events';import {fileURLToPath} from 'node:url';import {createVectorIndex} from '../services/knowledge-vector.mjs';
+const env=process.env,enabled=!!env.WB_ONNX_MODEL_DIR&&!!env.WB_ONNX_PYTHONPATH;
+const document=(id,text)=>({id,name:id,text,revision:1,sha256:createHash('sha256').update(text).digest('hex')});
+test('real local ONNX embedding supports Chinese semantic retrieval without lexical overlap',{timeout:30000,skip:!enabled&&'development model and Python dependencies not supplied'},async()=>{
+ const child=spawn('python3',[fileURLToPath(new URL('./helpers/real-onnx-fixture.py',import.meta.url))],{env:{...process.env,PYTHONPATH:env.WB_ONNX_PYTHONPATH},stdio:['ignore','pipe','pipe']});let stderr='';child.stderr.on('data',b=>stderr+=b);try{const ready=await Promise.race([once(child.stdout,'data').then(([b])=>b.toString()),once(child,'exit').then(()=>{throw Error(stderr||'fixture exited');}),new Promise((_,reject)=>setTimeout(()=>reject(Error('fixture startup timeout')),15000).unref())]);assert.match(ready,/READY/);
+ const documents=[document('vehicle','新能源汽车使用电池和电机驱动车辆。'),document('contract','供应商合同规定交货期限和违约责任。')],store={data:{settings:{localEmbeddingModel:'local-embed'},documents},save:async()=>{}};const service=createVectorIndex({store});
+ const query='环保轿车通过蓄能系统行驶',result=await service.searchApproved({documents,query,model:'local-embed',check:()=>{}});assert.equal(result.matches[0].source.id,'vehicle');assert.deepEqual(result.matches[0].retrieval,['semantic']);assert.equal(result.index.dimension,512);const warm=await service.searchApproved({documents,query,model:'local-embed',check:()=>{}});assert.equal(warm.index.reused,2);
+ }finally{child.kill('SIGTERM');await Promise.race([once(child,'exit').catch(()=>{}),new Promise(resolve=>setTimeout(resolve,1000))]);}
+});

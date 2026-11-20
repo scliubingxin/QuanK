@@ -1,0 +1,35 @@
+/* [lane:pages] Styles for rail, notes, slideshow and animation pane. Loaded dynamically (CSP allows 'self' stylesheets only). */
+.wb-temp-container#wb-rail{width:200px;flex:none;overflow:auto;border-right:1px solid #e3e6ea;background:#f7f8fa;display:flex;flex-direction:column}
+.wb-temp-container#wb-notes{border-top:1px solid #e3e6ea}
+#wb-rail{display:flex;flex-direction:column;min-height:0}
+.wb-rail-add{margin:8px 12px;padding:6px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;cursor:pointer;font-size:13px}
+.wb-rail-add:hover{background:#f0f4ff}
+#wb-rail-list{flex:1;overflow-y:auto;padding:4px 10px 12px;outline:none}
+.wb-rail-item{display:flex;gap:6px;align-items:flex-end;margin:6px 0;cursor:pointer;position:relative}
+.wb-rail-no{width:18px;text-align:right;font-size:12px;color:#667085;flex:none}
+.wb-rail-frame{flex:1;aspect-ratio:4/3;border:2px solid transparent;border-radius:6px;background:#fff;overflow:hidden;box-shadow:0 0 0 1px #e3e6ea inset;min-width:0}
+.wb-rail-frame img{display:block;width:100%;height:100%;object-fit:contain}
+.wb-rail-item.current .wb-rail-frame{border-color:#1a73e8}
+.wb-rail-item.current .wb-rail-no{color:#1a73e8;font-weight:600}
+.wb-rail-item.drop .wb-rail-frame{border-color:#7fb0ff;border-style:dashed}
+.wb-rail-item.layout{margin-left:22px}
+.wb-rail-item.master .wb-rail-frame{border-color:#1a73e8}
+.wb-rail-label{position:absolute;left:30px;bottom:4px;font-size:11px;color:#344054;background:rgba(255,255,255,.85);padding:0 4px;border-radius:3px;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wb-rail-menu{position:fixed;z-index:1000;min-width:140px;background:#fff;border:1px solid #d0d5dd;border-radius:8px;box-shadow:0 6px 20px rgba(16,24,40,.18);padding:4px;display:flex;flex-direction:column}
+.wb-menu-item{text-align:left;border:0;background:none;padding:6px 10px;border-radius:4px;font-size:13px;cursor:pointer}
+.wb-menu-item:hover:not(:disabled){background:#eef3ff}
+.wb-menu-item:disabled{color:#98a2b3;cursor:default}
+.wb-notes-input{display:block;width:100%;box-sizing:border-box;min-height:64px;max-height:200px;resize:vertical;border:0;outline:none;padding:10px 16px;font:14px/1.6 inherit;background:transparent}
+.wb-notes-input::placeholder{color:#98a2b3}
+.wb-show{position:fixed;inset:0;z-index:5000;background:#000;display:flex;align-items:center;justify-content:center;outline:none;cursor:pointer}
+.wb-show-slide{max-width:100vw;max-height:100vh;object-fit:contain;background:#fff}
+.wb-show-end{color:#fff;font-size:20px}
+.wb-anim{padding:16px}
+.wb-anim-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.wb-anim-close{border:0;background:none;font-size:20px;cursor:pointer}
+.wb-anim-add{display:flex;align-items:center;gap:8px;border:0;background:none;color:#98a2b3;padding:6px 0}
+.wb-anim-plus{display:inline-flex;width:20px;height:20px;border-radius:50%;background:#cfe0ff;color:#fff;align-items:center;justify-content:center}
+.wb-anim-list{list-style:none;margin:8px 0;padding:0}
+.wb-anim-item{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #eef0f3;font-size:13px}
+.wb-anim-no{color:#667085;width:18px}.wb-anim-kind{color:#1a73e8}
+.wb-anim-note{font-size:12px;color:#98a2b3}

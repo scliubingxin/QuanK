@@ -1,0 +1,21 @@
+{
+  "version": "0.37.74-m4.1",
+  "status": "development_checkpoint",
+  "tests": {
+    "stream_and_mock": 23,
+    "cli_related": 18,
+    "office_soak": "running; no final conclusion"
+  },
+  "limitations": [
+    "No matching Mac app",
+    "No Mac native validation",
+    "Real embedding model not tested",
+    "OCR WASM assets and Chinese data omitted",
+    "GitHub security rejection not bypassed"
+  ],
+  "changed": [
+    "desktop/runtime/model-stream.mjs",
+    "desktop/tests/mock-llm-faults-03740.test.mjs",
+    "desktop/tests/command-output-fault-03773.test.mjs"
+  ]
+}

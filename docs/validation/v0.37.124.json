@@ -1,0 +1,28 @@
+{
+  "version": "0.37.124-m4.1",
+  "status": "internal checkpoint, not release",
+  "files": [
+    "desktop/runtime/tools.mjs",
+    "desktop/tests/tool-approval-abort-037124.test.mjs"
+  ],
+  "tool_approval_related": {
+    "passed": 50,
+    "failed": 0,
+    "scope": "real Node command; approval and browser adapters mocked"
+  },
+  "model_stream_related": {
+    "passed": 41
+  },
+  "pdf_attachment_related": {
+    "passed": 24
+  },
+  "queue_related": {
+    "passed": 28
+  },
+  "mixed_office_soak": "running",
+  "office_edit_stress": "running",
+  "full_regression": "not run for final snapshot",
+  "matching_arm64_package": false,
+  "mac_native_tested": false,
+  "m4_complete": false
+}
