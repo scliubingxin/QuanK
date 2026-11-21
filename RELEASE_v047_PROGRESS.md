@@ -234,3 +234,70 @@ sh scripts/make-dmg.sh /tmp/qk-pack-047-$TS/QuanK.app \
 ### 已知限制
 
 部分网络环境下东方财富行情接口可能限流（本次发布期间 `push2his` 与 `push2` 均不可用），研报会自动略过行情与 K 线部分并在风险提示中注明。
+
+---
+
+## 复核（续会）— 2026-11-21 · asar / 产物 / 发布状态
+
+上手时进度文件已含阶段A–E 完整记录，`git log` / `git ls-remote` / `gh release view` 显示阶段E 的提交、merge、tag、Release 均已存在且与远端一致。按「先核验、不盲改」处理：**不重跑阶段E**（tag 与 release 已存在，重跑只会报 `already exists`），改为补做 asar 与产物校验作独立复核；阶段A/B/C 记录完整，无需补做。
+
+### 复核0 — 阶段A/B/C 记录确认（抽查落点）
+
+| 项 | 核验 |
+| --- | --- |
+| README 第 7 行版本徽章 | `version-0.47.0` ✓ |
+| README 第 50 行下载名 | `QuanK-v0.47.0-mac-arm64.dmg` ✓ |
+| README 第 200 行更新记录 | v0.47 条目存在 ✓ |
+| `docs/images/` 三张截图 | `app-research-detail.png` 566,858 / `app-research-library.png` 531,475 / `app-research-report.png` 833,322 字节 ✓ |
+| `desktop/package.json` | `"version": "0.47.0"` ✓ |
+| `RELEASE_STATUS.json` | 顶层 `"version": "0.47.0"` ✓ |
+| `ITERATION_LOG.md` 顶部 | `## v0.47.0 · 2026-11-21 · F2 投研文档` + 6 条要点，v0.46.0 条目紧随保留 ✓ |
+| 阶段A/C 测试数字 | 沿用原记录（基线 1267/1115/141 → 1275/1123/141，新增失败 0；阶段C 唯一差异为端口 11434 抢占偶发，已单独复跑通过），本轮未重跑全量 |
+
+### 复核1 — app.asar 头部解析（node 直读，未安装 asar CLI）
+
+路径 `/tmp/qk-pack-047-20261121-191247/QuanK.app/Contents/Resources/app.asar`（14,840,101 字节）。
+头部：偏移 12 `UInt32LE` = 头部 JSON 长度 `103001`；数据区起点 `8 + UInt32LE(4)` = `103020`；asar 条目共 446。
+
+原始输出：
+
+```
+OK   files.package.json  size=218 offset=564456
+OK   files.services.files["research.mjs"]  size=19794 offset=3470994
+OK   files.src.files.shared.files["research.js"]  size=26506 offset=12875359
+OK   files.src.files.ui.files["research.js"]  size=9820 offset=13244213
+
+package.json: name=quank-desktop productName=QuanK version=0.47.0
+version == 0.47.0 : OK
+
+header dataStart=103020 jsonLen=103001 asarEntries=446
+
+RESULT: ALL CHECKS PASS
+```
+
+`package.json` 条目按 header 的 `offset/size` 从数据区读出解析，版本 **0.47.0** 确认。
+`app.asar` sha256 = `7f5240dcb4967ebdb70e3ff6348c8f73a7a14c8ca581f4fd6f4b942f18aa32cd`，与打包器自校验值一致；zip 内 `QuanK.app/Contents/Resources/app.asar` 同为 14,840,101 字节。
+
+### 复核2 — DMG 校验与两个产物 sha256
+
+`hdiutil verify dist/QuanK-v0.47.0-mac-arm64.dmg` → `checksum of "dist/QuanK-v0.47.0-mac-arm64.dmg" is VALID`（CRC32 `$D75F546D`）。
+
+| 产物 | 字节 | sha256（本轮重算） | 与既定值 |
+| --- | --- | --- | --- |
+| `QuanK-v0.47.0-mac-arm64.dmg` | 457,635,234 | `57d9fa56ab6d2976fba64d4fa566df11a983e7dafef61edff5b07ce02511edd5` | 一致 ✓ |
+| `QuanK-v0.47.0-mac-arm64.zip` | 483,695,801 | `9ddf0bf60ac5f77bdd88365db792c8e3935814ed57cf9f6c7d474338af11498e` | 一致 ✓ |
+
+### 复核3 — 阶段E 发布状态（已存在，未重跑）
+
+| ref | SHA |
+| --- | --- |
+| feature commit（`feat/f2-research`） | `05e94ae8956800f431a85cd1f43ea62547433e2d` |
+| merge commit（`main`，parents `fef2925` + `05e94ae`） | `40c0e85d7ba593162bb2cbe986f21645a5a74972` |
+| tag `v0.47.0`（annotated → merge commit） | `cb66cb3ec8077ecf62b518b8544362af5c29c7fa` |
+| 远端 `refs/heads/main` | `3b6162de03d0150874e2e7a517aec82568dc37e6`（含「docs: v0.47.0 发布记录」） |
+
+`gh release view v0.47.0 --json url,assets`：URL `https://github.com/scliubingxin/QuanK/releases/tag/v0.47.0`；两个资产 digest 与本地 sha256 一致（dmg `sha256:57d9fa56…`、zip `sha256:9ddf0bf6…`），state 均 `uploaded`。Release notes 含 ITERATION_LOG 顶部 v0.47.0 条目原文、下载校验表、ad-hoc 签名/未公证安装说明、行情接口限流已知限制。
+
+### 复核4 — 清理
+
+复核完成后删除 `/tmp/qk-pack-047-20261121-191247`（1.2 GB）与临时脚本 `/tmp/qk-asar-check-047.mjs`；`/tmp/quank-dmg.*` 已不存在。v0.46.0 旧产物（`dist/` 下 dmg 457,530,561 + zip 483,673,768 字节）按要求保留，未删除。
