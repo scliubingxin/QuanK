@@ -1,7 +1,7 @@
 // [F1] Market data service: indices, gainers / losers, sector heat map, limit-up/down counts, quotes, K lines,
 // intraday trends (Eastmoney public quote API, no key, read-only), plus watchlist live quotes and price alerts (M3).
 import { resolveStock } from './stock-lookup.mjs';
-import { INDICES, PERIODS, secid, session, sma, macd, kdj } from '../src/shared/market.js';
+import { INDICES, PERIODS, secid, session, sma, macd, kdj, quoteFromBars } from '../src/shared/market.js';
 
 const H = 'https://push2.eastmoney.com/api/qt/', HIS = 'https://push2his.eastmoney.com/api/qt/', EX = 'https://push2ex.eastmoney.com/';
 const FS_A = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
@@ -147,14 +147,33 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
       gainers: up, losers: down, industry: ind, concept: con, amount: indices.slice(0, 2).reduce((a, x) => a + (x.amount || 0), 0) || null};
     return overview;
   }
+  /** [v46] Live quote for one stock. ulist.np can answer with '-' for every field (throttled / after hours) without
+   *  failing, which left the K-line header empty: then ask stock/get directly. */
+  async function liveQuote(code) {
+    const [q] = await quotes([code], 8e3).catch(() => [null]);
+    if (q && q.price !== null && q.price !== undefined) return q;
+    try {
+      const s = parseStockGet((await getJson(`${H}stock/get?fltt=2&invt=2&secid=${secid(code)}&fields=f43,f44,f45,f46,f47,f48,f57,f58,f60,f107,f113,f114,f115,f168,f169,f170`, 8e3))?.data);
+      if (s && s.price !== null) return {...(q || {}), ...s};
+    } catch {}
+    return q || null;
+  }
+  /** [v46] Header numbers from the last daily bars when no live price arrived (marked fromBars + asOf). */
+  async function quoteOrBars(q, code, bars) {
+    if (q && q.price !== null && q.price !== undefined) return q;
+    let day = bars;
+    if (!day) { try { day = parseKlines(await getJson(`${HIS}stock/kline/get?secid=${secid(code)}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&end=20500101&lmt=2`, 600e3)).bars; } catch { day = []; } }
+    const fb = quoteFromBars(day);
+    return fb ? {...(q || {}), ...fb, code: q?.code || code} : q;
+  }
   async function kline(code, period = 'day', count = 320) {
-    const id = secid(code), P = PERIODS[period] || PERIODS.day, [q] = await quotes([code], 8e3).catch(() => [null]);
+    const id = secid(code), P = PERIODS[period] || PERIODS.day, q = await liveQuote(code);
     if (period === 'intraday') {
       const t = parseTrends(await getJson(`${HIS}stock/trends2/get?secid=${id}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58&ndays=1&iscr=0`, session(now()) === 'open' ? 10e3 : 600e3));
       return {code: t.code || code, name: t.name || q?.name || '', period, preClose: t.preClose ?? q?.preClose ?? null, points: t.points, quote: q};
     }
     const k = parseKlines(await getJson(`${HIS}stock/kline/get?secid=${id}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${P[0]}&fqt=1&end=20500101&lmt=${Math.min(800, Math.max(30, count))}`, session(now()) === 'open' ? 30e3 : 600e3));
-    return {code: k.code || code, name: k.name || q?.name || '', period, bars: k.bars, quote: q};
+    return {code: k.code || code, name: k.name || q?.name || '', period, bars: k.bars, quote: await quoteOrBars(q, code, period === 'day' ? k.bars : null)};
   }
   /** Numbers the chat model can quote: last bar, moving averages, MACD, KDJ, range highs / lows, last bars. */
   function klineSummary(k) {

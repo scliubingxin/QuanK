@@ -1,7 +1,7 @@
 // [F1] Market workstation UI: home card, 行情 page (indices, breadth, movers, sector heat map, alerts), stock view
 // with K line, and the K-line box used inside the quant detail. Pure HTML builders + one DOM mount for chart boxes.
 import { escape } from './markdown.js';
-import { num, pct, tone, bigNum, miniLine, heatColor, klineSvg, trendSvg, session, SESSION_LABEL, PERIODS } from '../shared/market.js';
+import { num, pct, tone, bigNum, miniLine, heatColor, klineSvg, trendSvg, session, SESSION_LABEL, PERIODS, quoteFromBars } from '../shared/market.js';
 
 const when = (date, t) => t ? date(t) : '';
 const quoteCells = q => `<b class="mk-${tone(q.pct)}">${num(q.price)}</b><span class="mk-${tone(q.pct)}">${pct(q.pct)}</span>`;
@@ -65,10 +65,11 @@ export function klineBox(code, {marks = [], big = false} = {}) {
 }
 
 export function quoteLine(d) {
-  const q = d?.quote || {};
+  let q = d?.quote || {};
+  if ((q.price === null || q.price === undefined) && d?.period === 'day' && d?.bars?.length) q = {...q, ...quoteFromBars(d.bars)}; // [v46] no live quote -> last daily bar
   if (!q.price && !d?.name) return '';
   return `<div class="mk-qline"><b class="mk-qname">${escape(d.name || q.name || d.code)}</b><small>${escape(d.code || q.code || '')}</small><b class="mk-qprice mk-${tone(q.pct)}">${num(q.price)}</b><span class="mk-${tone(q.pct)}">${q.change != null ? (q.change > 0 ? '+' : '') + num(q.change) : ''} ${pct(q.pct)}</span>
-<span class="mk-qkv">开 <b>${num(q.open)}</b></span><span class="mk-qkv">高 <b>${num(q.high)}</b></span><span class="mk-qkv">低 <b>${num(q.low)}</b></span><span class="mk-qkv">昨收 <b>${num(q.preClose)}</b></span><span class="mk-qkv">成交额 <b>${bigNum(q.amount)}</b></span>${q.turnover != null ? `<span class="mk-qkv">换手 <b>${num(q.turnover)}%</b></span>` : ''}</div>`;
+<span class="mk-qkv">开 <b>${num(q.open)}</b></span><span class="mk-qkv">高 <b>${num(q.high)}</b></span><span class="mk-qkv">低 <b>${num(q.low)}</b></span><span class="mk-qkv">昨收 <b>${num(q.preClose)}</b></span><span class="mk-qkv">成交额 <b>${bigNum(q.amount)}</b></span>${q.turnover != null ? `<span class="mk-qkv">换手 <b>${num(q.turnover)}%</b></span>` : ''}${q.fromBars && q.asOf ? `<small class="mk-qasof">实时行情暂不可用，数据截至 ${escape(q.asOf)} 收盘</small>` : ''}</div>`;
 }
 
 const prefs = new Map(), kcache = new Map();
@@ -92,7 +93,7 @@ export function mountKlineBoxes(root, call, {now = Date.now} = {}) {
       const ql = box.querySelector('.mk-quote'); if (ql) ql.innerHTML = quoteLine(d);
       const t = root.querySelector?.('#mkStockTitle'); if (t && d?.name) t.textContent = `${d.name} ${d.code}`;
       const W = Math.max(360, Math.round((body?.clientWidth || box.clientWidth || 980) - 14)), H = box.classList.contains('big') ? 540 : 460; // [F1c] draw at the real width
-      if (body) body.innerHTML = p.period === 'intraday' ? trendSvg(d.points, d.preClose, {w: W, h: Math.round(H * 0.8)}) : klineSvg(d.bars, {sub: p.sub, last: p.range, marks: p.period === 'day' ? marks : [], w: W, h: H});
+      if (body) body.innerHTML = p.period === 'intraday' ? trendSvg(d.points, d.preClose, {w: W, h: Math.round(H * 0.8)}) : klineSvg(d.bars, {sub: p.sub, last: p.range, marks, w: W, h: H});
       const hv = box.querySelector('.mk-hover'); if (hv) hv.textContent = '';
     };
     box.addEventListener('mousemove', e => { // [F1c] crosshair + numbers of the bar under the pointer
@@ -132,5 +133,10 @@ export function sectorStocksView(r) {
   return list.length ? `<div class="mk-sector-list">${list.map(q => stockBtn(q, `<small class="mk-amt">${bigNum(q.amount)}</small>`)).join('')}</div>` : '<p class="qk-empty">没有成分股数据</p>';
 }
 
-/** Daily-chart buy / sell marks from the strategy's backtest operations (加仓 / 买入 = buy, 减仓 / 卖出 = sell). */
-export const opsMarks = ops => (ops || []).filter(o => o?.date && /加仓|买|减仓|卖/.test(String(o.action || ''))).slice(-80).map(o => ({date: String(o.date).slice(0, 10), type: /加仓|买/.test(o.action) ? 'buy' : 'sell', text: `${o.action}${o.price != null ? ' ' + o.price : ''}${o.reason ? ' · ' + o.reason : ''}`}));
+/** Buy / sell marks from the strategy's backtest operations (加仓 / 买入 / BUY = buy, 减仓 / 卖出 / SELL = sell).
+ *  [v46] engines report English actions (BUY / STRONG_BUY / SELL); the hover text carries date, action, price, shares, reason. */
+const BUY_RE = /加仓|买|BUY|ADD/i, SELL_RE = /减仓|卖|SELL|REDUCE|CLEAR|清仓/i;
+export const opsMarks = ops => (ops || []).filter(o => o?.date && /^\d{4}-\d{2}-\d{2}/.test(String(o.date)) && (BUY_RE.test(String(o.action || '')) || SELL_RE.test(String(o.action || '')))).slice(-120).map(o => {
+  const buy = !SELL_RE.test(String(o.action)) && BUY_RE.test(String(o.action));
+  return {date: String(o.date).slice(0, 10), type: buy ? 'buy' : 'sell', text: [String(o.date).slice(0, 10), buy ? '买入' : '卖出', o.price != null ? `价格 ${o.price}` : '', o.shares != null ? `${o.shares} 股` : '', o.reason || ''].filter(Boolean).join(' · ')};
+});

@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
   "brand": "QuanK",
-  "version": "0.45.0",
-  "checked_date": "2026-11-16",
+  "version": "0.46.0",
+  "checked_date": "2026-11-21",
   "source_status": "m4_development_checkpoint_not_a_release",
   "original_web_release_record": "docs/WEB_RELEASE_STATUS_ORIGINAL.json",
   "desktop": {

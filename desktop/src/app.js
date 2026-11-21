@@ -294,12 +294,35 @@ function closePicker() {
     if (node)
         node.hidden = true;
 }
+/** [v46] @ / menu placement: fixed to the viewport so the home hero card (overflow:hidden) cannot clip it, opening
+ *  downward under the composer when there is room (preferred), otherwise upward. Re-placed on resize / scroll. */
+function placePicker(node = $('#inlinePicker')) {
+    const host = node?.parentElement;
+    if (!node || node.hidden || !host || typeof host.getBoundingClientRect !== 'function')
+        return;
+    const r = host.getBoundingClientRect(), vh = window.innerHeight || document.documentElement.clientHeight || 800, gap = 8, want = 330;
+    if (!r.width)
+        return;
+    const below = vh - r.bottom - gap - 12, above = r.top - gap - 12, down = below >= Math.min(want, 220) || below >= above;
+    Object.assign(node.style, {position: 'fixed', left: `${Math.round(r.left)}px`, right: 'auto', width: `${Math.round(r.width)}px`,
+        top: down ? `${Math.round(r.bottom + gap)}px` : 'auto', bottom: down ? 'auto' : `${Math.round(vh - r.top + gap)}px`,
+        maxHeight: `${Math.round(Math.max(160, Math.min(want, down ? below : above)))}px`});
+    node.classList.toggle('opens-down', down);
+    node.classList.toggle('opens-up', !down);
+}
+if (typeof window !== 'undefined' && !window.__qkPickerPlace) {
+    window.__qkPickerPlace = true;
+    window.addEventListener('resize', () => placePicker());
+    document.addEventListener('scroll', () => placePicker(), true);
+}
 function paintPicker() {
     const node = $('#inlinePicker');
     if (!node)
         return;
     node.hidden = !pickerKind;
     node.innerHTML = `<div class="picker-title">${pickerKind === '/' ? '命令与智能体' : '附加授权目录中的资料'}<small>↑ ↓ 选择 · Enter 确认 · Esc 关闭</small></div>${pickerItems.map((t, i) => `<button role="option" aria-selected="${i === pickerIndex}" data-action="pickerChoose" data-id="${i}" class="${t.type === 'command' ? 'picker-command' : ''}">${icon(t.type === 'command' ? 'spark' : pickerKind === '/' ? 'agent' : 'file')}<span>${escape(t.name)}<small>${escape(t.description || t.relative || '')}</small></span></button>`).join('') || `<p>${pickerKind === '/' ? '没有匹配的智能体' : '没有匹配的文本文件，可在本地文件页授权目录'}</p>`}${pickerKind === '@' ? '<button class="picker-browse" data-page="files">浏览已授权文件夹 ↗</button>' : ''}`;
+    placePicker(node);
+    node.querySelector('[aria-selected="true"]')?.scrollIntoView?.({block: 'nearest'});
 }
 async function updatePicker(force) {
     const node = $('#prompt');

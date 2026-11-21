@@ -171,9 +171,9 @@ test('page, detail and forms', () => {
   assert.equal(d.querySelector('#quantCharts').dataset.code, '600438'); assert.equal(d.querySelectorAll('.q-table').length, 1); assert.ok(d.querySelector('.qf-row .qf-bar') && d.querySelector('.qi-grid .qi')); // [F1e] factor and indicator cards
   assert.match(d.body.textContent, /本机私有引擎/);
   assert.match(new JSDOM(quantPage(state, {action, heading, empty, date, open: '600438', detail: {error: '<i>x</i>'}})).window.document.querySelector('.task-error').textContent, /<i>x<\/i>/);
-  const dashes = quantDashboards('600438', detail.charts);
-  assert.deepEqual(dashes.map(x => x.spec.charts.length), [2, 1]);
-  assert.deepEqual(dashes[1].spec.charts[0].series.map(s => s.column), ['策略', '基准', '投入']);
+  assert.deepEqual(quantDashboards('600438', detail.charts), [], '[v46] price/score block removed; return chart is inline SVG');
+  assert.ok(d.querySelector('.q-return svg.q-return-svg')); assert.match(d.querySelector('.q-return h3').textContent, /收益率/);
+  assert.doesNotMatch(d.body.innerHTML, /行数据/);
   const fd = o => { const x = new FormData(); for (const [k, v] of Object.entries(o)) x.append(k, v); return x; };
   assert.deepEqual(quantAddPayload(fd({code: ' 600438 ', name: ''})), {action: 'addStock', code: '600438', name: ''});
   assert.deepEqual(quantSettingsPayload(fd({python: '/p', ai: 'none', autoStart: 'on'})), {action: 'settings', python: '/p', ai: 'none', autoStart: true, importHoldings: false});
