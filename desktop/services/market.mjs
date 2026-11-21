@@ -205,7 +205,7 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
   }
   function emit(title, detail, extra) {
     const s = store.data;
-    s.activity = [{id: 'mk-' + now().toString(36) + Math.random().toString(36).slice(2, 5), title, detail, time: now()}, ...(s.activity || [])].slice(0, 500);
+    s.activity = [{id: 'mk-' + now().toString(36) + Math.random().toString(36).slice(2, 5), title, detail, code: extra?.code, time: now()}, ...(s.activity || [])].slice(0, 500);
     try { onAlert({title, detail, ...extra}); } catch {}
   }
   function check(q) {

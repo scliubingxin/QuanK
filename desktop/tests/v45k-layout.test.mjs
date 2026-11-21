@@ -13,7 +13,7 @@ const H = 3600e3, NOW = new Date(2026, 10, 20, 15, 0).getTime();
 
 test('feed page: hero with counters, briefing slot, day-grouped rows with badges', () => {
   const state = {feed: {seenAt: 0, dismissed: []}, tasks: [{id: 't1', name: '巡检', status: 'failed', error: '授权已撤销', lastRun: NOW - H, history: [{id: 'h', at: NOW - H, status: 'failed', error: '授权已撤销'}]}],
-    activity: [{id: 'a1', title: '已授权文件夹', detail: '项目资料', time: NOW - 26 * H}]};
+    activity: [{id: 'a1', title: '行情提醒', detail: '宁德时代（300750）：涨幅达到 5%', time: NOW - 26 * H}, {id: 'a2', title: '已授权文件夹', detail: '项目资料', time: NOW - 27 * H}]}; // [F1c] operation logs no longer show under 全部
   const html = feedPage(state, {action, date: () => '时间', heading: () => '', empty: t => t, now: NOW});
   const doc = new JSDOM(html).window.document;
   assert.ok(doc.querySelector('.feed-page .fd-hero h1')); assert.equal(doc.querySelectorAll('.fd-stat').length, 3);

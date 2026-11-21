@@ -34,6 +34,7 @@ import { createInfographicService } from './services/infographic.mjs'; // [p4-m3
 import { createMiniAppService } from './services/miniapps.mjs'; // [p4-m4]
 import { createStockLookup } from './services/stock-lookup.mjs'; // [v45q]
 import { createMarketService } from './services/market.mjs'; // [F1]
+import { modelEndpoint as qkModelEndpoint } from './core.mjs'; // [F1c]
 import { createQuantEngine } from './services/quant-engine.mjs'; // [q1]
 import { normalizeWatch, actionLabel as quantActionLabel } from './src/shared/quant.js'; // [q3]
 import { createWebLookup } from './services/web-lookup.mjs'; // [ux9]
@@ -186,6 +187,24 @@ else {
         const mcpSecrets=createMcpSecretCodec(safeStorage);
         models=createModelService({store,secrets:createModelSecretCodec(safeStorage),legacyKey:key});
         register('modelProfile',async p=>{await models.update(p);return view();});
+        register('modelTest', async p => { // [F1c] 「测试连接」/「获取模型列表」: one short request to the address the user typed
+            const url = qkModelEndpoint(String(p?.baseUrl || '').trim()), base = url.replace(/\/chat\/completions$/, '');
+            const key = String(p?.apiKey || '').trim(), local = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])/.test(base);
+            if (!key && !local) throw new Error('请先填写 API Key（已保存的密钥不会回填，测试时需要重新输入）');
+            if (key.length > 4096 || /[\s\x00-\x1f\x7f]/.test(key)) throw new Error('API Key 含空白或过长');
+            const headers = {'content-type': 'application/json', ...(key ? {authorization: `Bearer ${key}`} : {})}, t0 = Date.now();
+            const fail = (r, msg) => new Error(r.status === 401 || r.status === 403 ? 'API Key 无效或没有权限' : r.status === 404 ? `接口地址或模型名称不对（HTTP 404）${msg ? '：' + msg : ''}` : r.status === 429 ? '请求太频繁或额度不足（HTTP 429）' : `连接失败（HTTP ${r.status}）${msg ? '：' + msg : ''}`);
+            const body = async r => { const t = await r.text(); try { return JSON.parse(t); } catch { return {text: t.slice(0, 160)}; } };
+            if (p?.kind === 'models') {
+                const r = await fetch(base + '/models', {headers, signal: AbortSignal.timeout(15000)}), j = await body(r);
+                if (!r.ok) throw fail(r, j?.error?.message || j?.message || j?.text);
+                return {models: (Array.isArray(j?.data) ? j.data : Array.isArray(j?.models) ? j.models : []).map(m => typeof m === 'string' ? m : m?.id || m?.name).filter(x => typeof x === 'string').slice(0, 500)};
+            }
+            const model = String(p?.model || '').trim(); if (!model) throw new Error('请先填写模型名称');
+            const r = await fetch(url, {method: 'POST', headers, body: JSON.stringify({model, messages: [{role: 'user', content: '只回复一个字：好'}], max_tokens: 16, stream: false}), signal: AbortSignal.timeout(30000)}), j = await body(r);
+            if (!r.ok) throw fail(r, j?.error?.message || j?.message || j?.text);
+            return {ok: true, ms: Date.now() - t0, reply: String(j?.choices?.[0]?.message?.content || '').slice(0, 40)};
+        });
         app.on('before-quit',()=>models.close());
         const images=createImageService({store,decode:bytes=>normalizeNativeImage(nativeImage,bytes)});
         register('imageImport',createImageImporter({dialog,getWindow:()=>win,nativeImage,images}));
