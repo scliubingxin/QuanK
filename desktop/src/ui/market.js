@@ -24,7 +24,8 @@ export function marketHomeCard(state, {date = t => String(t)} = {}) {
   const head = `<div class="qk-card-head"><h2>市场行情${status(o)}</h2><div class="qk-card-tools"><small class="mk-at">${o ? '更新于 ' + escape(when(date, o.at)) : ''}</small><button class="qk-more" data-page="market">查看行情 ›</button></div></div>`;
   if (!o) return `<section class="qk-card mk-home" id="mkHome">${head}<p class="qk-empty">正在获取大盘行情…（需要联网，数据来自公开行情接口）</p></section>`;
   const lead = (o.industry || []).slice(0, 4).map(s => `<button class="mk-chip mk-${tone(s.pct)}" data-action="mkSector" data-id="${escape(s.code)}">${escape(s.name)} <b>${pct(s.pct)}</b></button>`).join('');
-  return `<section class="qk-card mk-home" id="mkHome">${head}<div class="mk-idx-row">${(o.indices || []).map(x => indexTile(x)).join('')}</div>${breadthBar(o.breadth)}${lead ? `<div class="mk-lead"><small>领涨行业</small>${lead}</div>` : ''}</section>`;
+  const warn = o.stale ? '<p class="mk-warn">行情接口暂时不可用，显示的是上次获取的数据。</p>' : o.partial ? '<p class="mk-warn">部分行情暂时没有取到，稍后会自动重试。</p>' : '';
+  return `<section class="qk-card mk-home" id="mkHome">${head}${warn}<div class="mk-idx-row">${(o.indices || []).map(x => indexTile(x)).join('')}</div>${breadthBar(o.breadth)}${lead ? `<div class="mk-lead"><small>领涨行业</small>${lead}</div>` : ''}</section>`;
 }
 
 function heatmap(list, kind) {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
 import { secid, sma, ema, macd, kdj, klineSvg, trendSvg, heatColor, session, miniLine, bigNum, INDICES } from '../src/shared/market.js';
-import { createMarketService, parseQuote, parseKlines, parseTrends, parsePool, listOf, val, limitPct } from '../services/market.mjs';
+import { createMarketService, parseStockGet, parseQuote, parseKlines, parseTrends, parsePool, listOf, val, limitPct } from '../services/market.mjs';
 import { marketHomeCard, marketPage, klineBox, mountKlineBoxes, opsMarks, marketAlertPayload, sectorStocksView } from '../src/ui/market.js';
 import { executeAppTool, appToolDefinitions, appToolContext, APP_PAGES } from '../services/app-tools.mjs';
 import { quantPage } from '../src/ui/quant.js';
@@ -107,6 +107,33 @@ test('service M3: watchlist quotes, alerts fire once a day, limit-up for pool st
   t = SAT; const n = api.calls.length; await m.tick(); assert.equal(api.calls.length, n);
   const {removed} = await m.handle({action: 'removeAlert', id: a1.id}); assert.equal(removed, 1);
   assert.equal((await m.handle({action: 'settings', movePct: 3})).movePct, 3);
+});
+
+test('throttled host: ulist.np fails -> per-security stock/get fallback; one failing part does not blank the overview', async () => {
+  const calls = [];
+  const fetcher = async url => {
+    calls.push(url);
+    const ok = b => ({ok: true, status: 200, text: async () => JSON.stringify(b)});
+    if (/ulist\.np/.test(url)) return {ok: false, status: 502, text: async () => ''};
+    if (/stock\/get/.test(url)) { const id = /secid=([\d.]+)/.exec(url)[1], c = id.split('.')[1]; return ok({rc: 0, data: {f57: c, f58: c === '000001' ? '上证指数' : c === '300750' ? '宁德时代' : '指数' + c, f43: 3533.79, f170: -1.23, f169: -43.83, f60: 3577.62, f107: Number(id[0]), f113: 900, f114: 1300, f115: 50}}); }
+    if (/clist.*m:90\+t:2/.test(url)) throw new Error('other side closed');
+    if (/clist/.test(url)) return ok({rc: 0, data: {diff: [{f12: '301313', f13: 0, f14: '凡拓数创', f2: 59.16, f3: 20}]}});
+    if (/getTopic/.test(url)) return ok({rc: 0, data: {tc: 3, qdate: 20261120}});
+    if (/trends2/.test(url)) return ok({rc: 0, data: {preClose: 1, trends: ['a,1,2,1,1,1,1,1', 'b,1,3,1,1,1,1,1']}});
+    return {ok: false, status: 404, text: async () => ''};
+  };
+  const m = createMarketService({store: {data: {}, save: async () => {}}, fetcher, now: () => OPEN});
+  const o = await m.handle({action: 'overview'});
+  assert.equal(o.indices[0].name, '上证指数'); assert.equal(o.indices[0].price, 3533.79); assert.equal(o.indices[0].up, 900);
+  assert.equal(o.industry.length, 0, 'failed part is empty, not fatal'); assert.equal(o.gainers[0].code, '301313'); assert.equal(o.partial, true);
+  assert.ok(calls.some(u => /stock\/get.*secid=1\.000001/.test(u)));
+  const q = await m.handle({action: 'quotes', codes: ['300750']}); assert.equal(q.quotes[0].name, '宁德时代');
+  const dead = createMarketService({store: {data: {}, save: async () => {}}, fetcher: async () => { throw new Error('offline'); }, now: () => OPEN});
+  await assert.rejects(dead.handle({action: 'overview'}), /offline/);
+  let up = true, tt = OPEN; const flaky = createMarketService({store: {data: {}, save: async () => {}}, fetcher: async (u2) => { if (!up) throw new Error('offline'); return fetcher(u2); }, now: () => tt});
+  await flaky.handle({action: 'overview'}); up = false; tt += 60e3; // past the 8 s cache, same trading day
+  const st2 = await flaky.handle({action: 'overview'}); assert.equal(st2.stale, true, 'keeps the last data when everything fails'); assert.equal(st2.indices[0].name, '上证指数');
+  assert.match(marketHomeCard({market: {overview: st2}}), /行情接口暂时不可用/); assert.match(marketHomeCard({market: {overview: {...o}}}), /部分行情暂时没有取到/);
 });
 
 test('chat tools: overview, sectors, quote, K line opens the stock, alerts need confirmation', async () => {

@@ -27,6 +27,9 @@ export function listOf(json) {
 }
 export const parseQuote = x => ({code: clip(x.f12, 12), market: val(x.f13), name: clip(x.f14, 30), price: val(x.f2), pct: val(x.f3), change: val(x.f4), volume: val(x.f5), amount: val(x.f6),
   turnover: val(x.f8), high: val(x.f15), low: val(x.f16), open: val(x.f17), preClose: val(x.f18), up: val(x.f104), down: val(x.f105), flat: val(x.f106)});
+/** stock/get (fltt=2) single-security quote -> the same shape as parseQuote. Used when ulist.np is throttled. */
+export const parseStockGet = d => d ? {code: clip(d.f57, 12), market: val(d.f107), name: clip(d.f58, 30), price: val(d.f43), pct: val(d.f170), change: val(d.f169), volume: val(d.f47), amount: val(d.f48),
+  turnover: val(d.f168), high: val(d.f44), low: val(d.f45), open: val(d.f46), preClose: val(d.f60), up: val(d.f113), down: val(d.f114), flat: val(d.f115)} : null;
 export const parseSector = x => ({code: clip(x.f12, 12), name: clip(x.f14, 30), price: val(x.f2), pct: val(x.f3), amount: val(x.f6), up: val(x.f104), down: val(x.f105),
   leader: x.f128 ? {name: clip(x.f128, 20), code: clip(x.f140, 12), pct: r2(val(x.f136))} : null});
 /** klines rows "date,open,close,high,low,volume,amount[,amplitude,pct,change,turnover]" -> bars (column count varies). */
@@ -87,8 +90,23 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
   async function quotes(codes, ttl = ttlFor()) {
     const ids = [...new Set((codes || []).map(c => { try { return secid(c); } catch { return null; } }).filter(Boolean))].slice(0, 80);
     if (!ids.length) return [];
-    const j = await getJson(`${H}ulist.np/get?fltt=2&invt=2&fields=f12,f13,f14,f2,f3,f4,f5,f6,f8,f15,f16,f17,f18&secids=${ids.join(',')}`, ttl);
-    return listOf(j).map(parseQuote);
+    return multi(ids, 'f12,f13,f14,f2,f3,f4,f5,f6,f8,f15,f16,f17,f18', ttl);
+  }
+  /** Several securities at once (ulist.np). When that endpoint is throttled (empty reply / 502), fall back to one
+   *  stock/get per security (served by the delayed-quote host via redirect), at most 4 in flight. */
+  async function multi(ids, fields, ttl) {
+    try { return listOf(await getJson(`${H}ulist.np/get?fltt=2&invt=2&fields=${fields}&secids=${ids.join(',')}`, ttl)).map(parseQuote); }
+    catch (e) {
+      const out = [], queue = [...ids];
+      await Promise.all(Array.from({length: Math.min(4, queue.length)}, async () => {
+        while (queue.length) {
+          const id = queue.shift();
+          try { const q = parseStockGet((await getJson(`${H}stock/get?fltt=2&invt=2&secid=${id}&fields=f43,f44,f45,f46,f47,f48,f57,f58,f60,f107,f113,f114,f115,f168,f169,f170`, ttl))?.data); if (q?.code) out.push({...q, market: q.market ?? Number(id[0])}); } catch {}
+        }
+      }));
+      if (!out.length) throw e;
+      return ids.map(id => out.find(q => `${q.market}.${q.code}` === id || id.endsWith('.' + q.code))).filter(Boolean);
+    }
   }
   async function sectors(kind = 'industry', {order = 'up', limit = 100} = {}) {
     const j = await getJson(clist(`m:90+t:${kind === 'concept' ? 3 : 2}`, {po: order === 'down' ? 0 : 1, pz: Math.min(100, Math.max(5, limit)), fields: SECTOR_FIELDS}), ttlFor());
@@ -111,14 +129,21 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
   }
   async function getOverview() {
     const s = session(now());
-    const [idx, up, down, ind, con, pl] = await Promise.all([
-      getJson(`${H}ulist.np/get?fltt=2&invt=2&fields=f12,f13,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18,f104,f105,f106&secids=${INDICES.map(i => i[0]).join(',')}`, ttlFor()).then(listOf).then(l => l.map(parseQuote)),
+    // each part may fail on its own (rate limits, flaky hosts): show whatever arrived instead of failing the whole card
+    const parts = await Promise.allSettled([
+      multi(INDICES.map(i => i[0]), 'f12,f13,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18,f104,f105,f106', ttlFor()),
       movers('up'), movers('down'), sectors('industry', {limit: 100}), sectors('concept', {limit: 60}), pools()]);
+    const got = (i, d) => parts[i].status === 'fulfilled' ? parts[i].value : d;
+    // pools() never rejects (it reports null counts instead), so 'nothing arrived' = the five fetches failed and no pool count
+    const poolEmpty = parts[5].status !== 'fulfilled' || (parts[5].value?.limitUp == null && parts[5].value?.limitDown == null);
+    if (parts.slice(0, 5).every(p => p.status === 'rejected') && poolEmpty) { if (overview) return {...overview, stale: true}; throw parts[0].reason; }
+    const prev = overview || {};
+    const [idx, up, down, ind, con, pl] = [got(0, []), got(1, prev.gainers || []), got(2, prev.losers || []), got(3, prev.industry || []), got(4, prev.concept || []), got(5, {limitUp: prev.breadth?.limitUp ?? null, limitDown: prev.breadth?.limitDown ?? null, date: ''})];
     const minis = await Promise.all(INDICES.map(([id]) => indexMini(id)));
-    const indices = INDICES.map(([id, label], i) => { const q = idx.find(x => `${x.market}.${x.code}` === id) || {}; return {...q, secid: id, name: q.name || label, mini: minis[i]}; });
+    const indices = INDICES.map(([id, label], i) => { const q = idx.find(x => `${x.market}.${x.code}` === id) || (prev.indices || []).find(x => x.secid === id) || {}; return {...q, secid: id, name: q.name || label, mini: minis[i]?.length ? minis[i] : (q.mini || [])}; });
     const sh = indices[0] || {}, sz = indices[1] || {};
     const breadth = {up: (sh.up ?? 0) + (sz.up ?? 0) || null, down: (sh.down ?? 0) + (sz.down ?? 0) || null, flat: (sh.flat ?? 0) + (sz.flat ?? 0) || null, limitUp: pl.limitUp, limitDown: pl.limitDown};
-    overview = {at: now(), session: s, date: pl.date ? `${pl.date.slice(0, 4)}-${pl.date.slice(4, 6)}-${pl.date.slice(6, 8)}` : cstDate(now(), '-'), indices, breadth,
+    overview = {partial: parts.some(p => p.status === 'rejected'), at: now(), session: s, date: pl.date ? `${pl.date.slice(0, 4)}-${pl.date.slice(4, 6)}-${pl.date.slice(6, 8)}` : cstDate(now(), '-'), indices, breadth,
       gainers: up, losers: down, industry: ind, concept: con, amount: indices.slice(0, 2).reduce((a, x) => a + (x.amount || 0), 0) || null};
     return overview;
   }
