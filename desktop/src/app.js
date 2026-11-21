@@ -41,6 +41,7 @@ import { quantPage, quantDashboards, quantAddForm, quantAddPayload, quantSetting
 import { researchUI } from './ui/research.js'; // [F2]
 import { knowledgeUI } from './ui/knowledge.js'; // [F3]
 import { portfolioUI } from './ui/portfolio.js'; // [F4]
+import { securityUI } from './ui/security.js'; // [F5]
 import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView } from './ui/market.js';
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
 import { feedUnread } from './shared/feed.js';
@@ -67,7 +68,7 @@ let state = { chats: [], folders: [], memories: [], agents: [], tasks: [], artif
 let selections=[];
 let modelChoice='legacy',modelEffort='';
 let capabilityTab='agents';const busyMcp=new Set();
-const nav = [['home', 'chat', '工作台'], ['feed', 'activity', '动态'], ['library', 'grid', '成果中心'], ['studio', 'spark', '创作'], ['files', 'folder', '本地文件'], ['agents', 'agent', '智能体'], ['tools', 'activity', '浏览器与权限'], ['tasks', 'clock', '自动化'], ['quant', 'trend', '量化'], ['market', 'trend', '行情'], ['connectors', 'link', '连接'], ['graph', 'search', '知识图谱'], ['context', 'spark', '记忆库']];
+const nav = [['home', 'chat', '工作台'], ['feed', 'activity', '动态'], ['library', 'grid', '成果中心'], ['studio', 'spark', '创作'], ['files', 'folder', '本地文件'], ['agents', 'agent', '智能体'], ['tools', 'activity', '浏览器与权限'], ['security', 'shield', '安全与合规'], ['tasks', 'clock', '自动化'], ['quant', 'trend', '量化'], ['market', 'trend', '行情'], ['connectors', 'link', '连接'], ['graph', 'search', '知识图谱'], ['context', 'spark', '记忆库']];
 let memoryFilter = 'all', memoryQuery = '', incognito = false, planMode = false, researchMode = false, feedFilter = 'all'; // [p1-m1][p1-m2][p1-m5][p1-m6][p2-m3]
 let graphQuery = '', graphType = 'all'; // [p3-m5]
 let graphMode = 'graph', graphFocus = '', graphSelected = '', graphMount = null; const graphCache = {}; // [ux4]
@@ -176,6 +177,12 @@ window.addEventListener('pagehide', () => officeWorkspace.dispose());
 const seenRequests = new Set();
 function autoSeen() { const c = page === 'chat' && state.chats.find(c => c.id === chatId); if (!c?.unread || seenRequests.has(c.id) || (typeof document.hasFocus === 'function' && !document.hasFocus())) return; seenRequests.add(c.id); c.unread = false; invoke('chatSeen', { id: c.id }).then(s => { seenRequests.delete(c.id); applyState(s); }).catch(() => seenRequests.delete(c.id)); }
 function render() {
+    if (state.locked) { // [F5 M1] lock screen only; the data was dropped from the renderer when the lock arrived
+        $('#app').className = 'app-locked'; $('#app').innerHTML = securityUI.lockScreen(state.lock);
+        if ($('#modal')?.open) $('#modal').close();
+        const pw = $('#lockPassword'); pw?.focus(); pw?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle('secUnlock').catch(err => toast(err.message)); } });
+        return;
+    }
     autoSeen();
     composerMenus.beforeRender();
     pending=pendingChats.has(chatId);
@@ -234,6 +241,7 @@ function render() {
     mountKlineBoxes(document, p => invoke('market', p)); marketPing(); signalPopups(); // [F1] [F1c]
     knowledgeUI.mountKnowledge(document, p => invoke('knowledge', p)); // [F3]
     portfolioUI.mountPortfolio(document, p => invoke('portfolio', p), { view: () => state.portfolio }); // [F4]
+    securityUI.mountSecurity(document, p => invoke('security', p)); // [F5]
     { // [p4-m4] mini app viewer: code and data are fetched when the viewer appears; every data change goes to main
         const mh = $('#miniappHost');
         if (!mh && miniappDispose) { miniappDispose(); miniappDispose = null; }
@@ -407,6 +415,8 @@ function content() {
         return contextGraphPage(state, {action, date, empty, query: graphQuery, type: graphType, mode: graphMode, focus: graphFocus, selected: graphSelected});
     if (page === 'connectors') // [p3-m1]
         return connectorsPage(state, {action, date, heading, empty});
+    if (page === 'security') // [F5]
+        return securityUI.securityPage(state, {heading, action});
     if (page === 'tools')
         return `<div class="page">${heading('', '浏览器与权限', '助手打开网页、运行命令前会先征求你的确认；确认框可按 Esc 取消，60 秒无人响应自动取消。在这里管理「总是允许」的规则和已有授权。', action('刷新', 'refresh')+action('撤销浏览器授权','revokeBrowserApprovals')+action('取消所有确认框','cancelApprovals'))}
  ${pendingApprovalsPanel(state, {action, date})}${approvalRulesPanel(state, {action, date})}<div class="tool-grid"><section class="tool-panel"><h2>浏览器</h2><p class="description">内置浏览器支持检查元素、点击与填写；系统浏览器使用你平常的浏览器，但助手不能读取其内容。</p><label>网址<input id="tool-url" aria-label="浏览器网址" value="${escape(toolDraft.url)}" placeholder="https://example.com"></label><div class="toolbar">${action('打开内置浏览器', 'browserOpen', '', 'primary')}${action('在系统浏览器打开', 'externalBrowser')}</div><div class="browser-list">${(state.browsers || []).map(b => `<div class="file-row"><div>${escape(b.title || '网页')}<small>${escape(b.url)}</small></div>${action('读取正文', 'browserRead', b.id)}${action('检查元素', 'browserInspect', b.id)}</div>`).join('')}</div></section>
@@ -1271,6 +1281,31 @@ async function handle(actionId, id) {
         if (actionId === 'knTopicCollect') { const t = topic(); toast('正在汇集公告、资讯和资料…'); const r = await call({ action: 'topicCollect', id }); modal(`主题动态 · ${t?.name || ''}`, K.topicItemsHtml(r), '生成周报', async () => handle('knTopicDigest', id)); return; }
         if (actionId === 'knTopicDigest') { toast('正在生成主题周报…'); const r = await call({ action: 'topicDigest', id, format: 'docx' }); render(); toast(`主题周报已生成（${r.count} 条动态）`); if (r.document?.id) await handle('documentView', r.document.id); return; }
     }
+    if (/^sec[A-Z]/.test(actionId)) { // [F5] 安全与合规
+        const S = securityUI, call = async p => { const out = await invoke('security', p); if (out?.state) applyState(out.state); return out?.result || {}; };
+        const repaint = (tab = null) => { if (tab) S.setSecurityTab(document, tab); render(); };
+        const later = (title, html, submit, fn) => setTimeout(() => modal(title, html, submit, fn), 0);
+        if (actionId === 'secUnlock') { const pw = $('#lockPassword')?.value || ''; try { await call({ action: 'unlock', method: 'password', password: pw }); applyState(await invoke('state')); render(); } catch (e) { const el = $('#lockError'); if (el) { el.textContent = e.message; el.hidden = false; } const p2 = $('#lockPassword'); if (p2) { p2.value = ''; p2.focus(); } } return; }
+        if (actionId === 'secUnlockTouch') { try { await call({ action: 'unlock', method: 'touchid' }); applyState(await invoke('state')); render(); } catch (e) { const el = $('#lockError'); if (el) { el.textContent = e.message; el.hidden = false; } } return; }
+        if (actionId === 'secLock') { if (!state.security?.lockEnabled) { handle('secLockSettings'); return; } await call({ action: 'lock' }); applyState(await invoke('state')); render(); return; }
+        if (actionId === 'secTab') { repaint(id); return; }
+        if (actionId === 'secPrivacy') { const [k, v] = String(id).split(':'); if (k === 'offline' && v === 'on') { modal('开启离线模式', '<p>开启后 QuanK 不再连接任何外部服务：实时行情、公告、财务数据、大模型对话和联网搜索都会暂停，本机策略引擎和本机数据照常可用。</p>', '开启', async () => { await call({ action: 'privacy', offline: true }); repaint(); toast('已开启离线模式'); }); return; } await call({ action: 'privacy', [k]: v === 'on' }); repaint(); toast('已保存'); return; }
+        if (actionId === 'secEgressClear') { await call({ action: 'egressClear' }); repaint('egress'); return; }
+        if (actionId === 'secAuditFilter') { S.setSecurityTab(document, 'audit', { kind: $('#secAuditKind')?.value || '', q: ($('#secAuditQ')?.value || '').trim() }); render(); return; }
+        if (actionId === 'secAuditVerify') { const r = await call({ action: 'auditVerify' }); toast(r.ok ? `操作审计完整：${r.total} 条记录都未被改动` : `操作审计校验失败：第 ${r.line} 行，${r.reason}`); render(); return; }
+        if (actionId === 'secAuditExport') { const r = await call({ action: 'auditExport', kind: $('#secAuditKind')?.value || '', q: ($('#secAuditQ')?.value || '').trim() }); if (!r.cancelled) toast(`已导出 ${r.rows} 条到 ${r.saved}`); return; }
+        if (actionId === 'secTestModel') { const box = $('#secTestResult'); if (box) box.innerHTML = '<p class="empty-note">正在测试…</p>'; const r = await call({ action: 'testModel' }); if ($('#secTestResult')) $('#secTestResult').innerHTML = S.testResultHtml(r); return; }
+        if (actionId === 'secLockSettings') { const v = (await call({ action: 'view' })); modal('应用锁', S.lockForm(v.lock), '保存', async f => { const r = await call(S.lockPayload(f)); repaint(); toast(r.lock?.enabled ? '应用锁已开启' : '应用锁已关闭'); }); return; }
+        if (actionId === 'secEncrypt') {
+            if (id === 'on') { modal('开启本机数据加密', '<p>对话、持仓、组合、笔记、风控规则和设置会用 AES-256 加密保存，密钥放在 macOS 钥匙串里，只有当前 macOS 用户能解开。</p><p>开启前会先留一份<b>未加密的副本</b>，确认一切正常后可以在这里删除。钥匙串被重置或换电脑时，只能用<b>加密备份</b>找回数据，建议先导出一份。</p>', '开启加密', async () => { const r = await call({ action: 'encrypt', enabled: true }); repaint(); toast(r.backup ? `已开启加密，未加密副本：${r.backup}` : '已开启加密'); }); return; }
+            modal('关闭本机数据加密', '<p>关闭后数据重新以明文保存，钥匙串里的数据密钥会删除。</p>', '关闭加密', async () => { await call({ action: 'encrypt', enabled: false }); repaint(); toast('已关闭加密'); }); return;
+        }
+        if (actionId === 'secDeletePlain') { modal('删除未加密副本', '<p>删除开启加密前留下的未加密副本和恢复前的数据副本？删除后无法找回，请确认 QuanK 运行正常、并且已经导出过加密备份。</p>', '删除', async () => { const r = await call({ action: 'deletePlainBackups' }); repaint(); toast(`已删除 ${r.deleted} 个文件`); }); return; }
+        if (actionId === 'secBackup') { modal('导出加密备份', S.backupForm(false), '选择保存位置', async f => { const r = await call(S.backupPayload(f, false)); if (!r.cancelled) { repaint(); toast(`已保存 ${r.saved}`); } }); return; }
+        if (actionId === 'secRestore') { modal('从加密备份恢复', S.backupForm(true), '选择备份文件', async f => { const r = await call(S.backupPayload(f, true)); if (r.cancelled) return; const c = r.counts || {}; later('确认恢复', `<p>备份文件：${escape(r.file)}</p><p>备份时间：${escape(new Date(r.created).toLocaleString('zh-CN', { hour12: false }))}；对话 ${c.chats ?? '—'} 个，手动持仓 ${c.holdings ?? '—'} 条，资料 ${c.notes ?? '—'} 条。</p><p>恢复会<b>替换当前全部数据</b>（当前数据会另存一份），然后 QuanK 重新启动。已保存的密钥如果来自另一台 Mac，需要重新填写。</p>`, '恢复并重启', async () => { await call({ action: 'backupRestore' }); toast('正在恢复，QuanK 即将重新启动…'); }); }); return; }
+        if (actionId === 'secComplianceSettings') { const v = await call({ action: 'view' }); modal('合规设置', S.complianceForm(v.compliance), '保存', async f => { await call(S.compliancePayload(f)); repaint(); toast('已保存'); }); return; }
+        if (actionId === 'secReview') { const text = $('#secReviewText')?.value || ''; if (text.trim().length < 4) { toast('请先粘贴要检查的文字'); return; } const r = await call({ action: 'review', text, kind: $('#secReviewKind')?.value || 'article', aiUsed: !!$('#secReviewAi')?.checked }); const box = $('#secReviewResult'); if (box) box.innerHTML = S.findingsHtml(r); return; }
+    }
     if (/^pf[A-Z]/.test(actionId)) { // [F4] 组合与风控: holdings, cash, rules, checks, scenarios, simulation, report
         const P = portfolioUI, pf = state.portfolio || {};
         const call = async p => { const out = await invoke('portfolio', p); if (out?.state) applyState(out.state); return out?.result || {}; };
@@ -1590,8 +1625,10 @@ api?.onRuntime?.(() => {
     clearTimeout(runtimeTimer);
     runtimeTimer = setTimeout(async () => {
         try {
-            applyState(await invoke('state'));
-            if (!$('#modal').open && ['chat', 'tools', 'tasks'].includes(page))
+            const wasLocked = !!state.locked, next = await invoke('state');
+            applyState(next);
+            if (wasLocked !== !!state.locked || state.locked) render(); // [F5] lock / unlock
+            else if (!$('#modal').open && ['chat', 'tools', 'tasks', 'security'].includes(page))
                 render();
             else if (!$('#modal').open) marketRefreshView(); // [F1]
         }
@@ -1603,6 +1640,8 @@ api?.onRuntime?.(() => {
 const streamUpdates = new Map();
 const liveStreams = new Map();
 function applyState(next) {
+    if (next?.locked) { state = { locked: true, lock: next.lock || {}, chats: [], folders: [], memories: [], agents: [], tasks: [], artifacts: [], activity: [], settings: { name: '' } }; return; } // [F5]
+    if (state.locked) { state = { ...next }; state.tasks ??= []; return; }
     for (let i=0;i<(next.runJobs || []).length;i++) {
         const incoming=next.runJobs[i],old=(state.runJobs || []).find(j=>j.id===incoming.id);
         if (old && old.revision > incoming.revision) next.runJobs[i]=old;

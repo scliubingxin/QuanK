@@ -8,6 +8,8 @@ import { kindInfo, safeUrl } from '../src/shared/connectors.js'; // [ux9]
 import { guideFor } from './connector-guides.mjs'; // [ux9]
 import { normalizeWatch, parseWatch, describeWatch, parseTrade, normalizeReportAuto, parseReportAuto, describeReportAuto } from '../src/shared/quant.js'; // [q3][q4][q5]
 import { capabilityPresets } from '../runtime/capability-presets.mjs'; // [mcp2]
+import { maskAmounts, shouldMask } from '../src/shared/privacy.js'; // [F5]
+import { describeReview } from '../src/shared/compliance.js'; // [F5]
 
 export const APP_PAGES = {home: '工作台', feed: '动态', quant: '量化', market: '行情', studio: '创作', tasks: '自动化', library: '成果中心', files: '本地文件', agents: '智能体', connectors: '连接', tools: '浏览器与权限', graph: '知识图谱', context: '记忆'};
 const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -77,6 +79,11 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_pf_holding_save', '手动录入或修改一笔持仓（没有在量化引擎里记录成交的股票），用于组合汇总和风控提醒；同一只股票以手动录入为准。会弹出确认框。', {query: {type: 'string', description: '公司名称或代码'}, shares: {type: 'integer'}, cost: {type: 'number'}, stopPrice: {type: 'number'}, note: {type: 'string'}}, ['query', 'shares', 'cost']),
     def('app_pf_holding_remove', '删除一笔手动录入的持仓（引擎里的成交记录不受影响）。会弹出确认框。', {query: {type: 'string', description: '公司名称或代码'}}, ['query']),
     def('app_pf_report', '生成组合风控报告（Word / PPT / 网页）：组合概况、行业分布、风控检查、风险指标、压力测试，Word 版附组合曲线与仓位图；保存到「成果中心」并在 QuanK 里打开。', {format: {type: 'string', enum: ['docx', 'pptx', 'html']}}),
+    // [F5] 安全与合规：状态、操作审计、外发记录、合规审阅
+    def('app_sec_status', '安全与合规状态：本机数据是否加密、应用锁、离线模式、发给模型前是否隐藏金额、最近一次加密备份、审计日志条数与校验结果、合规检查设置。只读。'),
+    def('app_audit_list', '查看操作审计日志（谁在什么时间改了风控规则、持仓、成交、授权、导出、模型调用等，只记录操作与对象，不含金额和密钥）。可按类型或关键词筛选。只读。', {kind: {type: 'string', enum: ['data', 'trade', 'rules', 'approval', 'export', 'model', 'security', 'chat', 'system']}, q: {type: 'string'}, limit: {type: 'integer'}}),
+    def('app_egress_list', '查看外发记录：QuanK 最近连接过哪些外部服务（主机、用途、次数、发送字节数、是否被离线模式阻止），不含请求内容。只读。', {host: {type: 'string'}}),
+    def('app_compliance_check', '合规审阅：检查一段文字（研报、公众号文章、对外发布的观点）是否有承诺保本或收益、确定性预测、夸大收益、诱导交易、内幕信息、个性化投资建议等违规表述，以及是否缺少免责声明、数据来源、数据日期和 AI 生成标注。用户说「帮我检查一下这篇文章合不合规」「这段话能不能发」时使用。只读。', {text: {type: 'string'}, kind: {type: 'string', enum: ['article', 'report', 'text']}, aiUsed: {type: 'boolean', description: '内容是否含 AI 生成的段落'}}, ['text']),
     // [F2] 投研文档：研报、公告、资料库、导出
     def('app_research_report', '一键生成个股研究报告（Word / PPT / 网页）：汇总本机量化信号与风控、回测、持仓、实时行情、近期公告和可选的 AI 研判，Word 版附 K 线与收益率图；保存到「成果中心」并归档到这只股票的资料库，生成后在 QuanK 里打开。用户说「给 xx 出一份研报 / 研究报告」时使用。可能需要几十秒。', {query: {type: 'string', description: '公司名称或 6 位代码'}, format: {type: 'string', enum: ['docx', 'pptx', 'html']}, ai: {type: 'boolean', description: '是否加入 AI 研判段落，默认 true'}}, ['query']),
     def('app_research_notices', '某只股票最近的公司公告（公开公告接口，只读），每条带类型（业绩预告 / 定期报告 / 风险事项 / 股东变动 / 资本运作等）和重要程度。用户问「xx 最近有什么公告」「有没有减持、业绩预告」时使用。', {query: {type: 'string'}, limit: {type: 'integer', description: '条数，默认 20，最多 50'}, fresh: {type: 'boolean'}}, ['query']),
@@ -102,7 +109,7 @@ export function appToolDefinitions({incognito = false} = {}) {
 const MARKET_NOTE = '行情来自公开行情接口，可能有延迟；仅供研究，不构成投资建议。'; // [F1]
 export const APP_TOOL_NAMES = new Set(appToolDefinitions().map(d => d.function.name));
 /** Requests that only make sense through app tools: offered even when the composer's 「允许使用工具」 is off (app tools only). */
-export const APP_INTENT = /我的组合|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|打开.{0,6}(页面|动态|创作|自动化|知识图谱|记忆|连接)|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/;
+export const APP_INTENT = /合规|免责声明|审计日志|操作记录|外发记录|离线模式|能不能发|违规(用语|表述|词)|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|打开.{0,6}(页面|动态|创作|自动化|知识图谱|记忆|连接)|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/;
 
 function f_isSelectInvalid(info, config) { // [ux9]
   return (info.fields || []).some(f => f.type === 'select' && config[f.name] !== undefined && !f.options.some(([v]) => v === config[f.name]));
@@ -110,7 +117,7 @@ function f_isSelectInvalid(info, config) { // [ux9]
 
 export function appToolContext(now = Date.now()) {
   const d = new Date(now);
-  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
+  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；检查文章或研报是否合规用 app_compliance_check，问操作记录用 app_audit_list，问数据发去了哪里用 app_egress_list，问安全设置用 app_sec_status；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
 }
 
 const taskView = t => ({id: t.id, name: t.name, schedule: describeSchedule(t.schedule), enabled: !!t.enabled, status: t.status || 'ready',
@@ -120,7 +127,22 @@ const taskView = t => ({id: t.id, name: t.name, schedule: describeSchedule(t.sch
  * deps (filled in by main as services are created): workspace, runTask, connectors, dashboards, briefing, openPage, notify.
  * ask(title, detail, signal) -> boolean (the gated approver).
  */
-export async function executeAppTool(name, args = {}, {store, deps = {}, ask, signal, chatId, now = Date.now} = {}) {
+const WRITE_TOOL = /_(create|update|delete|run|sync|add|remove|record|set|signin|test|watch|auto|save|digest|report|export|note_add|link_document|rules|holding_save|holding_remove)$/;
+/** [F5] Runs a tool, masks holding amounts for the model when configured, and records writes in the audit log. */
+export async function executeAppTool(name, args = {}, opts = {}) {
+  const {deps = {}, chatId} = opts;
+  let out, error = null;
+  try { out = await runAppTool(name, args, opts); } catch (e) { error = e; }
+  if (deps.audit && WRITE_TOOL.test(String(name)) && !/^app_(sec|audit|egress|compliance)_/.test(name)) {
+    const st = error ? `失败：${String(error?.message || error).slice(0, 60)}` : out?.status === 'denied' ? '用户未确认，未执行' : out?.status || 'succeeded';
+    const a = typeof args === 'string' ? (() => { try { return JSON.parse(args); } catch { return {}; } })() : args || {};
+    try { await deps.audit.record({kind: /trade_record/.test(name) ? 'trade' : /rules/.test(name) ? 'rules' : /report|export|digest/.test(name) ? 'export' : 'chat', action: name, target: String(a.code || a.query || a.id || a.name || a.stock || '').slice(0, 40), detail: `对话指令 · ${st}`, via: chatId ? 'chat' : 'task'}); } catch {}
+  }
+  if (error) throw error;
+  if (out && typeof out === 'object' && shouldMask(name, deps.privacy?.())) { const m = maskAmounts(out); return {...m.result, privacy: `已按隐私设置隐藏 ${m.masked} 处金额（股数、成本、市值、盈亏、现金等）；回答时不要猜测或推算这些数字。`}; }
+  return out;
+}
+async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatId, now = Date.now} = {}) {
   const tasks = () => store.data.tasks || [];
   const findTask = id => { const t = tasks().find(t => t.id === id); if (!t) throw new Error('任务不存在，请先用 app_task_list 查看任务 ID'); return t; };
   const confirm = async (title, detail) => { const r = await ask(title, detail, signal); return r === true || r?.allowed === true; };
@@ -500,6 +522,23 @@ export async function executeAppTool(name, args = {}, {store, deps = {}, ask, si
         deps.openDocument?.(r.document.id); deps.notify?.();
         return {status: 'succeeded', document: r.document, summary: r.summary, sections: r.sections, opened: !!deps.openDocument};
       } catch (e) { if (e?.choices) return {status: 'needs_choice', candidates: e.choices, message: '有多只股票匹配，请让用户确认是哪一只'}; throw e; }
+    }
+    case 'app_sec_status': { // [F5]
+      const v = await need('security').view();
+      return {status: 'succeeded', encrypted: v.encryption.enabled, plainBackupsLeft: v.encryption.plainBackups.length, lastBackup: v.encryption.lastBackup ? local(v.encryption.lastBackup.time) : null, appLock: v.lock.enabled, idleMinutes: v.lock.idleMinutes, offline: v.privacy.offline, maskAmounts: v.privacy.maskAmounts, egressLog: v.privacy.egressLog,
+        audit: {entries: v.audit.count, lastVerify: v.audit.lastVerify ? {time: local(v.audit.lastVerify.time), ok: v.audit.lastVerify.ok} : null}, compliance: {enabled: v.compliance.enabled, block: v.compliance.block, disclaimer: v.compliance.disclaimer}, note: '设置在「安全与合规」页修改；对话里只能查看。'};
+    }
+    case 'app_audit_list': {
+      const r = await need('security').handle({action: 'auditList', kind: args.kind, q: args.q, limit: Math.min(100, Number(args.limit) || 30)});
+      return {status: 'succeeded', items: r.items.map(e => ({time: local(e.time), type: r.kinds[e.kind] || e.kind, action: e.action, target: e.target || undefined, detail: e.detail || undefined, via: e.via})), note: '审计日志只记录操作与对象，不含金额和密钥；每条带上一条的校验值，可在「安全与合规」里校验是否被改动。'};
+    }
+    case 'app_egress_list': {
+      const r = await need('security').handle({action: 'egressList', host: args.host, limit: 50});
+      return {status: 'succeeded', hosts: r.hosts.map(h => ({host: h.host, purpose: h.purpose, count: h.count, blocked: h.blocked, bytesOut: h.bytesOut, last: local(h.last)})), recent: r.items.slice(0, 20).map(e => ({time: local(e.time), host: e.host, path: e.path, method: e.method, status: e.blocked ? '已阻止' : e.status, purpose: e.purpose})), note: '只记录主机、路径、方法和字节数，不含请求内容；记录只保存在本次运行的内存里。'};
+    }
+    case 'app_compliance_check': {
+      const r = await need('security').handle({action: 'review', text: String(args.text || ''), kind: args.kind || 'article', aiUsed: args.aiUsed === true, title: '对话中的合规检查'});
+      return {status: 'succeeded', result: describeReview(r), level: r.level, findings: r.findings.map(f => ({level: {high: '必须修改', medium: '建议修改', low: '提示'}[f.level], issue: f.label, text: f.match || undefined, excerpt: f.excerpt || undefined, fix: f.fix})), note: '规则检查只能发现常见违规表述，发布前仍需人工复核。'};
     }
     case 'app_research_report': case 'app_research_notices': { // [F2]
       const r = need('research');

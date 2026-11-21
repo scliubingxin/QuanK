@@ -15,7 +15,8 @@ export function initialState() {
 export class Store {
     constructor(dir) { this.dir = dir; this.file = path.join(dir, 'workspace.json'); this.pending = Promise.resolve(); }
     async load() { await mkdir(this.dir, { recursive: true, mode: 0o700 }); try {
-        this.data = JSON.parse(await readFile(this.file, 'utf8'));
+        const raw = await readFile(this.file); // [F5] optional codec (encrypted workspace)
+        this.data = JSON.parse(this.codec ? this.codec.decode(raw) : raw.toString('utf8'));
         if (this.data.schema !== 1)
             throw new Error('不支持的数据版本');
     }
@@ -25,7 +26,7 @@ export class Store {
         this.data = initialState();
         await this.save();
     } return this.data; }
-    save() { const bytes = JSON.stringify(this.data, null, 2); this.pending = this.pending.catch(() => { }).then(async () => { const temp = this.file + '.tmp'; await writeFile(temp, bytes, { mode: 0o600 }); await rename(temp, this.file); }); return this.pending; }
+    save() { const json = JSON.stringify(this.data, null, 2), bytes = this.codec ? this.codec.encode(json) : json; this.pending = this.pending.catch(() => { }).then(async () => { const temp = this.file + '.tmp'; await writeFile(temp, bytes, { mode: 0o600 }); await rename(temp, this.file); }); return this.pending; }
     log(title, detail = '') { this.data.activity.unshift({ id: uid(), title, detail, time: Date.now() }); this.data.activity = this.data.activity.slice(0, 300); }
 }
 const extensions = new Set(['.txt', '.md', '.csv', '.json', '.ts', '.tsx', '.js', '.jsx', '.py', '.html', '.css', '.yaml', '.yml', '.xml', '.log']);

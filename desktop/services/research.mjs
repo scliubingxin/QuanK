@@ -9,6 +9,7 @@ import { klineSvg } from '../src/shared/market.js';
 import { opsMarks } from '../src/ui/market.js';
 import { backtestReturns, returnSvg } from '../src/ui/quant.js';
 import { parseNoticeList, parseNoticeContent, keyPoints, NOTICE_PROMPT, buildStockReport, reportToDocx, reportToPptx, reportToHtml, briefingReport, reviewReport, engineReport, normalizeNote, libraryItems, LIBRARY_LIMIT } from '../src/shared/research.js';
+import { applyStandardNotes, reviewSpec, describeReview } from '../src/shared/compliance.js'; // [F5]
 
 const LIST = 'https://np-anotice-stock.eastmoney.com/api/security/ann', BODY = 'https://np-cnotice-stock.eastmoney.com/api/content/ann';
 const UA = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 QuanK', referer: 'https://data.eastmoney.com/'};
@@ -21,7 +22,7 @@ const cst = t => new Date(t + 8 * 3600e3);
 const today = t => cst(t).toISOString().slice(0, 10);
 const localTime = t => Number.isFinite(t) ? cst(t).toISOString().slice(5, 16).replace('T', ' ') : '';
 
-export function createResearchService({store, documents, market = null, quant = null, finance = null, fetcher = globalThis.fetch, ask = null, rasterize = null, notify = () => {}, onAlert = () => {}, now = Date.now, timeoutMs = 12000} = {}) {
+export function createResearchService({store, documents, market = null, quant = null, finance = null, fetcher = globalThis.fetch, ask = null, rasterize = null, compliance = null, notify = () => {}, onAlert = () => {}, now = Date.now, timeoutMs = 12000} = {}) {
   const cache = new Map(), bodies = new Map();
   let scanBusy = false;
   const st = () => {
@@ -134,7 +135,15 @@ export function createResearchService({store, documents, market = null, quant = 
 
   // ---------- M1 / M4: documents ----------
   const CHART_NAMES = {kline: '图 1：日 K 线与回测买卖点（红 B 买入 / 绿 S 卖出）', returns: '图 2：回测收益率，智能定投 vs 普通定投', finance: '图 3：单季营收与归母净利润', nav: '附图：组合市值与回撤（按当前持仓回溯，对比沪深300）', alloc: '附图：个股仓位分布'};
-  async function render(spec, format, svgs = {}) {
+  async function render(spec0, format, svgs = {}, {force = false} = {}) {
+    // [F5 M4] compliance: standard disclaimer + risk notes, then a review; blocking findings stop the export when configured
+    let spec = spec0, review = null;
+    const C = compliance?.settings?.();
+    if (C?.enabled) {
+      spec = applyStandardNotes(spec0, C);
+      review = reviewSpec(spec, {settings: C});
+      if (C.block && review.counts.high && !force) { const e = new Error(`${describeReview(review)}，已阻止导出：${review.findings.filter(f => f.level === 'high').slice(0, 3).map(f => `${f.where ? f.where + '：' : ''}${f.label}${f.match ? `「${f.match}」` : ''}`).join('；')}。修改后重试，或在「安全与合规」里关闭阻止导出。`); e.code = 'QK_COMPLIANCE'; e.review = review; try { await compliance.note?.(review, {title: spec.title, kind: spec.kind || 'report'}); } catch {} throw e; }
+    }
     let bytes;
     if (format === 'html') bytes = Buffer.from(reportToHtml(spec, {charts: svgs}), 'utf8');
     else if (format === 'pptx') bytes = (await generateDocument('pptx', reportToPptx(spec))).bytes;
@@ -147,7 +156,8 @@ export function createResearchService({store, documents, market = null, quant = 
     const name = clip(`${spec.title}${spec.date && !spec.title.includes(spec.date) ? ' ' + spec.date : ''}`.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' '), 90);
     const r = await documents.importFile(name, format, Buffer.from(bytes));
     const d = r?.document || r;
-    return {id: d.id, name: d.name, format};
+    if (review) { try { await compliance.note?.(review, {title: spec.title, kind: spec.kind || 'report', documentId: d.id}); } catch {} }
+    return {id: d.id, name: d.name, format, ...(review ? {compliance: {level: review.level, counts: review.counts, text: describeReview(review), findings: review.findings.slice(0, 10).map(f => ({level: f.level, label: f.label, match: f.match, where: f.where, fix: f.fix}))}} : {})};
   }
   const settle = async f => { try { return await f(); } catch (e) { return {__error: clip(e?.message || e, 140)}; } };
   const ok = x => x && !x.__error ? x : null;
