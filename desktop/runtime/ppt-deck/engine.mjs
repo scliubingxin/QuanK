@@ -2,6 +2,7 @@
 import { validateDeck } from './schema.mjs';
 import { getTheme, FONT, GRID } from './themes.mjs';
 import { layoutSlide } from './layouts.mjs';
+import { brandImages } from './quank-logo.mjs'; // [F1g]
 import { splitText } from './measure.mjs';
 
 const half = (a) => { const m = Math.ceil(a.length / 2); return [a.slice(0, m), a.slice(m)]; };
@@ -55,6 +56,7 @@ const SECTIONS = new Set(['section']);
 export function planDeck(input, { images } = {}) {
   const spec = validateDeck(input), theme = getTheme(spec.theme);
   const brand = { name: 'QuanK', showLogo: true, ...(spec.brand || {}) };
+  { const bi = brandImages(spec, images); images = bi.images; if (bi.markImageId) brand.markImageId = bi.markImageId; } // [F1g]
   const ctx = { theme, brand, images, page: 1, total: 1, pageNumbers: spec.pageNumbers !== false };
   let secNo = 0; const pages = [];
   for (const raw of spec.slides) {
@@ -85,7 +87,7 @@ export function renderDeck(PptxGenCtor, input, { images, title } = {}) {
   deck.theme = { headFontFace: FONT.zh, bodyFontFace: FONT.zh };
   for (const sl of built.slides) {
     const slide = deck.addSlide(); slide.background = { color: col(built.theme.bg) };
-    for (const sh of sl.shapes) drawShape(slide, sh, images);
+    for (const sh of sl.shapes) drawShape(slide, sh, built.images); // [F1g] includes the built-in mark
     if (sl.notes) slide.addNotes(sl.notes);
   }
   return { deck, built };

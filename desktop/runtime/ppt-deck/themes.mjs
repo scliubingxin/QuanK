@@ -22,8 +22,13 @@ export const THEMES = {
     text: '3B2A22', muted: '8A7466', border: 'F2DCC8', onPrimary: 'FFFFFF', onCoverMuted: 'FED7AA',
     series: ['C2410C', 'D97706', '0F766E', '7C2D12'], preview: ['C2410C', 'EA580C', 'FFF1E3', '3B2A22'],
   }),
+  quank: base('quank', 'QuanK 品牌', { // [F1g] QuanK palette: royal blue, cobalt headings, blue-violet accent
+    dark: false, primary: '2F62F5', accent: '8C7CFF', light: 'EEF2FF', bg: 'FFFFFF', coverBg: '0B2BA6',
+    text: '14213D', muted: '6B7591', border: 'DCE3F5', onPrimary: 'FFFFFF', onCoverMuted: 'C7D2FE',
+    series: ['2F62F5', '8C7CFF', '0B2BA6', 'E4A854'], preview: ['0B2BA6', '2F62F5', '8C7CFF', '14213D'],
+  }),
 };
-export const DEFAULT_THEME = 'business-blue';
+export const DEFAULT_THEME = 'quank';
 export const themeNames = () => Object.keys(THEMES);
 export const getTheme = (id) => THEMES[id] || THEMES[DEFAULT_THEME];
 // 排版常量（单位：英寸 / pt）

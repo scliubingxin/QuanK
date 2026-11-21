@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "default": "business-blue",
+  "default": "quank",
   "font": {
     "zh": "Microsoft YaHei",
     "fallback": [
@@ -139,6 +139,35 @@
           "D97706",
           "0F766E",
           "7C2D12"
+        ]
+      }
+    },
+    {
+      "id": "quank",
+      "name": "QuanK 品牌",
+      "dark": false,
+      "preview": [
+        "0B2BA6",
+        "2F62F5",
+        "8C7CFF",
+        "14213D"
+      ],
+      "colors": {
+        "primary": "2F62F5",
+        "accent": "8C7CFF",
+        "light": "EEF2FF",
+        "bg": "FFFFFF",
+        "coverBg": "0B2BA6",
+        "text": "14213D",
+        "muted": "6B7591",
+        "border": "DCE3F5",
+        "onPrimary": "FFFFFF",
+        "onCoverMuted": "C7D2FE",
+        "series": [
+          "2F62F5",
+          "8C7CFF",
+          "0B2BA6",
+          "E4A854"
         ]
       }
     }

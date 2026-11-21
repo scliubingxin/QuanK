@@ -16,11 +16,11 @@ test('skill plaza: hero search, live counts, category chips, my skills above the
   bindPresetFilters(doc);
   assert.match(doc.querySelector('.plaza-hero h1').textContent, /金融工作的常用方法/);
   assert.equal(doc.querySelector('input').getAttribute('aria-label'), '搜索预置技能', 'the hero search is the first input');
-  assert.deepEqual([...doc.querySelectorAll('.plaza-stats b')].map(b => b.textContent), ['24', '1', '1']);
+  assert.deepEqual([...doc.querySelectorAll('.plaza-stats b')].map(b => b.textContent), ['32', '1', '1']);
   const mine = doc.querySelector('.mine-card');
   assert.equal(mine.querySelector('h3').textContent, 'my-<b>skill</b>');
   assert.ok(doc.querySelector('[data-action="uploadSkill"]') && doc.querySelector('[data-action="toggleSkill"][data-id="s1"]'));
-  assert.equal(doc.querySelectorAll('.preset-card').length, 24);
+  assert.equal(doc.querySelectorAll('.preset-card').length, 32);
   const chips = [...doc.querySelectorAll('[data-preset-chip]')];
   assert.equal(chips[0].textContent, '全部');
   const office = chips.find(c => c.dataset.presetChip && doc.querySelector(`.preset-card[data-preset-kind="${c.dataset.presetChip}"]`));

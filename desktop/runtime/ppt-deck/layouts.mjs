@@ -45,8 +45,15 @@ function logo(ctx, out, x, y, mode) {
     return;
   }
   const c = mode === 'dark' ? t.onPrimary : t.primary;
-  out.push(shape({ shape: 'roundRect', x: x + G.logoW - 2.0, y: y + 0.07, w: 0.36, h: 0.36, fill: mode === 'dark' ? t.accent : t.primary, radius: 0.07, role: 'logo' }));
-  tb(ctx, out, { x: x + G.logoW - 2.0, y: y + 0.07, w: 0.36, h: 0.36, text: Array.from(ctx.brand.name)[0] || 'W', max: 14, bold: true, color: mode === 'dark' ? t.coverBg : t.onPrimary, align: 'center', valign: 'middle', ls: 1.0, role: 'logo' });
+  const mark = ctx.brand.markImageId && ctx.images?.[ctx.brand.markImageId]; // [F1g] built-in QuanK mark
+  if (mark) {
+    if (mode === 'dark') out.push(shape({ shape: 'roundRect', x: x + G.logoW - 2.05, y: y + 0.01, w: 0.48, h: 0.48, fill: 'FFFFFF', radius: 0.1, role: 'logo' }));
+    const mh = 0.4, mw = mh * mark.width / mark.height;
+    out.push({ kind: 'image', imageId: ctx.brand.markImageId, x: x + G.logoW - 2.05 + (0.48 - mw) / 2, y: y + 0.05, w: mw, h: mh, role: 'logo' });
+  } else {
+    out.push(shape({ shape: 'roundRect', x: x + G.logoW - 2.0, y: y + 0.07, w: 0.36, h: 0.36, fill: mode === 'dark' ? t.accent : t.primary, radius: 0.07, role: 'logo' }));
+    tb(ctx, out, { x: x + G.logoW - 2.0, y: y + 0.07, w: 0.36, h: 0.36, text: Array.from(ctx.brand.name)[0] || 'W', max: 14, bold: true, color: mode === 'dark' ? t.coverBg : t.onPrimary, align: 'center', valign: 'middle', ls: 1.0, role: 'logo' });
+  }
   tb(ctx, out, { x: x + G.logoW - 1.55, y, w: 1.55, h: G.logoH, text: ctx.brand.name, max: 15, min: 10, bold: true, color: c, valign: 'middle', ls: 1.0, role: 'logo' });
 }
 function takeaway(ctx, out, slide, body) {

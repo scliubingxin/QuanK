@@ -2,7 +2,7 @@
 const clean = (v) => v.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[*_`~]/g, '').trim();
 const cut = (v, n) => (Array.from(v).length > n ? Array.from(v).slice(0, n - 1).join('') + '…' : v);
 const chunk = (a, n) => { const out = []; for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n)); return out; };
-export function markdownToDeck(name, text, { theme = 'business-blue', brand } = {}) {
+export function markdownToDeck(name, text, { theme = 'quank', brand } = {}) {
   const lines = String(text).replace(/\r/g, '').split('\n');
   const groups = []; let cur = { title: '', blocks: [] }, docTitle = '', para = [], bullets = [], numbered = [], table = [];
   const flush = () => {
