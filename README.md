@@ -4,7 +4,7 @@
   <p><b>量化工作，一键搞定</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.49.0-2F62F5" alt="version">
+    <img src="https://img.shields.io/badge/version-0.49.1-2F62F5" alt="version">
     <img src="https://img.shields.io/badge/macOS-12%2B%20·%20Apple%20芯片-0B2BA6" alt="platform">
     <img src="https://img.shields.io/badge/license-Apache--2.0-8C7CFF" alt="license">
   </p>
@@ -47,7 +47,7 @@
 
 ## 下载与安装
 
-**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.49.0-mac-arm64.dmg`**。
+**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.49.1-mac-arm64.dmg`**。
 
 1. 双击 DMG，把 **QuanK** 拖到 **应用程序**。
 2. 首次打开：在「应用程序」里右键 QuanK → 打开（只需一次）。
@@ -230,6 +230,7 @@ cd QuanK/desktop && npm install && npm start
 
 ## 更新记录
 
+- **v0.49.1** — 修复：个股页「财务与关系」「投研资料」与量化页「投研资料库」「投研知识库」「组合与风控」提示「当前窗口缺少此功能接口」。下载 `QuanK-v0.49.1-mac-arm64.dmg`。
 - **v0.49** — F4 组合与风控：组合总览与行业分布、止损 / 止盈 / 回撤 / 仓位风控提醒、波动率 / 回撤 / Beta / VaR 风险指标、压力测试与调仓模拟（只提醒、只计算，不下单）。下载 `QuanK-v0.49.0-mac-arm64.dmg`。
 - **v0.48** — F3 投研知识库：资料库检索（附出处）、财报数据库与单季趋势、公司与产业链关系图、研究主题周报。下载 `QuanK-v0.48.0-mac-arm64.dmg`。
 - **v0.47.1** — K 线在东方财富接口受限时自动改用腾讯行情；回测收益率与策略收益统一口径（含储备金）。

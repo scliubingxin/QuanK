@@ -358,3 +358,14 @@ test('feed and wiring', async () => {
   const rs = await readFile(new URL('../services/research.mjs', import.meta.url), 'utf8');
   assert.match(rs, /nav: '附图：组合市值与回撤/);
 });
+
+test('preload exposes every channel the renderer invokes on a registered handler (v0.49.1 regression)', async () => {
+  const read = f => readFile(new URL(f, import.meta.url), 'utf8');
+  const [preload, main, app, knowledge, portfolio, research] = await Promise.all(['../preload.cjs', '../main.mjs', '../src/app.js', '../src/ui/knowledge.js', '../src/ui/portfolio.js', '../src/ui/research.js'].map(read));
+  const exposed = new Set([...preload.match(/const methods=\[(.*?)\];/s)[1].matchAll(/'(\w+)'/g)].map(m => m[1]));
+  const registered = new Set([...main.matchAll(/register\('(\w+)'/g)].map(m => m[1]));
+  const used = new Set([...[app, knowledge, portfolio, research].join('\n').matchAll(/invoke\('(\w+)'/g)].map(m => m[1]));
+  const missing = [...used].filter(n => registered.has(n) && !exposed.has(n));
+  assert.deepEqual(missing, [], `renderer calls these handlers but preload.cjs does not expose them: ${missing.join(', ')}`);
+  for (const n of ['research', 'knowledge', 'portfolio', 'quant', 'market']) assert.ok(exposed.has(n), n);
+});
