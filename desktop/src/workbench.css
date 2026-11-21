@@ -1276,3 +1276,21 @@ html,body,.main,.workspace{background:#f7f8fc}
 .qi{display:grid;gap:4px;padding:12px 14px;border-radius:12px;background:linear-gradient(180deg,#f8faff,#fff);border:1px solid #edf1f8}
 .qi small{font-size:12px;color:#6b7591}.qi b{font-size:19px;font-weight:800;color:#14213d;font-variant-numeric:tabular-nums}
 .qi b.up{color:#e5484d}.qi b.down{color:#18a058}
+
+/* ===== [F1f] 对话框：智能体头像、计划/研究/无痕入口、浮层不再被裁切、拖拽与粘贴附件 ===== */
+.qk-hero .compact-composer{overflow:visible!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:#fff!important}
+.qk-hero .compact-composer textarea{border-radius:20px 20px 0 0!important}
+.qk-hero .compact-composer .composer-bar{border-radius:0 0 20px 20px}
+.inline-picker{z-index:60}
+.composer-bar-start{min-width:0;flex-wrap:wrap;row-gap:6px}
+.composer-agent-pill{display:inline-flex;align-items:center;gap:7px;padding:3px 6px 3px 3px;border-radius:999px;background:linear-gradient(135deg,#eef3ff,#f3efff);border:1px solid #d9e2fb;box-shadow:0 4px 12px -8px #2f62f5;position:relative}
+.composer-agent-pill:hover{border-color:#b7c7fa}
+.composer-agent-pill .av{width:26px!important;height:26px!important;border-radius:50%!important;box-shadow:none}
+.composer-agent-pill .composer-agent{background:transparent!important;color:#183ff5!important;font-weight:600;font-size:12.5px;padding:4px 18px 4px 0;max-width:150px}
+.composer-modes{display:inline-flex;gap:4px;padding:2px;border-radius:999px;background:#f3f5fb}
+.composer-mode{display:inline-flex;align-items:center;gap:4px;border:0;background:none;border-radius:999px;padding:5px 11px;font-size:12px;color:#5b6787;cursor:pointer;white-space:nowrap}
+.composer-mode:hover{color:#2f62f5;background:#fff}
+.composer-mode.chosen{background:#2f62f5;color:#fff;box-shadow:0 4px 10px -6px #2f62f5}
+.composer-mode svg{width:13px!important;height:13px!important}
+.composer.drop-on{outline:2px dashed #2f62f5;outline-offset:3px;background:#f5f8ff!important}
+.composer.drop-on:after{content:'松开即可添加为附件（图片、PDF、Word、Excel、PPT、ZIP 等）';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:8px 14px;border-radius:999px;background:#2f62f5;color:#fff;font-size:12.5px;pointer-events:none;z-index:5;white-space:nowrap}
