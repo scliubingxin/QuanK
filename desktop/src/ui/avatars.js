@@ -100,8 +100,10 @@ const G = {
   ask: '<path d="M24 8.6 37 13.4v9.2c0 8-5.6 13.4-13 15.6-7.4-2.2-13-7.6-13-15.6v-9.2z" fill="#FFFFFF"/><path d="M20.4 19.6a3.8 3.8 0 1 1 5.4 3.4c-1.2.6-1.8 1.4-1.8 2.6v.8" stroke="#F97316" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="24" cy="31" r="1.6" fill="#F97316"/>',
   log: '<rect x="11" y="9" width="24" height="30" rx="4" fill="#FFFFFF"/><path d="M16 17h14M16 22h14M16 27h8" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round"/><path d="m27 37 2-6 8-8 4 4-8 8z" fill="#94A3B8"/><path d="m35 25 4 4" stroke="#64748B" stroke-width="1.6"/>',
 };
-const SKILL_CAT = {'投研分析': ['research', 0], '财务建模': ['model', 5], '资讯跟踪': ['news', 2], '风控合规': ['shield', 1], '量化交易': ['candles', 3], '办公协同': ['doc', 4], '数据分析': ['sheet', 2], '效率工具': ['bolt', 4], '通用开发': ['code', 1]};
-const SKILL_ID = {'fin-morning-brief': ['news', 3], 'fin-valuation': ['model', 1], 'wb-presentation-outline': ['slides', 4], 'wb-meeting-actions': ['meeting', 2], 'wb-knowledge-handbook': ['book', 0], 'wb-sheet-analysis': ['sheet', 5], 'fin-portfolio-review': ['candles', 1]};
+const SKILL_CAT = {'内容创作': ['news', 4], '运维工具': ['code', 3], // [F1g]
+  '投研分析': ['research', 0], '财务建模': ['model', 5], '资讯跟踪': ['news', 2], '风控合规': ['shield', 1], '量化交易': ['candles', 3], '办公协同': ['doc', 4], '数据分析': ['sheet', 2], '效率工具': ['bolt', 4], '通用开发': ['code', 1]};
+const SKILL_ID = {'qk-wechat-article': ['news', 4], 'qk-server-ops': ['code', 3], 'qk-ppt-builder': ['slides', 0], 'qk-deep-research': ['research', 2], 'qk-structured-comparison': ['sheet', 1], 'qk-data-analysis': ['model', 3], 'qk-dashboard-design': ['sheet', 4], 'qk-doc-delivery': ['doc', 0], // [F1g]
+  'fin-morning-brief': ['news', 3], 'fin-valuation': ['model', 1], 'wb-presentation-outline': ['slides', 4], 'wb-meeting-actions': ['meeting', 2], 'wb-knowledge-handbook': ['book', 0], 'wb-sheet-analysis': ['sheet', 5], 'fin-portfolio-review': ['candles', 1]};
 const SOFT_BG = {5: ['#22A06B', '#6EE7B7']};
 /** Skill avatar by preset id, else category, else keywords in the name. */
 export function skillAvatar(s = {}, cls = 'pc-icon') {

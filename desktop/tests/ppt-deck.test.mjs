@@ -103,12 +103,12 @@ test('版式: 极端长标题/副标题缩字不低于 22pt 且不溢出', () =>
   const t = '这是一个非常非常长的标题用来测试标题区域的自动缩字和换行逻辑是否可靠'; const b = buildDeckLayout({ slides: [{ layout: 'summary', title: t, subtitle: '副标题'.repeat(20), points: ['a'] }] });
   const title = b.slides[0].shapes.find((s) => s.role === 'title'); assert.ok(title.size >= 22); assert.equal(b.slides[0].overflow, false);
 });
-test('主题: 4 套主题、角色齐全、字体为微软雅黑+苹方回退，JSON 与源同步', () => {
-  assert.equal(Object.keys(THEMES).length, 4);
+test('主题: 5 套主题、角色齐全、字体为微软雅黑+苹方回退，JSON 与源同步', () => {
+  assert.equal(Object.keys(THEMES).length, 5); // [F1g] + quank
   for (const t of Object.values(THEMES)) for (const k of ['primary', 'accent', 'light', 'bg', 'text', 'muted', 'border', 'coverBg']) assert.match(t[k], /^[0-9A-F]{6}$/, `${t.id}.${k}`);
   assert.equal(FONT.zh, 'Microsoft YaHei'); assert.equal(FONT.fallback[0], 'PingFang SC');
   execFileSync('node', [new URL('../scripts/gen-ppt-themes.mjs', import.meta.url).pathname, '--check']);
-  const j = JSON.parse(readFileSync(new URL('../runtime/ppt-themes.json', import.meta.url), 'utf8')); assert.equal(j.themes.length, 4); assert.equal(j.themes[0].colors.primary, '1F4E9E');
+  const j = JSON.parse(readFileSync(new URL('../runtime/ppt-themes.json', import.meta.url), 'utf8')); assert.equal(j.themes.length, 5); assert.equal(j.themes[0].colors.primary, '1F4E9E');
   for (const id of Object.keys(THEMES)) { const b = buildDeckLayout({ ...sample, theme: id }); assert.ok(b.slides.every((s) => !s.overflow), id); }
 });
 test('集成: generateDocument 走新链路，旧格式与混用规则保持', async () => {
