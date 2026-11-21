@@ -81,7 +81,7 @@ export function createPortfolioService({store, quant = null, market = null, know
     return {summary, nav, bench, bars: bm, errors, breaches, rules: p.rules, rulesText: describeRules(p.rules), at: now()};
   }
   const publicOverview = o => ({summary: o.summary, nav: o.nav, breaches: o.breaches, rules: o.rules, rulesText: o.rulesText, errors: o.errors, at: o.at,
-    svg: {nav: navSvg(o.nav, o.bench), stocks: allocationSvg(allocationRows(o.summary, 'stock'), {cap: o.rules.maxPosition < 100 ? o.rules.maxPosition : null}), industries: allocationSvg(allocationRows(o.summary, 'industry'), {cap: o.rules.maxIndustry < 100 ? o.rules.maxIndustry : null, title: '行业分布'})}});
+    svg: {nav: navSvg(o.nav, o.bench), stocks: allocationSvg(allocationRows(o.summary, 'stock'), {w: 600, cap: o.rules.maxPosition < 100 ? o.rules.maxPosition : null}), industries: allocationSvg(allocationRows(o.summary, 'industry'), {w: 600, cap: o.rules.maxIndustry < 100 ? o.rules.maxIndustry : null, title: '行业分布'})}});
 
   async function risk(o0 = null) {
     const o = o0 || await overview();

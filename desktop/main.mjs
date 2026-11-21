@@ -37,6 +37,10 @@ import { createMarketService } from './services/market.mjs'; // [F1]
 import { createResearchService } from './services/research.mjs'; // [F2]
 import { createKnowledgeService } from './services/knowledge.mjs'; // [F3]
 import { createPortfolioService } from './services/portfolio.mjs'; // [F4]
+import { createAuditLog, auditOf } from './services/audit.mjs'; // [F5]
+import { createEgressMonitor } from './services/egress.mjs'; // [F5]
+import { createVault } from './services/vault.mjs'; // [F5]
+import { createSecurityService } from './services/security.mjs'; // [F5]
 import { modelEndpoint as qkModelEndpoint } from './core.mjs'; // [F1c]
 import { createQuantEngine } from './services/quant-engine.mjs'; // [q1]
 import { normalizeWatch, actionLabel as quantActionLabel } from './src/shared/quant.js'; // [q3]
@@ -63,7 +67,7 @@ import { createConversationService } from './services/conversation.mjs';
 import { createTaskService } from './services/tasks.mjs';
 import { recoverInterruptedWork } from './services/recovery.mjs';
 import { requiredText as text } from './services/validation.mjs';
-import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Menu, safeStorage, shell, Notification, session, protocol, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Menu, safeStorage, shell, Notification, session, protocol, nativeImage, powerMonitor, systemPreferences } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readFile, writeFile, stat } from 'node:fs/promises';
@@ -76,6 +80,10 @@ import { Store, uid, listGranted, readGranted, complete } from './core.mjs';
 protocol.registerSchemesAsPrivileged([previewScheme]);
 const here = path.dirname(fileURLToPath(import.meta.url));
 let win, store, sessionKey = '', runner, closing = false, tick, shortcutReady = false;
+let security = null, auditLog = null, vault = null; // [F5]
+// [F5 M2] every fetch from the main process is recorded (host / path / bytes, never bodies) and refused in offline mode
+const egress = createEgressMonitor({ privacy: () => store?.data?.security?.privacy, onRequest: e => { if (e.purpose === '大模型' && e.method === 'POST') auditLog?.record({ kind: 'model', action: '调用大模型', target: e.host, detail: `${e.path} · ${e.status === -1 ? '失败' : e.status}`, via: 'app' }).catch(() => {}); } });
+egress.install(globalThis);
 const active = new Map();
 const browser = new BrowserService({ BrowserWindow, shell });
 // [p1-m4] background completion: system notification when the window is not focused, dock badge = unread chats
@@ -93,18 +101,32 @@ const notifyRuntime = () => {
     if (win && !win.isDestroyed())
         win.webContents.send('actwill:runtime');
 };
-const approve = createApprover({ dialog, getWindow: () => win, focus });
+const approveNative = createApprover({ dialog, getWindow: () => win, focus });
+const approve = Object.assign(async (title, detail, signal, scope) => { // [F5 M3] every confirmation and its answer is audited
+    let r; try { r = await approveNative(title, detail, signal, scope); } catch (e) { auditLog?.record({ kind: 'approval', action: '确认框', target: String(title || '').slice(0, 60), detail: `取消：${String(e?.message || e).slice(0, 60)}` }).catch(() => {}); throw e; }
+    const ok = r === true || r?.allowed === true;
+    auditLog?.record({ kind: 'approval', action: ok ? '已确认' : '已拒绝', target: String(title || '').slice(0, 60), detail: r?.alwaysAllow ? '选择了总是允许' : r?.browserTask ? '本任务本站点允许' : r?.documentTask ? '本任务允许此文档' : '' }).catch(() => {});
+    return r;
+}, { cancelAll: () => approveNative.cancelAll() });
 let toolRuntime, genoffice, models, projects, libreoffice, officeWindows, connectors, graphService, dashboards, miniapps, quant, market, research, knowledge, portfolio; // [p3-m1][p3-m5][p4-m1][p4-m4][q1][F1][F2][F3][F4]
 const pdfImports = createPdfImportControl({notify: notifyRuntime});
 const executeTool = (...args) => toolRuntime.execute(...args);
-const view = () => { const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,research:_research,knowledge:_knowledge,portfolio:_portfolio,quant:_quant,...publicData}=store.data; return { ...publicData, pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, research: research?.view()||null, knowledge: knowledge?.view()||null, portfolio: portfolio?.view()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
+const view = () => { if (security?.locked) return { locked: true, lock: security.lockState() }; const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,research:_research,knowledge:_knowledge,portfolio:_portfolio,security:_security,quant:_quant,...publicData}=store.data; return { ...publicData, pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, research: research?.view()||null, knowledge: knowledge?.view()||null, portfolio: portfolio?.view()||null, security: security?.summary()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
 function key() {
     if (sessionKey)
         return sessionKey;
     const encrypted = store.data.settings.encryptedKey;
     return encrypted ? safeStorage.decryptString(Buffer.from(encrypted, 'base64')) : '';
 }
-const register = createRegistrar({ ipcMain, getWindow: () => win, entryURL: new URL('./src/index.html', import.meta.url).href });
+const registerIpc = createRegistrar({ ipcMain, getWindow: () => win, entryURL: new URL('./src/index.html', import.meta.url).href });
+// [F5] while QuanK is locked only the lock screen's calls are served; writes are recorded in the audit log
+const LOCK_OPEN = new Set(['state', 'security']);
+const register = (name, handler) => registerIpc(name, async p => {
+    if (security?.locked && !LOCK_OPEN.has(name)) throw new Error('QuanK 已锁定，请先解锁');
+    const a = auditLog ? auditOf(name, p) : null;
+    try { const r = await handler(p); if (a) auditLog.record({ ...a, via: 'app' }).catch(() => {}); return r; }
+    catch (e) { if (a) auditLog.record({ ...a, detail: `${a.detail} · 失败：${String(e?.message || e).slice(0, 60)}`, via: 'app' }).catch(() => {}); throw e; }
+});
 const previewOcrSource = createOcrPreviewLimiter();
 const ocrPreviewAbort = new AbortController();
 app.on('before-quit',()=>ocrPreviewAbort.abort(Error('应用正在退出')));
@@ -148,7 +170,13 @@ else {
         if (process.platform === 'darwin')
             app.dock.setIcon(path.join(here, 'assets/icon-1024.png'));
         store = new Store(app.getPath('userData'));
+        // [F5 M1] encrypted workspace: the data key is sealed by the keychain; plaintext files keep loading as before
+        vault = createVault({ dir: app.getPath('userData'), seal: b => safeStorage.encryptString(b.toString('base64')), unseal: buf => Buffer.from(safeStorage.decryptString(buf), 'base64') });
+        await vault.prepare();
+        store.codec = vault.codec;
         await store.load();
+        auditLog = createAuditLog({ dir: path.join(app.getPath('userData'), 'audit') });
+        await auditLog.load().catch(() => {});
         if (store.data.cryptoIdentity !== APP_NAME && (store.data.cryptoMigration?.attempts || 0) < 3) { // [rebrand] re-seal secrets saved under the old name, in the background (never blocks the window)
             const openCurrent = c => { try { return safeStorage.decryptString(Buffer.from(c, 'base64')); } catch { return null; } };
             void rekeySecrets(store.data, { unsealLegacy: list => runLegacyUnseal(list), openCurrent, seal: s => safeStorage.encryptString(s).toString('base64') })
@@ -218,7 +246,7 @@ else {
             openConnectorForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'connectors', connector: p }); }, web: createWebLookup(), // [ux9]
             openMcpForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'agents', mcp: p }); }, get capabilities() { return capabilityLibrary; }, // [mcp2]
             runTask: (id, o) => runTask(id, o), get workspace() { try { return workspace; } catch { return null; } },
-            get connectors() { return connectors; }, get dashboards() { return dashboards; }, get briefing() { return briefing; }, get miniapps() { return miniapps; }, get quant() { return quant; }, get market() { return market; }, get research() { return research; }, get knowledge() { return knowledge; }, get portfolio() { return portfolio; }, openDocument: id => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'library', document: id }); }, openMarket: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'market', code }); }, openQuant: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'quant', code }); } };
+            get connectors() { return connectors; }, get dashboards() { return dashboards; }, get briefing() { return briefing; }, get miniapps() { return miniapps; }, get quant() { return quant; }, get market() { return market; }, get research() { return research; }, get knowledge() { return knowledge; }, get portfolio() { return portfolio; }, get security() { return security; }, get audit() { return auditLog; }, privacy: () => store.data.security?.privacy, openDocument: id => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'library', document: id }); }, openMarket: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'market', code }); }, openQuant: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'quant', code }); } };
         conversations = createConversationService({ appTools: appDeps, approve, rules: approvalRules, models, secrets:mcpSecrets, images, queue:runs, store, active, key, view, executeTool, releaseToolGrants:id=>toolRuntime.releaseGrants(id), notify: notifyRuntime,notifyStream:event=>{if(win&&!win.isDestroyed())win.webContents.send('actwill:stream',event);},onCompleted:conversationFinished });
         if(runtimeRoot()){
             const kit=createOfficeWorkspace({documents:toolRuntime.documents,directory:path.join(store.dir,'office-kit'),runtime:officeRuntime,approve,notify:notifyRuntime,audit:async event=>{const prev=store.data.executions;store.data.executions=[event,...prev.filter(e=>e.id!==event.id)].slice(0,300);try{await store.save();}catch(e){store.data.executions=prev;throw e;}notifyRuntime();}});
@@ -289,9 +317,32 @@ else {
             } finally { if (!w.isDestroyed()) w.destroy(); }
         };
         const researchAsk = async (system, user) => { const route = models?.resolve('legacy', '', { tools: false, vision: false }); const s = route?.settings || store.data.settings; if (!s?.model || !s?.baseUrl) throw new Error('未配置模型'); const r = await complete(s, route ? route.key() : key(), [{ role: 'system', content: system }, { role: 'user', content: user }], AbortSignal.timeout(60000)); return String(r?.text || '').trim(); };
-        research = createResearchService({ store, documents: toolRuntime.documents, market, quant, finance: code => knowledge ? knowledge.forReport(code) : Promise.reject(new Error('知识库未就绪')), ask: researchAsk, rasterize, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', code: a.code }); }); n.show(); } catch {} } });
+        research = createResearchService({ store, documents: toolRuntime.documents, market, quant, compliance: { settings: () => security?.compliance(), note: (r, m) => security?.noteReview(r, m) }, finance: code => knowledge ? knowledge.forReport(code) : Promise.reject(new Error('知识库未就绪')), ask: researchAsk, rasterize, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', code: a.code }); }); n.show(); } catch {} } });
         knowledge = createKnowledgeService({ store, research, market, web: appDeps.web, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'library', ...(a.documentId ? { document: a.documentId } : {}) }); }); n.show(); } catch {} } }); // [F3]
         portfolio = createPortfolioService({ store, quant, market, knowledge, research, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', ...(a.code ? { code: a.code } : {}) }); }); n.show(); } catch {} } }); // [F4]
+        // [F5] 安全与合规
+        const aiDefault = () => { const r = models.resolve('legacy', '', { tools: false, vision: false }); const s0 = r?.settings || store.data.settings; if (!s0?.model || !s0?.baseUrl) return null; return { baseUrl: String(s0.baseUrl).replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, ''), model: s0.model, key: r ? r.key() : key(), name: r?.profile?.name || s0.name || '' }; };
+        security = createSecurityService({ store, audit: auditLog, egress, vault, dir: app.getPath('userData'), appName: APP_NAME, notify: notifyRuntime,
+            idleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return 0; } },
+            touchId: { can: () => { try { return process.platform === 'darwin' && systemPreferences.canPromptTouchID(); } catch { return false; } }, prompt: reason => systemPreferences.promptTouchID(reason) },
+            saveFile: async ({ title, defaultName, filters }) => { const r = await dialog.showSaveDialog(win, { title, defaultPath: path.join(app.getPath('documents'), defaultName), filters }); return r.canceled ? null : r.filePath; },
+            openFile: async ({ title, filters }) => { const r = await dialog.showOpenDialog(win, { title, properties: ['openFile'], filters }); return r.canceled ? null : r.filePaths[0]; },
+            relaunch: () => { app.relaunch(); app.exit(0); },
+            secretsView: () => { const ai = aiDefault(); let host = ''; try { host = ai ? new URL(ai.baseUrl).hostname : ''; } catch {} return {
+                models: (models?.view() || []).map(m => { let h = ''; try { h = new URL(m.baseUrl).hostname; } catch {} return { id: m.id, name: m.name, host: h, model: m.model, hasKey: !!m.hasKey, keySaved: !!m.keySaved, enabled: m.enabled !== false }; }),
+                legacy: { hasKey: !!sessionKey || !!store.data.settings?.encryptedKey, keySaved: !!store.data.settings?.encryptedKey, model: store.data.settings?.model || '' },
+                mcp: mcpViews(store.data).filter(c => c.auth !== 'none' || (c.envNames || []).length).map(c => ({ id: c.id, name: c.name, auth: c.auth, hasToken: c.hasToken, signedIn: c.signedIn, envNames: c.envNames || [] })),
+                connectors: (connectors?.view()?.connectors || []).map(c => ({ id: c.id, name: c.name, kind: c.kind })),
+                engine: { ai: store.data.quant?.ai || 'willbuddy', model: ai?.model || '', host, configFile: path.join(app.getPath('userData'), 'quant', 'engine', 'config.json') },
+                secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }; },
+            testModel: async () => { const ai = aiDefault(); if (!ai) return { ok: false, message: '还没有配置默认模型' }; let host = ''; try { host = new URL(ai.baseUrl).hostname; } catch {}
+                if (!ai.key) return { ok: false, host, message: '默认模型没有保存 API Key' };
+                try { const r = await fetch(ai.baseUrl + '/models', { headers: { authorization: `Bearer ${ai.key}` }, redirect: 'error', signal: AbortSignal.timeout(15000) });
+                    if (r.ok) return { ok: true, host, status: r.status, model: ai.model, message: '密钥有效' };
+                    return { ok: false, host, status: r.status, model: ai.model, message: r.status === 401 || r.status === 403 ? '密钥无效或已失效（服务返回 ' + r.status + '）。请在「模型设置」里更换 API Key，然后在量化页点「重启」让策略引擎用上新密钥' : r.status === 404 ? '服务不支持模型列表接口，无法判断密钥是否有效；可以直接发一条对话试试' : `服务返回 ${r.status}` };
+                } catch (e) { return { ok: false, host, message: e?.code === 'QK_OFFLINE' ? e.message : `连不上 ${host}：${String(e?.message || e).slice(0, 80)}` }; } } });
+        register('security', async p => { const result = await security.handle(p); return ['view', 'egressList', 'auditList', 'auditVerify', 'review', 'secrets', 'testModel'].includes(p?.action) ? { result } : { result, state: view() }; });
+        powerMonitor.on('lock-screen', () => security?.onSleep()); powerMonitor.on('suspend', () => security?.onSleep());
         register('portfolio', async p => { const result = await portfolio.handle(p); return ['view', 'overview', 'risk', 'stress', 'simulate'].includes(p?.action) ? { result } : { result, state: view() }; });
         register('knowledge', async p => { const result = await knowledge.handle(p); return ['view', 'search', 'finance', 'graph', 'profile', 'compare', 'topicCollect'].includes(p?.action) ? { result } : { result, state: view() }; });
         register('research', async p => { const result = await research.handle(p); return ['view', 'library', 'read'].includes(p?.action) ? { result } : { result, state: view() }; });
@@ -487,6 +538,7 @@ else {
             void research?.tick().catch(() => {}); // [F2] pool announcements
             void knowledge?.tick().catch(() => {}); // [F3] weekly topic digests
             void portfolio?.tick().catch(() => {}); // [F4] risk rules in trading hours and after the close
+            try { security?.tick(); } catch {} // [F5] idle auto-lock
             for (const t of store.data.tasks) {
                 if (t.enabled && t.nextRun && t.nextRun <= Date.now() && !['queued','running','cancelling'].includes(t.status))
                     runTask(t.id, {scheduledFor:t.nextRun}).catch(() => { });

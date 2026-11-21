@@ -11,7 +11,8 @@ export const NAV_LAYOUT = [
   {group: 'capabilities', icon: 'agent', title: '智能体·连接·工具', items: [
     ['agents', 'agent', '智能体', '自定义角色、知识、技能与 MCP'],
     ['connectors', 'link', '连接', '邮件、日历、订阅与办公平台'],
-    ['tools', 'shield', '浏览器与权限', '浏览器、命令行与「总是允许」规则']]},
+    ['tools', 'shield', '浏览器与权限', '浏览器、命令行与「总是允许」规则'],
+    ['security', 'shield', '安全与合规', '加密、应用锁、外发记录、操作审计与合规审阅']]},
   {group: 'context', icon: 'search', title: '智能记忆', items: [
     ['graph', 'link', '知识图谱', '人、公司、项目和它们的关系'],
     ['context', 'spark', '记忆库', '偏好、关注方向与工作背景']]},
