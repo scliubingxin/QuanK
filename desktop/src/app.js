@@ -40,6 +40,7 @@ import { miniappPage, miniappForm, miniappPayload, miniappReviseForm, miniappRev
 import { quantPage, quantDashboards, quantAddForm, quantAddPayload, quantSettingsForm, quantSettingsPayload, quantWatchForm, quantWatchPayload, quantTradeForm, quantTradePayload, quantPlanForm, quantPlanPayload, quantReportDetail, quantReportAutoForm, quantReportAutoPayload } from './ui/quant.js';
 import { researchUI } from './ui/research.js'; // [F2]
 import { knowledgeUI } from './ui/knowledge.js'; // [F3]
+import { portfolioUI } from './ui/portfolio.js'; // [F4]
 import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView } from './ui/market.js';
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
 import { feedUnread } from './shared/feed.js';
@@ -232,6 +233,7 @@ function render() {
     }
     mountKlineBoxes(document, p => invoke('market', p)); marketPing(); signalPopups(); // [F1] [F1c]
     knowledgeUI.mountKnowledge(document, p => invoke('knowledge', p)); // [F3]
+    portfolioUI.mountPortfolio(document, p => invoke('portfolio', p), { view: () => state.portfolio }); // [F4]
     { // [p4-m4] mini app viewer: code and data are fetched when the viewer appears; every data change goes to main
         const mh = $('#miniappHost');
         if (!mh && miniappDispose) { miniappDispose(); miniappDispose = null; }
@@ -1268,6 +1270,27 @@ async function handle(actionId, id) {
         if (actionId === 'knTopicRemove') { const t = topic(); modal('删除研究主题', `<p>删除「${escape(t?.name || '')}」？已生成的周报会保留在成果中心。</p>`, '删除', async () => { await call({ action: 'topicRemove', id }); render(); toast('已删除'); }); return; }
         if (actionId === 'knTopicCollect') { const t = topic(); toast('正在汇集公告、资讯和资料…'); const r = await call({ action: 'topicCollect', id }); modal(`主题动态 · ${t?.name || ''}`, K.topicItemsHtml(r), '生成周报', async () => handle('knTopicDigest', id)); return; }
         if (actionId === 'knTopicDigest') { toast('正在生成主题周报…'); const r = await call({ action: 'topicDigest', id, format: 'docx' }); render(); toast(`主题周报已生成（${r.count} 条动态）`); if (r.document?.id) await handle('documentView', r.document.id); return; }
+    }
+    if (/^pf[A-Z]/.test(actionId)) { // [F4] 组合与风控: holdings, cash, rules, checks, scenarios, simulation, report
+        const P = portfolioUI, pf = state.portfolio || {};
+        const call = async p => { const out = await invoke('portfolio', p); if (out?.state) applyState(out.state); return out?.result || {}; };
+        const after = msg => { P.invalidatePortfolio(document); render(); if (msg) toast(msg); };
+        const later = (title, html) => setTimeout(() => modal(title, html), 0); // the form dialog closes right after its handler returns
+        const pos = c => (P.cachedOverview(document)?.summary?.positions || []).find(p => p.code === c), man = c => (pf.manual || []).find(m => m.code === c);
+        if (actionId === 'pfHoldingNew' || actionId === 'pfHoldingEdit') { const m = actionId === 'pfHoldingEdit' ? man(id) : null; modal(m ? `编辑持仓 · ${m.name || m.code}` : '录入持仓', P.holdingForm(m || {}), '保存', async f => { await call(P.holdingPayload(f)); after('已保存'); }); return; }
+        if (actionId === 'pfHoldingRemove') { const m = man(id); modal('删除手动持仓', `<p>删除「${escape(m?.name || id)}」的手动持仓记录？引擎里的成交记录不受影响。</p>`, '删除', async () => { await call({ action: 'holdingRemove', code: id }); after('已删除'); }); return; }
+        if (actionId === 'pfCash') { modal('账户现金', P.cashForm(pf.cash), '保存', async f => { await call(P.cashPayload(f)); after('已保存'); }); return; }
+        if (actionId === 'pfRules') { modal('风控规则', P.rulesForm(pf.rules || {}), '保存', async f => { const r = await call(P.rulesPayload(f)); after(r.text || '已保存'); }); return; }
+        if (actionId === 'pfStop') {
+            const p = pos(id) || { code: id }, m = man(id), cur = m ? m.stopPrice : pf.rules?.stops?.[id]?.stopPrice;
+            modal(`止损价 · ${p.name || id}`, P.stopForm({ ...p, stopPrice: cur ?? '' }), '保存', async f => { if (m) await call({ ...m, action: 'holdingSave', stopPrice: f.get('stopPrice') }); else await call(P.stopPayload(f, id)); after('已保存'); });
+            return;
+        }
+        if (actionId === 'pfCheck') { toast('正在检查风控规则…'); const r = await call({ action: 'check' }); after(r.breaches?.length ? `${r.breaches.length} 条风控提示` : '没有触发风控规则'); return; }
+        if (actionId === 'pfClearAlerts') { await call({ action: 'clearAlerts' }); after('已清空'); return; }
+        if (actionId === 'pfScenario') { modal('自定义情景', P.scenarioForm(P.cachedOverview(document)?.summary || {}), '计算', async f => { const r = await call(P.scenarioPayload(f)); later('压力测试结果', P.stressResultRows(r.results || [])); }); return; }
+        if (actionId === 'pfSimulate') { modal('模拟调仓', P.simulateForm(), '计算', async f => { const r = await call(P.simulatePayload(f)); later('调仓模拟结果', P.simulateHtml(r)); }); return; }
+        if (actionId === 'pfReport') { toast('正在生成组合风控报告…'); const r = await call({ action: 'report', format: 'docx' }); render(); toast('组合风控报告已保存到成果中心'); if (r.document?.id) await handle('documentView', r.document.id); return; }
     }
     if (/^research/.test(actionId)) { // [F2] 投研文档: reports, announcements, library, exports
         const call = async p => { const out = await invoke('research', p); if (out?.state) applyState(out.state); return out?.result || {}; };

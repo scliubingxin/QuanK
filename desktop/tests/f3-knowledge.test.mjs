@@ -203,7 +203,7 @@ test('UI: stock box mounts finance then graph; library box; forms', async () => 
 
 test('wiring: main, app, quant page, test loader', async () => {
   const main = await readFile(new URL('../main.mjs', import.meta.url), 'utf8'), app = await readFile(new URL('../src/app.js', import.meta.url), 'utf8'), quant = await readFile(new URL('../src/ui/quant.js', import.meta.url), 'utf8');
-  for (const s of ["createKnowledgeService({ store, research, market, web: appDeps.web", "register('knowledge'", 'knowledge?.tick()', 'get knowledge() { return knowledge; }', 'knowledge:_knowledge,quant:_quant,...publicData', 'knowledge.forReport(code)']) assert.ok(main.includes(s), s);
+  for (const s of ["createKnowledgeService({ store, research, market, web: appDeps.web", "register('knowledge'", 'knowledge?.tick()', 'get knowledge() { return knowledge; }', 'knowledge:_knowledge,portfolio:_portfolio,quant:_quant,...publicData', 'knowledge.forReport(code)']) assert.ok(main.includes(s), s);
   for (const s of ["/^kn[A-Z]/.test(actionId)", "knowledgeUI.mountKnowledge(document"]) assert.ok(app.includes(s), s);
   for (const s of ['${knowledgeBox(code)}', 'knowledgeLibraryBox(state.knowledge']) assert.ok(quant.includes(s), s);
 });

@@ -133,7 +133,7 @@ export function createResearchService({store, documents, market = null, quant = 
   }
 
   // ---------- M1 / M4: documents ----------
-  const CHART_NAMES = {kline: '图 1：日 K 线与回测买卖点（红 B 买入 / 绿 S 卖出）', returns: '图 2：回测收益率，智能定投 vs 普通定投', finance: '图 3：单季营收与归母净利润'};
+  const CHART_NAMES = {kline: '图 1：日 K 线与回测买卖点（红 B 买入 / 绿 S 卖出）', returns: '图 2：回测收益率，智能定投 vs 普通定投', finance: '图 3：单季营收与归母净利润', nav: '附图：组合市值与回撤（按当前持仓回溯，对比沪深300）', alloc: '附图：个股仓位分布'};
   async function render(spec, format, svgs = {}) {
     let bytes;
     if (format === 'html') bytes = Buffer.from(reportToHtml(spec, {charts: svgs}), 'utf8');

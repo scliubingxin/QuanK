@@ -68,6 +68,15 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_kb_topic_save', '新建或修改研究主题：按关键词汇集公告、公开资讯和资料库内容，每周自动生成主题周报。会弹出确认框。', {id: {type: 'string', description: '修改时给出主题 ID'}, name: {type: 'string'}, keywords: {type: 'string', description: '逗号分隔'}, codes: {type: 'string', description: '关联股票 6 位代码，逗号分隔，可留空'}, weekday: {type: 'integer', description: '0=周日 … 6=周六'}, time: {type: 'string', description: 'HH:mm'}, enabled: {type: 'boolean'}}, ['name', 'keywords']),
     def('app_kb_topic_remove', '删除一个研究主题（已生成的周报不受影响）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
     def('app_kb_topic_digest', '立即汇集某个研究主题的最新动态；report=true 时生成主题周报（Word / PPT / 网页）保存到成果中心并打开。', {id: {type: 'string'}, report: {type: 'boolean'}, format: {type: 'string', enum: ['docx', 'pptx', 'html']}}, ['id']),
+    // [F4] 组合与风控：总览、风控规则、风险指标、压力测试、调仓模拟、手动持仓、报告
+    def('app_pf_overview', '组合总览与风控检查：汇总本机引擎持仓和手动录入的持仓，返回总资产、股票市值、现金、浮动与今日盈亏、各股仓位与行业分布，以及当前触发的风控提醒（止损 / 止盈 / 回撤止盈 / 仓位超限 / 行业集中 / 组合回撤 / 风险公告）。用户问「我的组合怎么样」「仓位重不重」「有没有触发止损」时使用。只读。', {fresh: {type: 'boolean', description: '先从引擎重新读取持仓'}}),
+    def('app_pf_risk', '组合风险指标（按当前持仓回溯近一年行情估算）：年化波动率、最大回撤与区间、当前回撤、相对沪深300的 Beta 与相关系数、单日 VaR / CVaR（95%，历史模拟法），个股 Beta 和高相关持仓。只读。'),
+    def('app_pf_stress', '组合压力测试：不给情景时计算预置情景（大盘跌 5% / 10% / 20%、第一大行业跌 20%、第一大持仓连续三个跌停）；也可以给 kind=market（按 Beta 传导）/ industry / stock 和涨跌幅 pct。返回组合损失、占总资产、拖累最大的股票、会触发止损的股票。只读。', {kind: {type: 'string', enum: ['market', 'industry', 'stock']}, pct: {type: 'number', description: '涨跌幅，例如 -15'}, industry: {type: 'string'}, stock: {type: 'string', description: '公司名称或代码'}}),
+    def('app_pf_simulate', '模拟调仓（只计算，不下单）：changes 每笔一行「股票 股数 [价格]」，正数买入、负数卖出，例如「通威股份 -2000；600519 100 1450」。返回调仓前后的总资产、仓位、行业分布、大盘跌 10% 时的损失和风控提醒变化。只读。', {changes: {type: 'string'}}, ['changes']),
+    def('app_pf_rules', '修改组合风控规则（只提醒，不下单）：止损线 / 止盈线 / 回撤止盈（%），单股、单行业仓位上限（%），组合回撤线（%），检查间隔（5 / 15 / 30 / 60 分钟），风险公告提醒、系统通知、总开关；数值给 0 表示关闭这一条。给 stock + stopPrice 时设置单只股票的止损价（stopPrice=0 取消）。会弹出确认框。', {enabled: {type: 'boolean'}, stopLoss: {type: 'number'}, takeProfit: {type: 'number'}, trailing: {type: 'number'}, maxPosition: {type: 'number'}, maxIndustry: {type: 'number'}, maxDrawdown: {type: 'number'}, interval: {type: 'integer'}, notices: {type: 'boolean'}, notify: {type: 'boolean'}, stock: {type: 'string'}, stopPrice: {type: 'number'}}),
+    def('app_pf_holding_save', '手动录入或修改一笔持仓（没有在量化引擎里记录成交的股票），用于组合汇总和风控提醒；同一只股票以手动录入为准。会弹出确认框。', {query: {type: 'string', description: '公司名称或代码'}, shares: {type: 'integer'}, cost: {type: 'number'}, stopPrice: {type: 'number'}, note: {type: 'string'}}, ['query', 'shares', 'cost']),
+    def('app_pf_holding_remove', '删除一笔手动录入的持仓（引擎里的成交记录不受影响）。会弹出确认框。', {query: {type: 'string', description: '公司名称或代码'}}, ['query']),
+    def('app_pf_report', '生成组合风控报告（Word / PPT / 网页）：组合概况、行业分布、风控检查、风险指标、压力测试，Word 版附组合曲线与仓位图；保存到「成果中心」并在 QuanK 里打开。', {format: {type: 'string', enum: ['docx', 'pptx', 'html']}}),
     // [F2] 投研文档：研报、公告、资料库、导出
     def('app_research_report', '一键生成个股研究报告（Word / PPT / 网页）：汇总本机量化信号与风控、回测、持仓、实时行情、近期公告和可选的 AI 研判，Word 版附 K 线与收益率图；保存到「成果中心」并归档到这只股票的资料库，生成后在 QuanK 里打开。用户说「给 xx 出一份研报 / 研究报告」时使用。可能需要几十秒。', {query: {type: 'string', description: '公司名称或 6 位代码'}, format: {type: 'string', enum: ['docx', 'pptx', 'html']}, ai: {type: 'boolean', description: '是否加入 AI 研判段落，默认 true'}}, ['query']),
     def('app_research_notices', '某只股票最近的公司公告（公开公告接口，只读），每条带类型（业绩预告 / 定期报告 / 风险事项 / 股东变动 / 资本运作等）和重要程度。用户问「xx 最近有什么公告」「有没有减持、业绩预告」时使用。', {query: {type: 'string'}, limit: {type: 'integer', description: '条数，默认 20，最多 50'}, fresh: {type: 'boolean'}}, ['query']),
@@ -93,7 +102,7 @@ export function appToolDefinitions({incognito = false} = {}) {
 const MARKET_NOTE = '行情来自公开行情接口，可能有延迟；仅供研究，不构成投资建议。'; // [F1]
 export const APP_TOOL_NAMES = new Set(appToolDefinitions().map(d => d.function.name));
 /** Requests that only make sense through app tools: offered even when the composer's 「允许使用工具」 is off (app tools only). */
-export const APP_INTENT = /财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|打开.{0,6}(页面|动态|创作|自动化|知识图谱|记忆|连接)|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/;
+export const APP_INTENT = /我的组合|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|打开.{0,6}(页面|动态|创作|自动化|知识图谱|记忆|连接)|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/;
 
 function f_isSelectInvalid(info, config) { // [ux9]
   return (info.fields || []).some(f => f.type === 'select' && config[f.name] !== undefined && !f.options.some(([v]) => v === config[f.name]));
@@ -101,7 +110,7 @@ function f_isSelectInvalid(info, config) { // [ux9]
 
 export function appToolContext(now = Date.now()) {
   const d = new Date(now);
-  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
+  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
 }
 
 const taskView = t => ({id: t.id, name: t.name, schedule: describeSchedule(t.schedule), enabled: !!t.enabled, status: t.status || 'ready',
@@ -426,6 +435,71 @@ export async function executeAppTool(name, args = {}, {store, deps = {}, ask, si
       if (args.report) { const r = await k.handle({action: 'topicDigest', id: String(args.id || ''), format: args.format}); deps.openDocument?.(r.document.id); deps.notify?.(); return {status: 'succeeded', document: r.document, count: r.count, sections: r.sections, opened: !!deps.openDocument}; }
       const r = await k.handle({action: 'topicCollect', id: String(args.id || '')});
       return {status: 'succeeded', topic: r.topic.name, items: r.items.slice(0, 30).map(x => ({kind: x.kind, date: x.date, title: x.title, stock: x.name || undefined, excerpt: clip(x.excerpt, 160), matched: x.matched, ...(x.url ? {url: x.url} : {})})), note: '资讯来自公开搜索结果，未经核实。'};
+    }
+    case 'app_pf_overview': case 'app_pf_risk': case 'app_pf_stress': case 'app_pf_simulate': case 'app_pf_rules': case 'app_pf_holding_save': case 'app_pf_holding_remove': case 'app_pf_report': { // [F4]
+      const pf = need('portfolio');
+      const codeOf = async q => { const s = String(q ?? '').trim(); if (/^\d{6}$/.test(s)) return s; if (!s) throw new Error('请给出公司名称或 6 位代码'); const r = await need('market').handle({action: 'resolve', query: s}); if (!/^\d{6}$/.test(String(r?.code || ''))) throw new Error(`没有找到「${clip(s, 20)}」`); return r.code; };
+      const brief = b => ({level: {high: '重要', medium: '关注', low: '提示'}[b.level], type: b.label, text: b.title, detail: b.detail || undefined, code: b.code || undefined});
+      try {
+        if (name === 'app_pf_overview') {
+          const o = await pf.handle({action: 'overview', fresh: args.fresh === true}), s = o.summary;
+          return {status: 'succeeded', total: s.total, stockValue: s.invested, cash: s.cash, cost: s.cost, pnl: s.pnl, pnlPct: s.pnlPct, dayPnl: s.dayPnl, stockPct: s.stockPct, effectiveStocks: s.effective,
+            positions: s.positions.map(p => ({code: p.code, name: p.name, shares: p.shares, cost: p.cost, price: p.price, value: p.value, weight: p.weight, pnl: p.pnl, pnlPct: p.pnlPct, dayPct: p.dayPct, industry: p.industry, stopPrice: p.stopPrice || undefined, source: p.source === 'manual' ? '手动录入' : '量化引擎'})),
+            industries: s.byIndustry.map(g => ({industry: g.industry, weight: g.weight, stocks: g.names})), alerts: o.breaches.map(brief), rules: o.rulesText,
+            note: s.stocks ? '仓位按股票市值 + 现金计算；QuanK 只提醒，不会下单。' : '还没有持仓：可以在引擎里记录成交，或用 app_pf_holding_save 手动录入。'};
+        }
+        if (name === 'app_pf_risk') {
+          const r = await pf.handle({action: 'risk'});
+          return {status: 'succeeded', metrics: r.metrics, betas: r.betas, highCorrelation: r.corr?.high?.slice(0, 10).map(p => ({stocks: p.names, corr: p.corr})), averageCorrelation: r.corr?.avg, benchmark: r.benchmark, note: r.metrics ? r.note : '历史行情不足 20 个交易日，算不出风险指标。'};
+        }
+        if (name === 'app_pf_stress') {
+          let scenario;
+          if (args.kind) { scenario = {kind: args.kind, pct: args.pct, industry: args.industry}; if (args.kind === 'stock') scenario.code = await codeOf(args.stock); }
+          const r = await pf.handle({action: 'stress', ...(scenario ? {scenario} : {})});
+          return {status: 'succeeded', total: r.total, results: r.results.map(x => ({scenario: x.scenario.title, loss: x.loss, lossPct: x.lossPct, after: x.after, worst: x.worst ? {name: x.worst.name, loss: x.worst.loss} : null, wouldStop: x.stops, rows: x.rows.map(y => ({name: y.name, shock: y.shock, loss: y.loss, basis: y.basis}))})), note: '大盘情景按各股调整后 Beta（0.67 × 实测 + 0.33）传导，结果是估算，不是预测。'};
+        }
+        if (name === 'app_pf_simulate') {
+          const changes = [];
+          for (const line of String(args.changes || '').split(/[\n;；]+/).map(s => s.trim()).filter(Boolean).slice(0, 20)) {
+            const m = /^(.+?)\s+([+-]?\d+)(?:\s*(?:股)?\s*[@,，\s]\s*(\d+(?:\.\d+)?))?\s*(?:股)?$/.exec(line);
+            if (!m) throw new Error(`看不懂「${clip(line, 40)}」，格式是「股票 股数 [价格]」`);
+            changes.push({code: await codeOf(m[1]), delta: Number(m[2]), ...(m[3] ? {price: Number(m[3])} : {})});
+          }
+          const r = await pf.handle({action: 'simulate', changes});
+          const sum = s => ({total: s.total, stockPct: s.stockPct, cash: s.cash, effectiveStocks: s.effective, weights: s.positions.map(p => ({name: p.name, weight: p.weight})), industries: s.byIndustry.map(g => ({industry: g.industry, weight: g.weight}))});
+          return {status: 'succeeded', changes: r.changes, before: sum(r.before), after: sum(r.after), cashShortfall: r.shortfall || undefined, lossIfMarketDown10: {before: r.stressBefore.loss, after: r.stressAfter.loss}, alertsBefore: r.breachesBefore.map(brief), alertsAfter: r.breachesAfter.map(brief), note: r.note};
+        }
+        if (name === 'app_pf_rules') {
+          const cur = pf.view().rules, rules = {};
+          for (const k of ['enabled', 'notices', 'notify']) if (typeof args[k] === 'boolean') rules[k] = args[k];
+          for (const k of ['stopLoss', 'takeProfit', 'trailing', 'maxPosition', 'maxIndustry', 'maxDrawdown']) if (args[k] !== undefined && args[k] !== null) rules[k] = Number(args[k]) === 0 ? '' : args[k];
+          if (args.interval !== undefined) rules.interval = args.interval;
+          let what = '';
+          if (args.stock) { const code = await codeOf(args.stock); rules.stops = {[code]: {stopPrice: Number(args.stopPrice) > 0 ? args.stopPrice : ''}}; what = Number(args.stopPrice) > 0 ? `${code} 止损价 ${args.stopPrice}` : `取消 ${code} 的止损价`; }
+          if (!Object.keys(rules).length) return {status: 'succeeded', rules: cur, text: pf.view().rulesText};
+          const labels = {stopLoss: '止损线', takeProfit: '止盈线', trailing: '回撤止盈', maxPosition: '单股仓位上限', maxIndustry: '单行业仓位上限', maxDrawdown: '组合回撤线'};
+          const lines = Object.entries(rules).filter(([k]) => labels[k]).map(([k, v]) => `${labels[k]}：${v === '' ? '关闭' : v + '%'}`);
+          if (!await confirm('修改组合风控规则？', [...lines, what, typeof rules.enabled === 'boolean' ? (rules.enabled ? '开启风控提醒' : '关闭风控提醒') : '', rules.interval ? `每 ${rules.interval} 分钟检查` : ''].filter(Boolean).join('\n') + '\n只提醒，不会下单。')) return denied;
+          const r = await pf.handle({action: 'rules', rules}); deps.notify?.();
+          return {status: 'succeeded', text: r.text};
+        }
+        if (name === 'app_pf_holding_save') {
+          const code = await codeOf(args.query);
+          if (!await confirm(`录入持仓：${clip(args.query, 20)}（${code}）？`, `${args.shares} 股，成本 ${args.cost}${Number(args.stopPrice) > 0 ? `，止损价 ${args.stopPrice}` : ''}\n只保存在本机，用于组合汇总和风控提醒。`)) return denied;
+          const r = await pf.handle({action: 'holdingSave', code, shares: args.shares, cost: args.cost, stopPrice: Number(args.stopPrice) > 0 ? args.stopPrice : '', note: args.note || ''}); deps.notify?.();
+          return {status: 'succeeded', holding: r.holding};
+        }
+        if (name === 'app_pf_holding_remove') {
+          const code = await codeOf(args.query), m = (pf.view().manual || []).find(x => x.code === code);
+          if (!m) throw new Error('这只股票没有手动录入的持仓');
+          if (!await confirm(`删除手动持仓「${m.name || code}」？`, '引擎里的成交记录不受影响。')) return denied;
+          await pf.handle({action: 'holdingRemove', code}); deps.notify?.();
+          return {status: 'succeeded'};
+        }
+        const r = await pf.handle({action: 'report', format: args.format});
+        deps.openDocument?.(r.document.id); deps.notify?.();
+        return {status: 'succeeded', document: r.document, summary: r.summary, sections: r.sections, opened: !!deps.openDocument};
+      } catch (e) { if (e?.choices) return {status: 'needs_choice', candidates: e.choices, message: '有多只股票匹配，请让用户确认是哪一只'}; throw e; }
     }
     case 'app_research_report': case 'app_research_notices': { // [F2]
       const r = need('research');
