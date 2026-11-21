@@ -60,7 +60,7 @@ const path = (pts) => pts.reduce((s, p, i) => p ? s + (s && pts[i - 1] ? 'L' : '
  * (no non-uniform stretching), soft dashed grid, date axis, hover strip via data-t on each column.
  */
 const FONT = "font-family:-apple-system,'PingFang SC','Helvetica Neue',sans-serif";
-const T = (x, y, s, {size = 11, color = '#8a94ad', anchor = 'start', weight = 400} = {}) => `<text x="${x}" y="${y}" style="${FONT};font-size:${size}px;font-weight:${weight};fill:${color};text-anchor:${anchor}">${s}</text>`;
+const T = (x, y, s, {size = 11, color = '#8a94ad', anchor = 'start', weight = 400} = {}) => `<text x="${x}" y="${y}" style="${FONT};font-size:${size}px;font-weight:${weight};fill:${color};stroke:none;text-anchor:${anchor}">${s}</text>`;
 const GRID = (x1, x2, y) => `<line x1="${x1}" x2="${x2}" y1="${y}" y2="${y}" style="stroke:#e9edf5;stroke-width:1;stroke-dasharray:3 4"/>`;
 const fmtDate = s => String(s || '').slice(0, 10);
 export function klineSvg(all, {w = 960, h = 460, ma = [5, 10, 20, 60], sub = 'macd', marks = [], last = 120} = {}) {
@@ -69,13 +69,13 @@ export function klineSvg(all, {w = 960, h = 460, ma = [5, 10, 20, 60], sub = 'ma
   w = Math.max(360, Math.round(w));
   const closesAll = bars.map(b => b.close), start = Math.max(0, bars.length - last), view = bars.slice(start);
   const maAll = Object.fromEntries(ma.map(n => [n, sma(closesAll, n)]));
-  const padL = 10, padR = 62, top = 26, mainH = Math.round(h * 0.56), gap = 26, volH = Math.round(h * 0.13), subTop0 = top + mainH + gap + volH + gap, subH = h - subTop0 - 26;
+  const padL = 10, padR = 62, top = 26, mainH = Math.round(h * 0.56), gap = 26, dateRow = 20, volH = Math.round(h * 0.13), subTop0 = top + mainH + gap + dateRow + volH + gap, subH = h - subTop0 - 26; // [F1e] date row between price and volume
   const cw = (w - padL - padR) / view.length, bw = Math.max(1.2, Math.min(11, cw * 0.62));
   const vals = [...view.map(b => b.high), ...view.map(b => b.low), ...ma.flatMap(n => maAll[n].slice(start).filter(fin))];
   let hi = Math.max(...vals), lo = Math.min(...vals); const padV = (hi - lo || hi * 0.02 || 1) * 0.06; hi += padV; lo -= padV;
   const span = hi - lo || 1, y = v => top + (hi - v) / span * mainH, x = i => padL + cw * i + cw / 2;
-  const volMax = Math.max(1, ...view.map(b => b.volume || 0)), vTop = top + mainH + gap;
-  let s = `<svg class="mk-kline" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="K 线图" style="display:block;max-width:100%;height:auto">`;
+  const volMax = Math.max(1, ...view.map(b => b.volume || 0)), vTop = top + mainH + gap + dateRow;
+  let s = `<svg class="mk-kline" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="K 线图" style="display:block;max-width:100%;height:auto;stroke:none">`;
   for (let g = 0; g <= 4; g++) { const yy = top + mainH * g / 4; s += GRID(padL, w - padR, yy) + T(w - padR + 8, yy + 4, num(hi - span * g / 4)); }
   s += GRID(padL, w - padR, vTop + volH) + GRID(padL, w - padR, subTop0 + subH / 2);
   // date axis: about 6 labels
@@ -126,7 +126,7 @@ export function trendSvg(points, preClose, {w = 960, h = 360} = {}) {
   const base = fin(preClose) ? Number(preClose) : p[0].price, dev = Math.max(...p.map(x => Math.abs(x.price - base)), ...p.filter(x => fin(x.avg)).map(x => Math.abs(x.avg - base)), base * 0.002) * 1.08;
   const y = v => top + (base + dev - v) / (2 * dev) * mainH, x = i => padL + (w - padL - padR) * i / (total - 1);
   const vm = Math.max(1, ...p.map(x => x.volume || 0)), vTop = top + mainH + gap;
-  let s = `<svg class="mk-trend" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="分时图" style="display:block;max-width:100%;height:auto">`;
+  let s = `<svg class="mk-trend" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="分时图" style="display:block;max-width:100%;height:auto;stroke:none">`;
   [[base + dev, UP], [base + dev / 2, UP], [base, '#94a3b8'], [base - dev / 2, DOWN], [base - dev, DOWN]].forEach(([v, c], k) => { s += (k === 2 ? `<line x1="${padL}" x2="${w - padR}" y1="${y(v)}" y2="${y(v)}" style="stroke:#c7d0e0;stroke-width:1;stroke-dasharray:5 4"/>` : GRID(padL, w - padR, y(v))) + T(w - padR + 8, y(v) + 4, `${num(v)}${k === 2 ? '' : ' ' + pct((v - base) / base * 100)}`, {color: c}); });
   const line = path(p.map((q, i) => [x(i), y(q.price)])), up = p.at(-1).price >= base;
   s += `<defs><linearGradient id="mkTrendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f62f5" stop-opacity=".18"/><stop offset="1" stop-color="#2f62f5" stop-opacity="0"/></linearGradient></defs>`;

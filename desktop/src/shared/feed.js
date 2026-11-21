@@ -85,12 +85,12 @@ export function buildFeed(data) {
   return items.filter(x => Number.isFinite(x.time)).sort((a, b) => b.time - a.time).slice(0, FEED_LIMIT);
 }
 
-export function feedState(data) { const f = data.feed || {}; return {seenAt: Number(f.seenAt) || 0, dismissed: Array.isArray(f.dismissed) ? f.dismissed : []}; }
+export function feedState(data) { const f = data.feed || {}; return {seenAt: Number(f.seenAt) || 0, dismissed: Array.isArray(f.dismissed) ? f.dismissed : [], read: Array.isArray(f.read) ? f.read : []}; } // [F1e] per-item read
 
 /** Visible items for a filter, with `unread` set. Logs never count as unread. */
 export function visibleFeed(data, filter = 'all') {
-  const {seenAt, dismissed} = feedState(data), hidden = new Set(dismissed);
-  return buildFeed(data).filter(x => !hidden.has(x.id)).map(x => ({...x, unread: x.kind !== 'log' && (x.time > seenAt || x.needsAction)}))
+  const {seenAt, dismissed, read} = feedState(data), hidden = new Set(dismissed), opened = new Set(read);
+  return buildFeed(data).filter(x => !hidden.has(x.id)).map(x => ({...x, unread: x.kind !== 'log' && (x.needsAction || (x.time > seenAt && !opened.has(x.id)))}))
     .filter(x => (filter === 'all' && x.kind !== 'log') || (filter === 'unread' ? x.unread : filter === 'action' ? x.needsAction : x.group === filter));
 }
 
@@ -103,6 +103,10 @@ export function applyFeedAction(data, p, now = Date.now()) {
   if (p?.action === 'dismiss') {
     if (typeof p.id !== 'string' || !p.id || p.id.length > 300) throw new Error('动态不存在');
     return {...f, dismissed: [p.id, ...f.dismissed.filter(x => x !== p.id)].slice(0, DISMISS_LIMIT)};
+  }
+  if (p?.action === 'read') { // [F1e]
+    if (typeof p.id !== 'string' || !p.id || p.id.length > 300) throw new Error('动态不存在');
+    return {...f, read: [p.id, ...f.read.filter(x => x !== p.id)].slice(0, DISMISS_LIMIT)};
   }
   if (p?.action === 'restore') return {...f, dismissed: []};
   throw new Error('未知操作');

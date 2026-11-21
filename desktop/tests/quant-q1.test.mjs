@@ -168,7 +168,7 @@ test('page, detail and forms', () => {
   const detail = {summary: summarize(ADAPTER, '600438', RAW, QUOTE), charts: chartGrids(ADAPTER, RAW), at: 1};
   const d = new JSDOM(quantPage(state, {action, heading, empty, date, open: '600438', detail})).window.document;
   assert.equal(d.querySelector('.q-hero .q-action').textContent, '暂停买入'); assert.match(d.querySelector('.q-kpi em').textContent, /调整前 53.5/);
-  assert.equal(d.querySelector('#quantCharts').dataset.code, '600438'); assert.equal(d.querySelectorAll('.q-table').length, 3);
+  assert.equal(d.querySelector('#quantCharts').dataset.code, '600438'); assert.equal(d.querySelectorAll('.q-table').length, 1); assert.ok(d.querySelector('.qf-row .qf-bar') && d.querySelector('.qi-grid .qi')); // [F1e] factor and indicator cards
   assert.match(d.body.textContent, /本机私有引擎/);
   assert.match(new JSDOM(quantPage(state, {action, heading, empty, date, open: '600438', detail: {error: '<i>x</i>'}})).window.document.querySelector('.task-error').textContent, /<i>x<\/i>/);
   const dashes = quantDashboards('600438', detail.charts);

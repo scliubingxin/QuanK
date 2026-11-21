@@ -52,9 +52,9 @@ function quantDetail(q, code, d, {action, date}) {
   if (d.error) return `<div class="page quant-page">${bar}<p class="task-error">${escape(d.error)}</p></div>`;
   const s = d.summary, tone = actionTone(s.action), bt = s.backtest || {};
   const kpi = (label, v, cls = '') => `<div class="q-kpi ${cls}"><small>${label}</small><b>${v}</b></div>`;
-  const list = (title, items) => items?.length ? `<section class="q-box"><h3>${title}</h3><ul>${items.map(x => `<li>${escape(x)}</li>`).join('')}</ul></section>` : '';
-  const factors = s.factors?.length ? `<section class="q-box"><h3>评分构成</h3><table class="q-table"><tbody>${s.factors.map(b => `<tr><th>${escape(b.name)}</th><td>${f(b.score, 1)}${b.max ? ' / ' + b.max : ''}</td><td>${escape(b.reason)}</td></tr>`).join('')}</tbody></table></section>` : '';
-  const inds = s.indicators?.length ? `<section class="q-box"><h3>指标</h3><table class="q-table"><tbody>${s.indicators.map(x => `<tr><th>${escape(x.name)}</th><td>${f(x.value)}</td></tr>`).join('')}</tbody></table></section>` : '';
+  const list = (title, items, cls = '') => items?.length ? `<section class="q-box ${cls}"><h3>${title}</h3><ul class="q-list">${items.map(x => `<li>${escape(String(x).replace(/\*\*/g, ''))}</li>`).join('')}</ul></section>` : ''; // [F1e]
+  const factors = s.factors?.length ? `<section class="q-box q-factors"><h3>评分构成</h3><div class="qf-list">${s.factors.map(b => { const sc = Number(b.score), mx = Number(b.max), p = mx > 0 && Number.isFinite(sc) ? Math.max(0, Math.min(100, sc / mx * 100)) : null; return `<div class="qf-row${sc ? '' : ' zero'}"><div class="qf-top"><span class="qf-name">${escape(b.name)}</span><span class="qf-score"><b>${f(b.score, 1)}</b>${b.max ? `<small> / ${escape(String(b.max))}</small>` : ''}</span></div>${p != null ? `<div class="qf-bar"><i style="width:${p.toFixed(1)}%"></i></div>` : ''}${b.reason ? `<p>${escape(String(b.reason).replace(/\*\*/g, ''))}</p>` : ''}</div>`; }).join('')}</div></section>` : ''; // [F1e] cards with progress bars
+  const inds = s.indicators?.length ? `<section class="q-box q-inds"><h3>指标</h3><div class="qi-grid">${s.indicators.map(x => `<div class="qi"><small>${escape(x.name)}</small><b class="${typeof x.value === 'number' && /涨跌|%/.test(x.name) ? (x.value >= 0 ? 'up' : 'down') : ''}">${f(x.value)}</b></div>`).join('')}</div></section>` : '';
   const ops = d.charts?.ops?.length ? `<section class="q-box"><h3>回测操作（最近 ${d.charts.ops.length} 次）</h3><div class="table-scroll"><table class="q-table"><thead><tr><th>日期</th><th>操作</th><th>价格</th><th>股数</th><th>金额</th><th>分</th><th>原因</th></tr></thead><tbody>${d.charts.ops.map(o => `<tr><td>${escape(o.date)}</td><td>${escape(o.action)}</td><td>${f(o.price)}</td><td>${f(o.shares, 0)}</td><td>${f(o.amount, 0)}</td><td>${f(o.score, 1)}</td><td>${escape(o.reason)}</td></tr>`).join('')}</tbody></table></div></section>` : '';
   const up = (s.changePct || 0) >= 0 ? 'up' : 'down';
   return `<div class="page quant-page">${bar}
@@ -63,7 +63,7 @@ function quantDetail(q, code, d, {action, date}) {
 ${s.advice ? `<p class="q-sizing">${escape(s.advice)}</p>` : ''}${holdingDetail(d.holding, code, q, {action})}
 <div class="q-kpis q-bt">${kpi('策略收益', pct(bt.smartPct))}${kpi('基准收益', pct(bt.blindPct))}${kpi('超额', pct(bt.excess))}${kpi('胜率', bt.winRate == null ? '—' : f(bt.winRate, 0) + '%')}${kpi('交易次数', f(bt.trades, 0))}${kpi('最大回撤', pct(bt.maxDrawdown))}</div>
 ${klineBox(code, {marks: opsMarks(d.charts?.ops)})}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
-<div class="q-grid2">${list('信号理由', s.reasons)}${list('约束与风控', s.gates)}</div><div class="q-grid2">${factors}${inds}</div>${ops}
+<div class="q-grid2">${list('信号理由', s.reasons)}${list('约束与风控', s.gates, 'q-gates')}</div><div class="q-grid2">${factors}${inds}</div>${ops}
 <p class="auto-note">数据由本机私有引擎计算${s.plan ? `（${escape(s.plan)}）` : ''}${s.model ? `，模型 ${escape(s.model)}` : ''}。仅供研究，不构成投资建议。</p></div>`;
 }
 
