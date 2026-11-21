@@ -123,3 +123,35 @@ sh scripts/make-dmg.sh /tmp/qk-pack-0471-$TS/QuanK.app \
 | asar 条目 | 397 个文件 + 49 个目录 = 446（与 v0.47.0 口径一致） |
 | `hdiutil verify` | `checksum ... is VALID`（CRC32 $7A72E964） |
 | 挂载后内容 | `QuanK.app`、`应用程序` 链接、`首次打开.command`；app 版本 0.47.1；`Signature=adhoc`、`Identifier=com.quank.desktop`、arm64 thin |
+
+---
+
+## 阶段D · 发布 ✅
+
+### 提交与推送
+
+| 项 | SHA | 说明 |
+| --- | --- | --- |
+| feature commit | `1792ff99dca7fdad68a70718f2810b2cd8d3b4d3` | `fix: v0.47.1 行情备用源与回测口径`（15 个文件，318 插入 / 23 删除；`dist/`、`node_modules` 未入库） |
+| merge commit | `108291da7d15a106cee6a93059c1020905b7b9f2` | `merge: v0.47.1 修复`（`--no-ff`，`ba5e249..108291d` 已推送 main） |
+| tag | `4dbb4f5f31f871da7c39af9428d0c01a36a0eebb` | 附注标签 `v0.47.1` → 指向 merge commit `108291d`，已推送 |
+
+### Release
+
+- 链接：https://github.com/scliubingxin/QuanK/releases/tag/v0.47.1
+- 标题：`QuanK v0.47.1 · 行情备用源与回测口径修复`
+- notes 组成：ITERATION_LOG v0.47.1 条目原文 + 下载校验表（含 shasum 命令）+ 安装说明（ad-hoc 签名、未经公证）+ 自带私有策略用户的 cash 字段接入指引。
+
+`gh release view v0.47.1 --json url,name,tagName,assets` 核对结果：
+
+| 资产 | 字节 | digest（远端） | 与本地比对 |
+| --- | --- | --- | --- |
+| `QuanK-v0.47.1-mac-arm64.dmg` | 457,637,376 | `sha256:4ccc523700b61e961a5e95d5d9a342a4c13f559912c9fbb0307c27dd4c4a080b` | 一致 ✓ |
+| `QuanK-v0.47.1-mac-arm64.zip` | 483,697,683 | `sha256:09a62941c33abe9b4748c0b78d8d146e409028cf70736cf94a7e93473efd60a6` | 一致 ✓ |
+
+---
+
+## 说明
+
+- 未同步、未重启用户的量化引擎（该步骤由用户在 QuanK 界面「从源目录同步」+重启完成）。
+- `dist/` 内 v0.46.0、v0.47.0 的旧安装包保留未删（磁盘可用 45 GiB，无需腾空间）。
