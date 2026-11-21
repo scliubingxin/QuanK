@@ -5,6 +5,7 @@ import { actionLabel, actionTone, normalizeWatch, describeWatch, WATCH_INTERVALS
 import { plazaIcon } from './preset-catalog.js';
 import { sparkSvg } from './spark.js'; // [fin2]
 import { klineBox, opsMarks } from './market.js'; // [F1]
+import { researchBox, researchLibraryBox } from './research.js'; // [F2]
 
 const STATUS = {stopped: ['已停止', ''], starting: ['启动中', 't-blue'], running: ['运行中', 't-green'], error: ['出错', 't-red']};
 const f = (v, d = 2) => v === null || v === undefined || Number.isNaN(v) ? '—' : Number(v).toFixed(d).replace(/\.00$/, '');
@@ -36,15 +37,15 @@ ${sparkSvg(s.spark, {w: 260, h: 42, cls: 'q-spark', id: s.code})}${holdingLine(h
 
 export function quantPage(state, {action, heading, empty, date, open = '', detail = null}) {
   const q = state.quant || {status: 'stopped', pool: []};
-  if (open) return quantDetail(q, open, detail, {action, date});
+  if (open) return quantDetail(q, open, detail, {action, date, research: state.research});
   const pool = q.pool || [], stats = [[pool.length, '只自选'], [pool.filter(p => ['BUY', 'STRONG_BUY'].includes(p.last?.action)).length, '个买点'], [pool.filter(p => ['SELL', 'STRONG_SELL'].includes(p.last?.action)).length, '个风控提示']];
   const head = heading('', '让策略在本机运行，信号一眼看清。', '档位、综合分与倍率来自你自己的私有策略，在本机计算；也可以直接在对话里问「600519 现在什么信号」「池子里谁是买点」。', action('＋ 添加股票', 'quantAdd', '', 'primary') + action('全部刷新', 'quantRefreshAll'), stats);
   const grid = pool.length ? `<div class="plaza-grid q-pool-grid">${pool.map(s => stockCard(s, {action, date, holding: q.holdings?.[s.code], logo: q.logos?.[s.code], live: state.market?.quotes?.[s.code]})).join('')}</div>`
     : q.status === 'running' ? empty('股票池是空的', '点「添加股票」输入 6 位代码。') : '<p class="empty-note">启动引擎后显示股票池。</p>';
-  return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${reportsBox(q, {action, date})}${alertsBox(q, {action, date})}</div>`;
+  return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${researchLibraryBox(state.research, {action, date})}${reportsBox(q, {action, date})}${alertsBox(q, {action, date})}</div>`;
 }
 
-function quantDetail(q, code, d, {action, date}) {
+function quantDetail(q, code, d, {action, date, research = null}) {
   const name = (q.pool || []).find(p => p.code === code)?.name || code;
   const bar = `<div class="miniapp-bar">${action('← 股票池', 'quantClose')}<h2>${escape(name)} <small>${escape(code)}</small></h2><span class="miniapp-tools">${action('重新计算', 'quantRefresh', code)}${action('AI 研判', 'quantInsight', code, 'primary')}</span></div>`;
   if (!d) return `<div class="page quant-page">${bar}<p class="empty-note" id="quantLoading">正在计算信号…（首次可能需要半分钟）</p></div>`;
@@ -63,6 +64,7 @@ ${s.advice ? `<p class="q-sizing">${escape(s.advice)}</p>` : ''}${holdingDetail(
 <div class="q-kpis q-bt">${kpi('策略收益', pct(bt.smartPct))}${kpi('基准收益', pct(bt.blindPct))}${kpi('超额', pct(bt.excess))}${kpi('胜率', bt.winRate == null ? '—' : f(bt.winRate, 0) + '%')}${kpi('交易次数', f(bt.trades, 0))}${kpi('最大回撤', pct(bt.maxDrawdown))}</div>
 ${klineBox(code, {marks: opsMarks(d.charts?.ops)})}${returnBox(d.charts)}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
 <div class="q-grid2">${list('信号理由', s.reasons)}${list('约束与风控', s.gates, 'q-gates')}</div>${factors}${inds}${ops}
+${researchBox(code, research, {action, date})}
 <p class="auto-note">数据由本机私有引擎计算${s.plan ? `（${escape(s.plan)}）` : ''}${s.model ? `，模型 ${escape(s.model)}` : ''}。仅供研究，不构成投资建议。</p></div>`;
 }
 

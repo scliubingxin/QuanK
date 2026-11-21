@@ -34,6 +34,7 @@ import { createInfographicService } from './services/infographic.mjs'; // [p4-m3
 import { createMiniAppService } from './services/miniapps.mjs'; // [p4-m4]
 import { createStockLookup } from './services/stock-lookup.mjs'; // [v45q]
 import { createMarketService } from './services/market.mjs'; // [F1]
+import { createResearchService } from './services/research.mjs'; // [F2]
 import { modelEndpoint as qkModelEndpoint } from './core.mjs'; // [F1c]
 import { createQuantEngine } from './services/quant-engine.mjs'; // [q1]
 import { normalizeWatch, actionLabel as quantActionLabel } from './src/shared/quant.js'; // [q3]
@@ -91,10 +92,10 @@ const notifyRuntime = () => {
         win.webContents.send('actwill:runtime');
 };
 const approve = createApprover({ dialog, getWindow: () => win, focus });
-let toolRuntime, genoffice, models, projects, libreoffice, officeWindows, connectors, graphService, dashboards, miniapps, quant, market; // [p3-m1][p3-m5][p4-m1][p4-m4][q1][F1]
+let toolRuntime, genoffice, models, projects, libreoffice, officeWindows, connectors, graphService, dashboards, miniapps, quant, market, research; // [p3-m1][p3-m5][p4-m1][p4-m4][q1][F1][F2]
 const pdfImports = createPdfImportControl({notify: notifyRuntime});
 const executeTool = (...args) => toolRuntime.execute(...args);
-const view = () => { const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,quant:_quant,...publicData}=store.data; return { ...publicData, pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
+const view = () => { const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,research:_research,quant:_quant,...publicData}=store.data; return { ...publicData, pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, research: research?.view()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
 function key() {
     if (sessionKey)
         return sessionKey;
@@ -215,7 +216,7 @@ else {
             openConnectorForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'connectors', connector: p }); }, web: createWebLookup(), // [ux9]
             openMcpForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'agents', mcp: p }); }, get capabilities() { return capabilityLibrary; }, // [mcp2]
             runTask: (id, o) => runTask(id, o), get workspace() { try { return workspace; } catch { return null; } },
-            get connectors() { return connectors; }, get dashboards() { return dashboards; }, get briefing() { return briefing; }, get miniapps() { return miniapps; }, get quant() { return quant; }, get market() { return market; }, openMarket: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'market', code }); }, openQuant: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'quant', code }); } };
+            get connectors() { return connectors; }, get dashboards() { return dashboards; }, get briefing() { return briefing; }, get miniapps() { return miniapps; }, get quant() { return quant; }, get market() { return market; }, get research() { return research; }, openDocument: id => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'library', document: id }); }, openMarket: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'market', code }); }, openQuant: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'quant', code }); } };
         conversations = createConversationService({ appTools: appDeps, approve, rules: approvalRules, models, secrets:mcpSecrets, images, queue:runs, store, active, key, view, executeTool, releaseToolGrants:id=>toolRuntime.releaseGrants(id), notify: notifyRuntime,notifyStream:event=>{if(win&&!win.isDestroyed())win.webContents.send('actwill:stream',event);},onCompleted:conversationFinished });
         if(runtimeRoot()){
             const kit=createOfficeWorkspace({documents:toolRuntime.documents,directory:path.join(store.dir,'office-kit'),runtime:officeRuntime,approve,notify:notifyRuntime,audit:async event=>{const prev=store.data.executions;store.data.executions=[event,...prev.filter(e=>e.id!==event.id)].slice(0,300);try{await store.save();}catch(e){store.data.executions=prev;throw e;}notifyRuntime();}});
@@ -275,6 +276,19 @@ else {
             chooseFolder: async current => { const r = await dialog.showOpenDialog(win, { title: '选择你的策略项目文件夹（根目录需有 wb-engine.json）', ...(current ? { defaultPath: current } : {}), properties: ['openDirectory'] }); return r.canceled ? null : r.filePaths[0]; } });
         register('quant', async p => { const result = await quant.handle(p); return { result, state: view() }; });
         market = createMarketService({ store, lookup: createStockLookup(), notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'market', code: a.code }); }); n.show(); } catch {} } }); // [F1]
+        // [F2] research documents: announcements, reports, library, exports. Charts are rasterised in a hidden offscreen window.
+        const rasterize = async (svg, { width = 960, height = 460 } = {}) => {
+            const w = new BrowserWindow({ show: false, width, height, useContentSize: true, webPreferences: { offscreen: true, javascript: false, sandbox: true, contextIsolation: true, nodeIntegration: false } });
+            try {
+                await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`<!doctype html><html><body style="margin:0;background:#fff;width:${width}px;height:${height}px;overflow:hidden"><div style="width:${width}px">${svg}</div></body></html>`));
+                await new Promise(r => setTimeout(r, 120));
+                const img = await w.webContents.capturePage({ x: 0, y: 0, width, height });
+                return img.isEmpty() ? null : img.toPNG();
+            } finally { if (!w.isDestroyed()) w.destroy(); }
+        };
+        const researchAsk = async (system, user) => { const route = models?.resolve('legacy', '', { tools: false, vision: false }); const s = route?.settings || store.data.settings; if (!s?.model || !s?.baseUrl) throw new Error('未配置模型'); const r = await complete(s, route ? route.key() : key(), [{ role: 'system', content: system }, { role: 'user', content: user }], AbortSignal.timeout(60000)); return String(r?.text || '').trim(); };
+        research = createResearchService({ store, documents: toolRuntime.documents, market, quant, ask: researchAsk, rasterize, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', code: a.code }); }); n.show(); } catch {} } });
+        register('research', async p => { const result = await research.handle(p); return ['view', 'library', 'read'].includes(p?.action) ? { result } : { result, state: view() }; });
         register('market', async p => { const result = await market.handle(p); return ['kline', 'quotes', 'sectors', 'sectorStocks', 'resolve', 'watch'].includes(p?.action) ? { result } : { result, state: view() }; });
         app.on('before-quit', () => { quant?.stop().catch(() => {}); });
         register('miniapp', async p => { const result = await miniapps.handle(p); return ['get', 'storage', 'versions', 'export'].includes(p?.action) ? { result } : { result, state: view() }; });
@@ -464,6 +478,7 @@ else {
             void graphService?.tick().catch(() => {}); // [p3-m5]
             void quant?.tick().catch(() => {}); // [q3] watch the pool in trading hours
             void market?.tick().catch(() => {}); // [F1] watchlist quotes, alerts, overview keep-alive
+            void research?.tick().catch(() => {}); // [F2] pool announcements
             for (const t of store.data.tasks) {
                 if (t.enabled && t.nextRun && t.nextRun <= Date.now() && !['queued','running','cancelling'].includes(t.status))
                     runTask(t.id, {scheduledFor:t.nextRun}).catch(() => { });
