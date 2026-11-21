@@ -506,3 +506,51 @@ sh scripts/make-dmg.sh /tmp/qk-pack-046-$TS/QuanK.app \
 | 挂载 DMG 后的 QuanK.app Info.plist | 0.46.0（DMG 含「应用程序」链接与「首次打开.command」） |
 
 其他校验：`codesign -dv` → `Signature=adhoc`、`Identifier=com.quank.desktop`、arm64 thin、`Sealed Resources files=20440`；`hdiutil verify` → CRC32 有效；`unzip -l` → 20716 条（应用 20711 + 5 个配套文件）。
+
+---
+
+## 阶段E — 发布（续跑轮次核对 + 提交 + Release）
+
+### 续跑核对（全部只读通过）
+
+| 检查 | 结果 |
+| --- | --- |
+| `git status --short` | 33 个已跟踪改动 + 2 个新截图 + RELEASE_v046_PROGRESS.md + desktop/tests/v46-detail.test.mjs，无 tmp- 文件、无 dist/ |
+| 新截图存在 | `docs/images/app-quant-kline.png` 455,251 字节、`docs/images/app-quant-return.png` 387,738 字节（README 第 86 行引用两者，第 74 行引用 app-quant-detail.png） |
+| 根 `package.json` | `git diff --quiet HEAD -- package.json` → **无差异**（打包器曾拷入同名临时文件，已还原） |
+| 版本字段 | `grep -rn "0\.45\.0" desktop/package.json desktop/package-lock.json RELEASE_STATUS.json SOURCE_MANIFEST.json` → **0 处命中**；当前 `"version": "0.46.0"` |
+| ITERATION_LOG 顶部 | `## v0.46.0 · 2026-11-21 · F1 行情工作台`（6 条原样） |
+| 产物 | dmg 457,530,561 字节 sha256 `b5864df9…32cae`；zip 483,673,768 字节 sha256 `39f5270f…00bc9`，与阶段D 一致；`dist/` 已被 .gitignore 第 42 行 `/dist/` 忽略，`git ls-files dist` 为空 |
+
+### 全量测试（版本号改完后的第二次完整运行，交叉验证）
+
+`cd desktop && node --test tests/*.test.mjs` → tests 1267 / pass 1115 / **fail 141** / cancelled 1 / skipped 10 / todo 0
+
+两次运行的失败标题集合 `diff` **完全一致（IDENTICAL）**，按文件：office-presentation 23、office-cells 12、office-chat 11、pdf-chat-import-03747 9、office-table-outline 7、office-formula 7、office-word-format 6、office-table-grid 6、office-discard 6、office-cell-format 6、skill-runtime 5、office-preview-pool-03739 5、office-pdf/office-literal/office-kit/office-colors/native-office 各 3、office-word-preserve-styles/office-word-media/office-word-cross-selection/office-navigation/office-history 各 2、其余 office-*/pdf-*/ocr-*/image-ocr 各 1。
+
+**对比基线（1268 / 143）**：失败 143 → 141，无新增失败；基线中的四个已知偶发（project-services tail mode、knowledge-vector、knowledge-agent-loop-cancel、queued operation cannot mutate a session discarded after native confirmation）在本轮全量中 "queued operation…" 仍按已知偶发出现在名单内，其余三个全量内未复现（逐文件单跑全部通过：project-services 11/0、knowledge-vector-03736 19/0、knowledge-vector-queue 4/0、knowledge-agent-loop-cancel 1/0、v45-release 3/0、v46-detail 6/0）。
+
+### 发布
+
+```
+git add -A            # 37 个文件；dist/、node_modules、tmp-* 均未进索引（已核验）
+git commit -m "release: v0.46.0 F1 行情工作台"
+git push origin main                      # 087fb37..6e674a7  main -> main
+git tag -a v0.46.0 -m "QuanK v0.46.0 · F1 行情工作台"
+git push origin v0.46.0                   # * [new tag] v0.46.0 -> v0.46.0
+gh release create v0.46.0 dist/QuanK-v0.46.0-mac-arm64.dmg dist/QuanK-v0.46.0-mac-arm64.zip \
+  --title "QuanK v0.46.0 · F1 行情工作台" --notes-file /tmp/qk-release-notes-v046.md
+```
+
+| 项 | 值 |
+| --- | --- |
+| commit SHA | `6e674a73265ca0395606fbf278a0748d2bc107a5`（`release: v0.46.0 F1 行情工作台`） |
+| tag 对象 SHA | `4308f7ffaf030bb7c1163a488e7efee1c0c9bc91`（annotated tag v0.46.0） |
+| tag 指向 commit | `6e674a73265ca0395606fbf278a0748d2bc107a5` |
+| Release URL | https://github.com/scliubingxin/QuanK/releases/tag/v0.46.0 |
+| asset 1 | QuanK-v0.46.0-mac-arm64.dmg · 457,530,561 B · digest `sha256:b5864df9b49d257fdd2fd3664e27cfafe44fb556d32d363dbeb01333d1f32cae` · uploaded |
+| asset 2 | QuanK-v0.46.0-mac-arm64.zip · 483,673,768 B · digest `sha256:39f5270fc5474f8a610f0ae7ebda30f5f765707d1e1baa081692d1aa60800bc9` · uploaded |
+
+Release notes 内容 = ITERATION_LOG 顶部 v0.46.0 条目原文 + 下载校验表（两个产物的字节数与 sha256）+ 安装说明（ad-hoc 签名、未公证，首次打开请运行 DMG 里的「首次打开.command」或右键打开）。
+
+工作区在提交后 `git status --short` 为空（本进度文件已在提交内）。
