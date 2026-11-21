@@ -236,6 +236,20 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
       return {code, name: k.name || q?.name || '', period, bars: k.bars, quote: live(q, k.quote) || quoteFromBars(k.bars), source: 'tencent'};
     }
   }
+  /** [F4] Daily K lines of an index (e.g. '1.000300' CSI 300) for beta / benchmark; Tencent when Eastmoney refuses. */
+  async function indexKline(id = '1.000300', count = 250) {
+    if (!/^[01]\.\d{6}$/.test(String(id))) throw new Error('指数代码无效');
+    const n = Math.min(800, Math.max(30, Number(count) || 250)), ttl = session(now()) === 'open' ? 60e3 : 600e3;
+    try { const k = parseKlines(await getJson(`${HIS}stock/kline/get?secid=${id}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&end=20500101&lmt=${n}`, ttl)); if (k.bars.length) return {id, name: k.name, bars: k.bars}; throw new Error('没有取到 K 线数据'); }
+    catch (e) {
+      const sym = (id[0] === '1' ? 'sh' : 'sz') + id.slice(2);
+      let rows;
+      try { const j = await getJson(`${TX}fqkline/get?param=${sym},day,,,${n},qfq`, ttl), d = j?.data?.[sym]; rows = (Array.isArray(d?.qfqday) ? d.qfqday : d?.day) || []; } catch { throw marketDown(e); }
+      const bars = rows.filter(r => Array.isArray(r) && r.length >= 5).map(r => ({date: String(r[0]).slice(0, 10), open: val(r[1]), close: val(r[2]), high: val(r[3]), low: val(r[4]), volume: val(r[5])})).filter(b => b.close > 0);
+      if (!bars.length) throw marketDown(e);
+      return {id, name: '', bars, source: 'tencent'};
+    }
+  }
   /** One readable error when every quote host failed (instead of "TypeError: fetch failed"). */
   function marketDown(e) {
     const m = String(e?.message || e || '');
@@ -349,6 +363,7 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
       if (a === 'sectors') return {kind: p.kind === 'concept' ? 'concept' : 'industry', sectors: await sectors(p.kind, {order: p.order, limit: p.limit || 20})};
       if (a === 'sectorStocks') return sectorStocks(p.sector || p.code, p.limit);
       if (a === 'quotes') return {quotes: await quotes((p.codes || []).map(String))};
+      if (a === 'indexKline') return indexKline(p.id || '1.000300', p.count); // [F4]
       if (a === 'kline') { const k = await kline(String(p.code || ''), p.period || 'day', p.count || 320); return p.summary ? klineSummary(k) : k; }
       if (a === 'resolve') return resolve(p.query);
       if (a === 'refreshWatch') return refreshWatch({force: true});

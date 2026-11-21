@@ -1368,3 +1368,27 @@ html,body,.main,.workspace{background:#f7f8fc}
 .kn-hit-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}.kn-hit-head b{font-size:13px;color:#14213d}.kn-hit-head small{color:#9aa3b8;font-size:11.5px}.kn-hit-head .rs-acts{margin-left:auto}
 .kn-hits p{margin:6px 0 0;font-size:12.5px;line-height:1.7;color:#5b6787}
 .q-box ul.rs-list.kn-topics{padding-left:0}
+
+/* [F4] 组合与风控 */
+.pf-box .pf-tabs{margin:4px 0 12px}
+.pf-box .pf-body h4{margin:16px 0 8px;font-size:14px}
+.pf-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:10px}
+.pf-kpis .q-kpi em{display:block;font-style:normal;font-size:11.5px;color:var(--muted,#6b7280);margin-top:2px}
+.pf-svg{display:block;max-width:100%;height:auto;border-radius:10px}
+.pf-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:900px){.pf-cols{grid-template-columns:1fr}}
+.pf-table td,.pf-table th{white-space:nowrap}
+.pf-src{display:inline-block;padding:0 6px;border-radius:8px;font-size:11px;background:var(--chip,#eef2ff);color:var(--muted,#4c5a85)}
+.pf-acts{display:flex;gap:4px;flex-wrap:wrap}.pf-acts button{padding:2px 8px;font-size:12px}
+.pf-breaches{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.pf-breaches li{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;border:1px solid var(--line,#e5e7eb);background:var(--panel,#fff)}
+.pf-breaches li .pf-text{flex:1;min-width:0}.pf-breaches li .pf-text small{display:block;color:var(--muted,#6b7280)}
+.pf-level{font-size:11px;padding:1px 6px;border-radius:6px;color:#fff;background:#9ca3af;flex:none}
+.pf-label{font-size:12px;color:var(--muted,#6b7280);flex:none}
+.pf-high{border-color:#fecaca!important;background:rgba(239,68,68,.06)!important}.pf-high .pf-level{background:#dc2626}
+.pf-medium{border-color:#fde68a!important;background:rgba(245,158,11,.07)!important}.pf-medium .pf-level{background:#d97706}
+.pf-low .pf-level{background:#6b7280}
+.pf-alert-strip{margin:6px 0 4px}
+.pf-ok{color:#15803d}
+.pf-rules-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pf-corr td{text-align:center;min-width:52px}.pf-corr th{white-space:nowrap}

@@ -7,6 +7,7 @@ import { sparkSvg } from './spark.js'; // [fin2]
 import { klineBox, opsMarks } from './market.js'; // [F1]
 import { researchBox, researchLibraryBox } from './research.js'; // [F2]
 import { knowledgeBox, knowledgeLibraryBox } from './knowledge.js'; // [F3]
+import { portfolioBox } from './portfolio.js'; // [F4]
 
 const STATUS = {stopped: ['已停止', ''], starting: ['启动中', 't-blue'], running: ['运行中', 't-green'], error: ['出错', 't-red']};
 const f = (v, d = 2) => v === null || v === undefined || Number.isNaN(v) ? '—' : Number(v).toFixed(d).replace(/\.00$/, '');
@@ -43,7 +44,7 @@ export function quantPage(state, {action, heading, empty, date, open = '', detai
   const head = heading('', '让策略在本机运行，信号一眼看清。', '档位、综合分与倍率来自你自己的私有策略，在本机计算；也可以直接在对话里问「600519 现在什么信号」「池子里谁是买点」。', action('＋ 添加股票', 'quantAdd', '', 'primary') + action('全部刷新', 'quantRefreshAll'), stats);
   const grid = pool.length ? `<div class="plaza-grid q-pool-grid">${pool.map(s => stockCard(s, {action, date, holding: q.holdings?.[s.code], logo: q.logos?.[s.code], live: state.market?.quotes?.[s.code]})).join('')}</div>`
     : q.status === 'running' ? empty('股票池是空的', '点「添加股票」输入 6 位代码。') : '<p class="empty-note">启动引擎后显示股票池。</p>';
-  return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${researchLibraryBox(state.research, {action, date})}${knowledgeLibraryBox(state.knowledge, {action, date})}${reportsBox(q, {action, date})}${alertsBox(q, {action, date})}</div>`;
+  return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${portfolioBox(state.portfolio, {action})}${researchLibraryBox(state.research, {action, date})}${knowledgeLibraryBox(state.knowledge, {action, date})}${reportsBox(q, {action, date})}${alertsBox(q, {action, date})}</div>`;
 }
 
 function quantDetail(q, code, d, {action, date, research = null}) {
