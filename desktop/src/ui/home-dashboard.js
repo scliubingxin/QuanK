@@ -2,6 +2,7 @@
 // 纯视图：只返回 HTML；交互沿用已有 data-action / data-page。
 import { escape } from './markdown.js';
 import { homeQuant } from './home-quant.js';
+import { marketHomeCard } from './market.js'; // [F1]
 import { actionLabel, actionTone, describeWatch } from '../shared/quant.js';
 
 const fin = v => v != null && Number.isFinite(Number(v));
@@ -118,6 +119,7 @@ ${composer()}
 <div class="suggestions">${SUGGEST.map(([id, i, t]) => `<button data-action="suggest" data-id="${id}">${icon(i)}${t}</button>`).join('')}</div>${setup}
 </div></section>
 <div class="qk-grid">
+<div class="qk-col-12">${marketHomeCard(state, {date})}</div>
 <div class="qk-col-8">${homeQuant(state, {action, icon, date, showRecent: false})}</div>
 <div class="qk-col-4">${rankCard(state.quant, {action, date})}</div>
 <div class="qk-col-12">${appsCard(state, {action})}</div>

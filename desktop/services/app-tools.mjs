@@ -9,7 +9,7 @@ import { guideFor } from './connector-guides.mjs'; // [ux9]
 import { normalizeWatch, parseWatch, describeWatch, parseTrade, normalizeReportAuto, parseReportAuto, describeReportAuto } from '../src/shared/quant.js'; // [q3][q4][q5]
 import { capabilityPresets } from '../runtime/capability-presets.mjs'; // [mcp2]
 
-export const APP_PAGES = {home: '工作台', feed: '动态', quant: '量化', studio: '创作', tasks: '自动化', library: '成果中心', files: '本地文件', agents: '智能体', connectors: '连接', tools: '浏览器与权限', graph: '知识图谱', context: '记忆'};
+export const APP_PAGES = {home: '工作台', feed: '动态', quant: '量化', market: '行情', studio: '创作', tasks: '自动化', library: '成果中心', files: '本地文件', agents: '智能体', connectors: '连接', tools: '浏览器与权限', graph: '知识图谱', context: '记忆'};
 const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const iso = ms => Number.isFinite(ms) ? new Date(ms).toISOString() : null;
 const local = ms => { if (!Number.isFinite(ms)) return null; const d = new Date(ms), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
@@ -51,6 +51,14 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_mcp_test', '测试 MCP 连接并发现工具目录（会弹确认框；本机程序会显示完整启动命令）。id 可以是连接 ID 或名称。', {id: {type: 'string'}}, ['id']),
     def('app_quant_watch', '设置量化盯盘提醒：交易时段按频率重新计算股票池，档位变化写入「动态」并发系统通知；工作日开盘前生成盘前简报。会弹出确认框。', {enabled: {type: 'boolean'}, interval: {type: 'integer', description: '检查频率（分钟）：5 / 10 / 15 / 30 / 60'}, premarket: {type: 'boolean'}, premarketTime: {type: 'string', description: '盘前简报时间 HH:mm，06:00–09:29'}, notify: {type: 'boolean'}}),
     def('app_quant_open', '在 QuanK 里打开「量化」页；给 code 时直接打开该股的详情（K 线、综合分、回测曲线）。', {code: {type: 'string'}}),
+    def('app_market_overview', '大盘与市场概况：上证、深证、创业板、沪深300、科创50 指数，涨跌家数、涨跌停数、两市成交额、领涨行业与概念、涨跌幅榜。实时公开行情，只读。'), // [F1]
+    def('app_market_sectors', '行业或概念板块按涨跌幅排行（含领涨股、涨跌家数）。只读。', {kind: {type: 'string', enum: ['industry', 'concept']}, order: {type: 'string', enum: ['up', 'down']}, limit: {type: 'integer'}}),
+    def('app_market_sector_stocks', '某个板块（名称如「半导体」或代码 BKxxxx）的成分股按涨幅排行。只读。', {sector: {type: 'string'}, limit: {type: 'integer'}}, ['sector']),
+    def('app_market_quote', '个股实时行情（现价、涨跌幅、开高低、昨收、成交额、换手）。query 是公司名称或代码，多只用逗号分隔。只读。', {query: {type: 'string'}}, ['query']),
+    def('app_market_kline', '个股 K 线与技术指标（日 / 周 / 月 / 60 分钟 / 分时；均线、MACD、KDJ、近 20 根高低点），并在 QuanK 里打开这只股票的 K 线图。', {query: {type: 'string'}, period: {type: 'string', enum: ['day', 'week', 'month', 'm60', 'intraday']}, open: {type: 'boolean'}}, ['query']),
+    def('app_market_alert_add', '设置价格提醒：涨幅或跌幅达到某个百分比，或价格涨到 / 跌到某个值；交易时段触发后进入「动态」并发系统通知。会弹出确认框。', {query: {type: 'string'}, kind: {type: 'string', enum: ['up', 'down', 'above', 'below']}, value: {type: 'number'}}, ['query', 'kind', 'value']),
+    def('app_market_alert_list', '列出已设置的价格提醒。只读。'),
+    def('app_market_alert_remove', '删除一条价格提醒（先用 app_market_alert_list 查 id）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
     def('app_web_search', '联网搜索（返回标题、链接、摘要）。用于查官方操作文档、最新做法、公开资料；回答时给出来源链接。', {query: {type: 'string'}}, ['query']),
     def('app_web_read', '读取一个公网网页的正文（纯文本，最多约 12000 字）。先 app_web_search 找到链接再读取。', {url: {type: 'string'}}, ['url']),
     def('app_dashboard_create', '用成果中心里的 Excel 表格生成可交互仪表盘（保存在「创作」页）。数值由本机计算。', {documentId: {type: 'string'}, prompt: {type: 'string', description: '想看什么，例如「按月看各区域销售额」'}}, ['documentId']),
@@ -62,6 +70,7 @@ export function appToolDefinitions({incognito = false} = {}) {
     ]),
   ];
 }
+const MARKET_NOTE = '行情来自公开行情接口，可能有延迟；仅供研究，不构成投资建议。'; // [F1]
 export const APP_TOOL_NAMES = new Set(appToolDefinitions().map(d => d.function.name));
 /** Requests that only make sense through app tools: offered even when the composer's 「允许使用工具」 is off (app tools only). */
 export const APP_INTENT = /定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|打开.{0,6}(页面|动态|创作|自动化|知识图谱|记忆|连接)|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/;
@@ -72,7 +81,7 @@ function f_isSelectInvalid(info, config) { // [ux9]
 
 export function appToolContext(now = Date.now()) {
   const d = new Date(now);
-  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
+  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
 }
 
 const taskView = t => ({id: t.id, name: t.name, schedule: describeSchedule(t.schedule), enabled: !!t.enabled, status: t.status || 'ready',
@@ -203,6 +212,55 @@ export async function executeAppTool(name, args = {}, {store, deps = {}, ask, si
     }
     case 'app_quant_insight':
       return {status: 'succeeded', ...(await need('quant').handle({action: 'insight', code: args.code}))};
+    case 'app_market_overview': { // [F1]
+      const o = await need('market').handle({action: 'overview'}), qv = q => ({code: q.code, name: q.name, price: q.price, pct: q.pct});
+      const sv = s => ({name: s.name, pct: s.pct, leader: s.leader?.name || ''});
+      return {status: 'succeeded', date: o.date, session: o.session, amount: o.amount, indices: (o.indices || []).map(i => ({name: i.name, price: i.price, pct: i.pct, change: i.change})), breadth: o.breadth,
+        topIndustry: (o.industry || []).slice(0, 5).map(sv), topConcept: (o.concept || []).slice(0, 5).map(sv), gainers: (o.gainers || []).slice(0, 5).map(qv), losers: (o.losers || []).slice(0, 5).map(qv), note: MARKET_NOTE};
+    }
+    case 'app_market_sectors': {
+      const r = await need('market').handle({action: 'sectors', kind: args.kind === 'concept' ? 'concept' : 'industry', order: args.order === 'down' ? 'down' : 'up', limit: Math.min(30, Math.max(1, Number(args.limit) || 10))});
+      return {status: 'succeeded', kind: r.kind, sectors: (r.sectors || []).map(s => ({code: s.code, name: s.name, pct: s.pct, up: s.up, down: s.down, leader: s.leader})), note: MARKET_NOTE};
+    }
+    case 'app_market_sector_stocks': {
+      const r = await need('market').handle({action: 'sectorStocks', sector: String(args.sector || ''), limit: Math.min(30, Math.max(1, Number(args.limit) || 10))});
+      return {status: 'succeeded', sector: r.sector, stocks: (r.stocks || []).map(q => ({code: q.code, name: q.name, price: q.price, pct: q.pct, amount: q.amount})), note: MARKET_NOTE};
+    }
+    case 'app_market_quote': case 'app_market_kline': case 'app_market_alert_add': {
+      const m = need('market'), terms = name === 'app_market_quote' ? String(args.query || '').split(/[,，、;；\s]+/).filter(Boolean).slice(0, 10) : [String(args.query || '').trim()];
+      if (!terms.length || !terms[0]) return {status: 'failed', error: '请提供公司名称或 6 位代码'};
+      const found = [];
+      for (const q of terms) {
+        try { found.push(await m.handle({action: 'resolve', query: q})); }
+        catch (e) { if (e?.choices) return {status: 'needs_choice', query: q, candidates: e.choices, message: '有多只股票匹配，请让用户确认是哪一只'}; return {status: 'failed', error: e?.message || String(e)}; }
+      }
+      if (name === 'app_market_quote') {
+        const r = await m.handle({action: 'quotes', codes: found.map(f => f.code)});
+        return {status: 'succeeded', quotes: (r.quotes || []).map(q => ({code: q.code, name: q.name, price: q.price, pct: q.pct, change: q.change, open: q.open, high: q.high, low: q.low, preClose: q.preClose, amount: q.amount, turnover: q.turnover})), note: MARKET_NOTE};
+      }
+      const {code, name: label} = found[0];
+      if (name === 'app_market_kline') {
+        const period = ['day', 'week', 'month', 'm60', 'intraday'].includes(args.period) ? args.period : 'day';
+        const k = await m.handle({action: 'kline', code, period, summary: true});
+        if (args.open !== false) deps.openMarket?.(code);
+        return {status: 'succeeded', kline: k, opened: args.open !== false && !!deps.openMarket, note: MARKET_NOTE};
+      }
+      const kinds = {up: '涨幅达到', down: '跌幅达到', above: '价格涨到', below: '价格跌到'}, v = Number(args.value);
+      if (!kinds[args.kind] || !Number.isFinite(v) || v <= 0) return {status: 'failed', error: '请说明提醒条件（涨幅 / 跌幅百分比，或目标价格）'};
+      const shown = `${label ? `${label}（${code}）` : code}${kinds[args.kind]} ${v}${args.kind === 'up' || args.kind === 'down' ? '%' : ''}`;
+      if (!await confirm(`设置价格提醒：${shown}？`, '交易时段每 15 秒检查一次，每天最多提醒一次；触发后进入「动态」并发系统通知。')) return denied;
+      const a = await m.handle({action: 'addAlert', code, name: label, kind: args.kind, value: v});
+      deps.notify?.();
+      return {status: 'succeeded', alert: {id: a.id, text: a.text}};
+    }
+    case 'app_market_alert_list':
+      return {status: 'succeeded', alerts: (need('market').view().alerts || []).map(a => ({id: a.id, text: a.text, code: a.code, kind: a.kind, value: a.value}))};
+    case 'app_market_alert_remove': {
+      const m = need('market'), a = (m.view().alerts || []).find(x => x.id === args.id);
+      if (!await confirm(`删除价格提醒${a ? '「' + a.text + '」' : ''}？`, '删除后不再检查这条提醒。')) return denied;
+      await m.handle({action: 'removeAlert', id: String(args.id || '')}); deps.notify?.();
+      return {status: 'succeeded'};
+    }
     case 'app_quant_find_stock': // [v45q]
       return {status: 'succeeded', ...(await need('quant').handle({action: 'findStock', query: String(args.query || '').trim()}))};
     case 'app_quant_pool_add': case 'app_quant_pool_remove': {

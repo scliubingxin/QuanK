@@ -21,7 +21,7 @@ export const groupOf = page => NAV_LAYOUT.find(n => n.items?.some(i => i[0] === 
 
 export function sidebarNav({page, icon, unread = 0}) {
   const html = NAV_LAYOUT.map(n => {
-    if (!n.items) return `<button class="${page === n.id || (n.id === 'home' && page === 'quant') ? 'active' : ''}" data-page="${n.id}">${icon(n.icon)}<span>${n.title}</span>${n.badge && unread ? `<small class="nav-badge" aria-label="未读动态">${unread}</small>` : ''}</button>`;
+    if (!n.items) return `<button class="${page === n.id || (n.id === 'home' && (page === 'quant' || page === 'market')) ? 'active' : ''}" data-page="${n.id}">${icon(n.icon)}<span>${n.title}</span>${n.badge && unread ? `<small class="nav-badge" aria-label="未读动态">${unread}</small>` : ''}</button>`;
     const current = n.items.find(i => i[0] === page), active = !!current;
     const items = n.items.map(([id, ic, title, desc]) => `<button class="nav-flyout-item ${page === id ? 'active' : ''}" data-page="${id}" role="menuitem">${icon(ic)}<span><b>${title}</b><small>${desc}</small></span></button>`).join('');
     return `<div class="nav-group ${active ? 'active' : ''}" data-group="${n.group}"><button class="nav-group-head ${active ? 'active' : ''}" data-page="${current ? current[0] : n.items[0][0]}" aria-haspopup="menu">${icon(n.icon)}<span>${n.title}</span>${active ? `<small class="nav-sub">${current[2]}</small>` : ''}<i class="nav-caret" aria-hidden="true">›</i></button><div class="nav-flyout" role="menu" aria-label="${n.title}">${items}</div></div>`;

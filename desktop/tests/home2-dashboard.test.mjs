@@ -27,7 +27,7 @@ test('home: hero holds the headline, composer and finance shortcuts; cards below
   assert.ok(hero.querySelector('#composer'), 'composer sits inside the hero');
   assert.deepEqual([...hero.querySelectorAll('[data-action="suggest"]')].map(b => b.dataset.id), ['stock', 'earnings', 'brief', 'portfolio', 'memo']);
   const cards = [...doc.querySelectorAll('.qk-grid > div > section')].map(s => s.className);
-  assert.deepEqual(cards, ['home-quant', 'qk-card qk-rank', 'qk-card qk-apps', 'qk-card qk-news', 'qk-card qk-recent']);
+  assert.deepEqual(cards, ['qk-card mk-home', 'home-quant', 'qk-card qk-rank', 'qk-card qk-apps', 'qk-card qk-news', 'qk-card qk-recent']); // [F1] market card first
   assert.equal(doc.querySelector('.home-quant .hq-recent'), null, 'recent changes live in the news card, not twice');
   assert.equal(doc.querySelector('.qk-setup'), null);
   const nokey = new JSDOM(homeDashboard({state: {...STATE, settings: {}}, ...ctx})).window.document;
