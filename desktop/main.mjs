@@ -376,13 +376,32 @@ else {
             const result=await dialog.showOpenDialog(win,{title:'上传文档、PDF或ZIP（发送时正文交给当前模型）',properties:['openFile'],filters:[{name:'文档 / PDF / ZIP',extensions:range?['pdf']:['pdf','zip','docx','xlsx','pptx','md','txt','csv','json','html','js','ts','py','yaml','yml','css','sql','java','go','rs','sh']}]});
             if(result.canceled)return false;
             if(result.filePaths?.length!==1)throw Error('每次选择一个文档或ZIP');
-            const source=result.filePaths[0];
+            return importAttachment(result.filePaths[0],range);
+        });
+        const importAttachment=async(source,range)=>{ // [F1f] shared by the picker and drag & drop
             if(range&&!source.toLowerCase().endsWith('.pdf'))throw Error('指定页识别仅支持PDF');
             if(source.toLowerCase().endsWith('.pdf')){const job=pdfImports.start();try{return await importChatPdf({file:source,range,directory:store.dir,signal:job.signal,onProgress:progress=>pdfImports.progress(job,progress),documents:toolRuntime.documents,tools:bundledPdfOcrTools,read:f=>readDocumentSource(f,{noFollow:true,maxBytes:16*1024*1024,label:'PDF'}),confirm:async({name,startPage,endPage})=>{const rangeText=endPage==='first5'?'前5页（不足5页则全部识别）':'第 '+startPage+'–'+endPage+' 页';const choice=await dialog.showMessageBox(win,{type:'question',title:'本机识别 PDF 附件',message:'识别 '+name.replace(/[\u0000-\u001f]/g,' ').slice(0,150)+' 的'+rangeText,detail:'仅在本机识别；发送后识别文字会交给当前模型。所选范围之外的页面不会识别。OCR可能有误，请核对原文。',buttons:['中英混合','中文','英文','取消'],defaultId:3,cancelId:3,noLink:true,signal:AbortSignal.any([job.signal,AbortSignal.timeout(60000)])});return ['chi_sim+eng','chi_sim','eng',null][choice.response]??null;}});}finally{pdfImports.finish(job);}}
             const bytes=await readDocumentSource(source,{noFollow:true,maxBytes:source.toLowerCase().endsWith(".zip")?32*1024*1024:4*1024*1024,label:source.toLowerCase().endsWith(".zip")?"ZIP压缩包":"文档"});
             let project,projectError;if(source.toLowerCase().endsWith('.zip')){try{project=await projects.importArchive(path.basename(source),bytes);}catch(e){projectError=e.message;}}
             const parsed=parseChatUpload(path.basename(source),bytes),documents=await toolRuntime.documents.importBatch(parsed.items);
             return {project,projectError,attachments:documents.map((d,i)=>({documentId:d.id,revision:d.revision,sha256:d.sha256,name:d.name,text:d.text,archive:parsed.items[i].archive,entryPath:parsed.items[i].entryPath})),skipped:parsed.skipped};
+        };
+        // [F1f] files dragged onto / pasted into the composer arrive as bytes; same checks as the picker
+        register('chatDropImport', async p => {
+            const name = String(p?.name || '').replace(/[\\/\u0000-\u001f]/g, '_').trim().slice(0, 160), bytes = p?.bytes;
+            if (!name || !(bytes instanceof Uint8Array) || !bytes.length) throw Error('拖入的文件无效');
+            if (bytes.length > 32 * 1024 * 1024) throw Error('文件超过 32 MB');
+            if (p.kind === 'image') {
+                const png = bytes[0] === 0x89 && bytes[1] === 0x50, jpg = bytes[0] === 0xff && bytes[1] === 0xd8;
+                if (!png && !jpg) throw Error('图片仅支持 PNG / JPEG');
+                return images.importFile(/\.(png|jpe?g)$/i.test(name) ? name : name + (png ? '.png' : '.jpg'), Buffer.from(bytes));
+            }
+            const ext = (name.match(/\.([a-z0-9]+)$/i)?.[1] || '').toLowerCase();
+            if (!['pdf','zip','docx','xlsx','pptx','md','txt','csv','json','html','js','ts','py','yaml','yml','css','sql','java','go','rs','sh'].includes(ext)) throw Error('暂不支持这种文件：' + (ext || name));
+            const fsp = await import('node:fs/promises'), os = await import('node:os');
+            const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'quank-drop-')), file = path.join(dir, name);
+            try { await fsp.writeFile(file, bytes, { mode: 0o600 }); return await importAttachment(file, undefined); }
+            finally { await fsp.rm(dir, { recursive: true, force: true }).catch(() => {}); }
         });
         register('documentImport', async () => {
             const result=await dialog.showOpenDialog(win,{title:'导入可编辑文档（原文件不变）',properties:['openFile'],filters:[{name:'文档',extensions:['docx','xlsx','pptx','md','html']}]});
