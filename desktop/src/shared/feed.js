@@ -79,6 +79,7 @@ export function buildFeed(data) {
   const structured = /^(任务已完成|任务未完成|已完成对话|对话达到轮数上限|连接有新内容)$/;
   for (const a of data.activity || []) {
     if (structured.test(a.title)) continue;
+    if (/^(行情提醒|自选股涨停|自选股跌停|自选股异动)$/.test(a.title)) { const code = a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1]; items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.title, 80), detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: code ? [{label: '查看行情', action: 'mkStock', id: code}] : []}); continue; } // [F1c]
     items.push({id: 'log:' + a.id, kind: 'log', group: 'log', title: clip(a.title, 80), detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: []});
   }
   return items.filter(x => Number.isFinite(x.time)).sort((a, b) => b.time - a.time).slice(0, FEED_LIMIT);
@@ -90,7 +91,7 @@ export function feedState(data) { const f = data.feed || {}; return {seenAt: Num
 export function visibleFeed(data, filter = 'all') {
   const {seenAt, dismissed} = feedState(data), hidden = new Set(dismissed);
   return buildFeed(data).filter(x => !hidden.has(x.id)).map(x => ({...x, unread: x.kind !== 'log' && (x.time > seenAt || x.needsAction)}))
-    .filter(x => filter === 'all' || (filter === 'unread' ? x.unread : filter === 'action' ? x.needsAction : x.group === filter));
+    .filter(x => (filter === 'all' && x.kind !== 'log') || (filter === 'unread' ? x.unread : filter === 'action' ? x.needsAction : x.group === filter));
 }
 
 export const feedUnread = data => visibleFeed(data, 'unread').length;

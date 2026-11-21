@@ -2,7 +2,7 @@ import {bindPresetFilters, plazaIcon} from './ui/preset-catalog.js'; // [ux11] p
 import {codeProjectsView} from './ui/code-projects.js';
 import {createComposerImages} from './ui/composer-images.js';
 import {compactComposer,createComposerMenus} from './ui/composer.js';
-import {modelPicker,modelLibrary,modelForm,modelChoiceLabel} from './ui/models.js';
+import {modelPicker,modelLibrary,modelForm,bindModelForm,modelChoiceLabel} from './ui/models.js';
 import {legacyRoundLimit} from './ui/legacy-round-limit.js';
 import {capabilityTabs,skillsPage,mcpPage,mcpAuthFields,mcpForm,bindMcpForm,mcpPayload} from './ui/capability-library.js';
 import {agentEditor,bindAgentEditor,readAgentEditor} from './ui/agent-editor.js';
@@ -180,7 +180,7 @@ function render() {
     const active = nav.find(n => n[0] === page);
     const name = state.settings.name || '我的工作空间';
     $('#app').className = sidebarCollapsed ? 'sidebar-collapsed' : '';
-    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(state)})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">WB</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div><button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${['home', 'chat'].includes(page) && !chatLive() ? `<button class="topbar-action ${planMode ? 'chosen' : ''}" data-action="togglePlan" aria-pressed="${planMode}" title="计划模式：先列出可编辑的步骤，确认后逐步执行">计划</button><button class="topbar-action ${researchMode ? 'chosen' : ''}" data-action="toggleResearch" aria-pressed="${researchMode}" title="深度研究：拆解子问题联网检索，生成带引用的 Word 报告">研究</button>` : ''}${page === 'home' && !chatId ? `<button class="topbar-action ${incognito ? 'chosen' : ''}" data-action="toggleIncognito" aria-pressed="${incognito}" title="无痕对话不出现在最近列表，不读取也不学习记忆，离开后即删除">无痕</button>` : ''}${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
+    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(state)})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div><button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${['home', 'chat'].includes(page) && !chatLive() ? `<button class="topbar-action ${planMode ? 'chosen' : ''}" data-action="togglePlan" aria-pressed="${planMode}" title="计划模式：先列出可编辑的步骤，确认后逐步执行">计划</button><button class="topbar-action ${researchMode ? 'chosen' : ''}" data-action="toggleResearch" aria-pressed="${researchMode}" title="深度研究：拆解子问题联网检索，生成带引用的 Word 报告">研究</button>` : ''}${page === 'home' && !chatId ? `<button class="topbar-action ${incognito ? 'chosen' : ''}" data-action="toggleIncognito" aria-pressed="${incognito}" title="无痕对话不出现在最近列表，不读取也不学习记忆，离开后即删除">无痕</button>` : ''}${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
     officeWorkspace.update(markup, `${page}:${chatId}`);
     for (const el of [document.scrollingElement, document.getElementById('app'), document.querySelector('.main'), document.querySelector('.workbench')]) if (el && el.scrollLeft) el.scrollLeft = 0; // [resp] never leave the shell scrolled sideways
     if(previousComposer&&$('#prompt'))$('#prompt').replaceWith(previousComposer);
@@ -226,7 +226,7 @@ function render() {
             for (const dash of quantDashboards(qc.dataset.code, quantDetailData.charts)) { const box = document.createElement('div'); box.className = 'q-chart'; qc.append(box); quantDisposers.push(mountDashboard(box, dash)); }
         }
     }
-    mountKlineBoxes(document, p => invoke('market', p)); marketPing(); // [F1]
+    mountKlineBoxes(document, p => invoke('market', p)); marketPing(); signalPopups(); // [F1] [F1c]
     { // [p4-m4] mini app viewer: code and data are fetched when the viewer appears; every data change goes to main
         const mh = $('#miniappHost');
         if (!mh && miniappDispose) { miniappDispose(); miniappDispose = null; }
@@ -424,7 +424,7 @@ function modal(title, body, submit, handler) {
                 const data=new FormData(d.querySelector('form'));
                 d.querySelectorAll('[data-mcp-secret]').forEach(el=>el.value='');
                 const result = await handler(data);
-                if(result === 'modelLibrary') modal('模型接入与自动选择',modelLibrary(state,escape));
+                if(result === 'modelLibrary') modal('模型设置',modelLibrary(state,escape));
                 else d.close();
             }
             catch (e) {
@@ -494,6 +494,7 @@ async function send() {
 // [F1] 行情 page actions, overview keep-alive and live refresh
 async function marketAction(actionId, id) {
     const mcall = async p => { const out = await invoke('market', p); if (out?.state) applyState(out.state); return out?.result ?? {}; };
+    if (actionId === 'mkSignal') { if ($('#modal')?.open) $('#modal').close(); const [kind, code] = String(id || '').split(':'); if (kind === 'quant') return handle('quantOpen', code); return marketAction('mkStock', code); } // [F1c]
     if (actionId === 'mkTab') { marketTab = id === 'concept' ? 'concept' : 'industry'; render(); return; }
     if (actionId === 'mkStock') { if ($('#modal')?.open) $('#modal').close(); marketStockCode = String(id || ''); if (page === 'market') render(); else await navigate('market'); return; }
     if (actionId === 'mkBack') { marketStockCode = ''; render(); return; }
@@ -515,6 +516,23 @@ function marketPing() {
     marketPingAt = now;
     if (!o || now - (o.at || 0) > 600e3) Promise.resolve().then(() => invoke('market', { action: 'overview' })).then(out => { if (out?.state) { applyState(out.state); marketRefreshView(); } }).catch(() => {});
     else Promise.resolve().then(() => invoke('market', { action: 'watch' })).catch(() => {});
+}
+// [F1c] buy / sell points and price alerts pop up inside the app (main also sends a system notification)
+let signalSeenAt = null;
+function signalPopups() {
+    if (!api) return;
+    const tone = a => /BUY/i.test(a || '') ? 'buy' : /SELL/i.test(a || '') ? 'sell' : '';
+    const items = [
+        ...(state.quant?.alerts || []).filter(a => a?.kind === 'change' && tone(a.to)).map(a => ({time: a.time, tone: tone(a.to), title: `${tone(a.to) === 'buy' ? '买点' : '卖点'}提醒 · ${a.name || a.code}`, text: [a.toText || a.to, a.score != null ? `综合分 ${a.score}` : '', a.price != null ? `现价 ${a.price}` : '', a.reason].filter(Boolean).join(' · '), code: a.code, quant: true})),
+        ...(state.activity || []).filter(a => /^(行情提醒|自选股涨停|自选股跌停)$/.test(a?.title || '')).map(a => ({time: a.time, tone: /跌停/.test(a.title) || /-\d/.test((/（([+-]?[\d.]+)%）/.exec(a.detail || '') || [])[0] || '') ? 'sell' : 'buy', title: a.title, text: a.detail || '', code: a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1] || ''}))].filter(x => Number.isFinite(x.time));
+    if (signalSeenAt === null) {
+        let v = 0; try { v = Number(localStorage.getItem('qk.signalSeenAt')) || 0; } catch {}
+        signalSeenAt = v || Math.max(0, ...items.map(x => x.time));
+    }
+    const fresh = items.filter(x => x.time > signalSeenAt && Date.now() - x.time < 6 * 3600e3).sort((a, b) => b.time - a.time).slice(0, 5);
+    if (!fresh.length || $('#modal')?.open) return;
+    signalSeenAt = Math.max(...fresh.map(x => x.time)); try { localStorage.setItem('qk.signalSeenAt', String(signalSeenAt)); } catch {}
+    modal(fresh.length > 1 ? `${fresh.length} 条交易提醒` : fresh[0].title, `<div class="sig-pop">${fresh.map(x => `<div class="sig-item ${x.tone}"><span class="sig-badge">${x.tone === 'buy' ? (x.quant ? '买' : '涨') : (x.quant ? '卖' : '跌')}</span><div><b>${escape(x.title)}</b><p>${escape(x.text)}</p><small>${escape(date(x.time))}</small></div>${x.code ? `<button type="button" data-action="mkSignal" data-id="${escape((x.quant ? 'quant:' : 'market:') + x.code)}">查看详情</button>` : ''}</div>`).join('')}<p class="muted">信号来自你本机的策略与公开行情，仅供研究，不构成投资建议；QuanK 不会替你下单。</p></div>`);
 }
 async function navigate(next) {
     if (page === 'feed' && next !== 'feed') invoke('feed', { action: 'seen' }).then(s => { applyState(s); render(); }).catch(() => {}); // [p2-m3] leaving the feed marks it read
@@ -818,8 +836,8 @@ async function handle(actionId, id) {
         render();
         return;
     }
-    if(actionId==='settings'){modal('模型接入与自动选择',modelLibrary(state,escape));return;}
-    if(actionId==='modelEdit'){const p=(state.modelProfiles||[]).find(p=>p.id===id)||{};modal(p.id?'编辑模型':'添加模型',modelForm(p,state.settings.secureStorage,escape),'保存模型',async f=>{const payload={...Object.fromEntries(f),id:p.id,revision:p.revision};for(const k of ['supportsOff','tools','vision','enabled','persistKey','clearKey'])payload[k]=f.has(k);await update('modelProfile',payload);toast('模型配置已保存，未发送网络请求');return 'modelLibrary';});return;}
+    if(actionId==='settings'){modal('模型设置',modelLibrary(state,escape));return;}
+    if(actionId==='modelEdit'){const p=(state.modelProfiles||[]).find(p=>p.id===id)||{};modal(p.id?'编辑模型':'添加模型',modelForm(p,state.settings.secureStorage,escape),'保存模型',async f=>{const payload={...Object.fromEntries(f),id:p.id,revision:p.revision};delete payload.provider;if(!String(payload.name||'').trim())payload.name=payload.model||'模型';for(const k of ['supportsOff','tools','vision','enabled','persistKey','clearKey'])payload[k]=f.has(k);await update('modelProfile',payload);toast('模型已保存');return 'modelLibrary';});bindModelForm($('#modal'),{test:x=>invoke('modelTest',x)});return;}
     if(actionId==='modelRemove'){const p=(state.modelProfiles||[]).find(p=>p.id===id);if(p)modal('删除模型配置','<p>移除此配置及保存的密钥；排队或执行中的请求不会自动换模型。</p>','删除',async()=>{await update('modelProfile',{id:p.id,revision:p.revision,remove:true});});return;}
     if (actionId === 'legacySettings') {
         modal('连接你的模型', `<p>支持 Chat Completions 兼容 API。远程服务使用 HTTPS，本机 Ollama 可用 http://127.0.0.1:11434/v1。内容只会发送到你填写的地址。</p>${input('工作空间名称', 'name', state.settings.name)}${input('Base URL', 'baseUrl', state.settings.baseUrl || 'https://api.deepseek.com')}${input('模型 ID', 'model', state.settings.model === '尚未配置' ? 'deepseek-chat' : state.settings.model)}${input('每次任务模型调用轮数（1–96）', 'maxSteps', legacyRoundLimit(state.settings,state.agents,agentId).value, 'number')}<label>本机向量嵌入模型（留空使用关键词检索）<input name="localEmbeddingModel" value="${escape(state.settings.localEmbeddingModel || '')}"></label><p>普通模型名称使用本机 Ollama 服务。固定模型名 wb-bge-small-zh-v1.5 使用应用内本机推理；当前版本尚未附带模型和运行依赖，启用会提示缺失。索引为敏感派生数据；查询时会请求确认。</p><label class="check"><input type="checkbox" name="officePreviewPool" ${state.settings.officePreviewPool !== false ? 'checked' : ''}>复用 Office 预览进程，加快文档预览（重启后生效；出错时自动改用单次转换）</label><p>${legacyRoundLimit(state.settings,state.agents,agentId).inherited ? '当前工具任务沿用所选智能体的轮数；修改并保存后，原模型按此设置执行。' : '当前原模型使用已保存的轮数设置。'}增加轮数可能增加用量；正在执行的任务不会改变。</p><label>API Key ${state.settings.hasKey ? '（留空保留当前密钥）' : ''}<input name="apiKey" type="password" autocomplete="off"></label><label class="check"><input type="checkbox" name="persistKey" ${state.settings.secureStorage ? '' : 'disabled'}>使用系统钥匙串加密保存新密钥</label><label class="check"><input type="checkbox" name="clearKey">清除当前保存的密钥</label><p>${state.settings.secureStorage ? '未勾选时，新密钥只保留至应用退出。' : '系统加密存储不可用，新密钥只在本次运行中保留。'}保存配置不会发送测试请求；可通过一次真实对话验证连接。</p>`, '保存配置', async (f) => { await update('settings', { ...Object.fromEntries(f), persistKey: f.has('persistKey'), clearKey: f.has('clearKey'), officePreviewPool: f.has('officePreviewPool') }); toast('模型配置已保存'); });

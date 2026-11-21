@@ -61,7 +61,7 @@ export function klineBox(code, {marks = [], big = false} = {}) {
   const periods = Object.entries(PERIODS).filter(([k]) => k !== 'm30').map(([k, [, l]]) => btn('period', k, l)).join('');
   return `<section class="qk-card mk-box${big ? ' big' : ''}" data-mk-code="${escape(code)}" data-mk-marks="${escape(JSON.stringify(marks || []))}">
 <div class="mk-quote"></div><div class="mk-toolbar"><div class="mk-seg">${periods}</div><div class="mk-seg">${btn('sub', 'macd', 'MACD')}${btn('sub', 'kdj', 'KDJ')}</div><div class="mk-seg">${btn('range', 60, '60')}${btn('range', 120, '120')}${btn('range', 250, '250')}</div></div>
-<div class="mk-body"><p class="mk-empty">正在加载 K 线…</p></div></section>`;
+<div class="mk-hover" aria-live="polite"></div><div class="mk-body"><p class="mk-empty">正在加载 K 线…</p></div></section>`;
 }
 
 export function quoteLine(d) {
@@ -91,8 +91,17 @@ export function mountKlineBoxes(root, call, {now = Date.now} = {}) {
       if (!box.isConnected) return;
       const ql = box.querySelector('.mk-quote'); if (ql) ql.innerHTML = quoteLine(d);
       const t = root.querySelector?.('#mkStockTitle'); if (t && d?.name) t.textContent = `${d.name} ${d.code}`;
-      if (body) body.innerHTML = p.period === 'intraday' ? trendSvg(d.points, d.preClose) : klineSvg(d.bars, {sub: p.sub, last: p.range, marks: p.period === 'day' ? marks : [], h: box.classList.contains('big') ? 520 : 440});
+      const W = Math.max(360, Math.round((body?.clientWidth || box.clientWidth || 980) - 14)), H = box.classList.contains('big') ? 540 : 460; // [F1c] draw at the real width
+      if (body) body.innerHTML = p.period === 'intraday' ? trendSvg(d.points, d.preClose, {w: W, h: Math.round(H * 0.8)}) : klineSvg(d.bars, {sub: p.sub, last: p.range, marks: p.period === 'day' ? marks : [], w: W, h: H});
+      const hv = box.querySelector('.mk-hover'); if (hv) hv.textContent = '';
     };
+    box.addEventListener('mousemove', e => { // [F1c] crosshair + numbers of the bar under the pointer
+      const r = e.target.closest?.('.mk-hit'), hv = box.querySelector('.mk-hover'), cross = box.querySelector('.mk-cross');
+      if (!r) return;
+      if (hv) hv.textContent = r.getAttribute('data-t') || '';
+      if (cross) { const cx = Number(r.getAttribute('x')) + Number(r.getAttribute('width')) / 2; cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.style.opacity = '.7'; }
+    });
+    box.addEventListener('mouseleave', () => { const hv = box.querySelector('.mk-hover'), cross = box.querySelector('.mk-cross'); if (hv) hv.textContent = ''; if (cross) cross.style.opacity = '0'; });
     box.addEventListener('click', e => { const b = e.target.closest('[data-mk]'); if (!b || b.disabled) return; const [k, v] = b.dataset.mk.split(':'); p[k] = k === 'range' ? Number(v) : v; prefs.set(code, p); paint(); });
     paint();
   }
