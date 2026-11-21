@@ -61,3 +61,6 @@ __pycache__/
 /desktop/node_modules/
 /desktop/node_modules
 /desktop/_wbcheck/
+
+# local review output (make-ppt-review.mjs etc.)
+/_review/

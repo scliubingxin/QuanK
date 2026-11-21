@@ -1,8 +1,8 @@
-> 原 Web 系统的历史说明，保留开发与迁移参考；桌面产品介绍请阅读[根目录 README](../README.md)。历史部署状态不代表当前桌面版本。
+> 原 Web 系统的历史说明，保留开发与迁移参考；桌面产品介绍请阅读[根目录 README](../../../README.md)。历史部署状态不代表当前桌面版本。
 
 # WillBuddy 工作台 · 0.2
 
-源码交付入口：[代码说明](CODE_GUIDE.md) · [部署与回滚](DEPLOYMENT.md) · [当前验证与发布状态](RELEASE_STATUS.json) · [GenOffice 集成](GENOFFICE_INTEGRATION.md)。下载包内另有 `SOURCE_MANIFEST.json`，记录完整提交 SHA 和逐文件校验值；线上与源码差异以发布清单为准。
+源码交付入口：[代码说明](../../../CODE_GUIDE.md) · [部署与回滚](../../../DEPLOYMENT.md) · [当前验证与发布状态](../../../RELEASE_STATUS.json) · [GenOffice 集成](../../../GENOFFICE_INTEGRATION.md)。下载包内另有 `SOURCE_MANIFEST.json`，记录完整提交 SHA 和逐文件校验值；线上与源码差异以发布清单为准。
 
 以 Amazon Quick 官方用户指南为功能参考的独立个人工作台。支持自己的第三方模型 API；软件不设置积分，不访问 Amazon 账户。它不是 Amazon 官方产品，也没有实现 Quick 的全部企业与桌面功能。
 
@@ -49,7 +49,7 @@
 - 文档和演示导出为基础排版；不支持原始 PPT 模板的精确还原。PDF 通过浏览器打印保存。
 - 应用发布只在私人工作空间切换版本，没有独立公开链接、团队协作或完整业务集成 SDK。应用 KV 每项 64KB。
 
-详细产品分析与文档映射见 [PRODUCT_ANALYSIS.md](PRODUCT_ANALYSIS.md)。
+详细产品分析与文档映射见 [PRODUCT_ANALYSIS.md](../../../PRODUCT_ANALYSIS.md)。
 
 ## 本地开发
 
@@ -109,6 +109,6 @@ Word 导出新增可编辑表格、对齐、中文换行与重复表头。2026-0
 
 当前私人站点已提供服务端管理的 DeepSeek 连接，无需再次在页面粘贴密钥；它的目标地址和凭据由服务端固定管理。个人自定义模型仍可另行添加。
 
-每轮改进遵循 [ITERATION_PLAN.md](ITERATION_PLAN.md)，实际结果记录在 [ITERATION_LOG.md](ITERATION_LOG.md)。新增 `tests/provider-live.mjs`（仅安全进程环境提供密钥时使用）与 `tests/live-model.mjs`（需要有效站点用户身份）。自测会产生少量实际模型用量。不要因为后台测试缺少用户登录身份而移除应用鉴权。
+每轮改进遵循 [ITERATION_PLAN.md](../../../ITERATION_PLAN.md)，实际结果记录在 [ITERATION_LOG.md](../../../ITERATION_LOG.md)。新增 `tests/provider-live.mjs`（仅安全进程环境提供密钥时使用）与 `tests/live-model.mjs`（需要有效站点用户身份）。自测会产生少量实际模型用量。不要因为后台测试缺少用户登录身份而移除应用鉴权。
 
 截至 2026-09-11，本轮 82 项集成断言和 3 个真实 DeepSeek 用例已通过；这更新了前文初版“尚未真实验收”的历史状态，但不代表浏览器端到端或 Quick 对照验收已完成。

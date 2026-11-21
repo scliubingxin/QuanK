@@ -238,6 +238,8 @@ cd QuanK/desktop && npm install && npm start
 - **v0.45** — 更名 QuanK 独立发布；全新首页工作台与走势线；4 个金融智能体与 11 个投研技能；行情数据源支持浏览器登录与本机程序接入；持仓定投、盯盘提醒与收盘日报；DMG 一键安装（`QuanK-0.45.0-arm64.dmg`）。
 - **v0.44** 及更早版本见 [WillBuddy](https://github.com/scliubingxin/WillBuddy/releases)。
 
+每个版本的打包与发布记录（校验值、提交、tag）见 [docs/releases](docs/releases/README.md)；文档目录说明见 [docs/README.md](docs/README.md)。
+
 ## 许可与声明
 
 源码以 [Apache License 2.0](LICENSE) 开源。私有量化策略不在本仓库中。QuanK 提供的信号、研判与报告仅供研究参考，不构成投资建议；投资有风险，决策请独立判断。
