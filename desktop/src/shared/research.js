@@ -105,7 +105,7 @@ function sma(bars, n) {
  * Report structure (format independent). input: {code, name, date, quote, bars, signal (engine summary), returns ({a, b} last
  * backtest return %), holding, notices, insight (AI text), period}. Missing parts are skipped and listed in `gaps`.
  */
-export function buildStockReport({code, name = '', date = '', quote = null, bars = [], signal = null, returns = null, holding = null, notices = [], insight = ''} = {}) {
+export function buildStockReport({code, name = '', date = '', quote = null, bars = [], signal = null, returns = null, holding = null, notices = [], insight = '', finance = null} = {}) {
   const title = `${name || code}（${code}）个股研究报告`, sections = [], gaps = [];
   const s = signal || null, q = quote || {};
   // core view
@@ -141,6 +141,8 @@ export function buildStockReport({code, name = '', date = '', quote = null, bars
       sections.push({id: 'backtest', title: '回测表现', table: [['策略收益', '基准收益', '超额', '胜率', '交易次数', '最大回撤'], [pct(bt.smartPct), pct(bt.blindPct), pct(bt.excess), fin(bt.winRate) ? num(bt.winRate, 0) + '%' : '—', fin(bt.trades) ? String(bt.trades) : '—', pct(bt.maxDrawdown)]], paragraphs: p, chart: returns ? 'returns' : ''});
     }
   }
+  // [F3] financials: table + summary lines supplied by the knowledge service (src/shared/knowledge.js)
+  if (finance?.table?.length > 1) sections.push({id: 'finance', title: '财务数据', paragraphs: (finance.lines || []).map(x => clip(x, 400)), table: finance.table.slice(0, 7), chart: finance.chart ? 'finance' : ''});
   // holding
   if (holding && fin(holding.shares) && holding.shares > 0) {
     sections.push({id: 'holding', title: '我的持仓', table: [['持仓股数', '成本价', '市值', '浮动盈亏', '盈亏比例'], [String(holding.shares), num(holding.cost), money(holding.value), money(holding.pnl), pct(holding.pnlPct)]],

@@ -21,7 +21,7 @@ const cst = t => new Date(t + 8 * 3600e3);
 const today = t => cst(t).toISOString().slice(0, 10);
 const localTime = t => Number.isFinite(t) ? cst(t).toISOString().slice(5, 16).replace('T', ' ') : '';
 
-export function createResearchService({store, documents, market = null, quant = null, fetcher = globalThis.fetch, ask = null, rasterize = null, notify = () => {}, onAlert = () => {}, now = Date.now, timeoutMs = 12000} = {}) {
+export function createResearchService({store, documents, market = null, quant = null, finance = null, fetcher = globalThis.fetch, ask = null, rasterize = null, notify = () => {}, onAlert = () => {}, now = Date.now, timeoutMs = 12000} = {}) {
   const cache = new Map(), bodies = new Map();
   let scanBusy = false;
   const st = () => {
@@ -133,14 +133,14 @@ export function createResearchService({store, documents, market = null, quant = 
   }
 
   // ---------- M1 / M4: documents ----------
-  const CHART_NAMES = {kline: '图 1：日 K 线与回测买卖点（红 B 买入 / 绿 S 卖出）', returns: '图 2：回测收益率，智能定投 vs 普通定投'};
+  const CHART_NAMES = {kline: '图 1：日 K 线与回测买卖点（红 B 买入 / 绿 S 卖出）', returns: '图 2：回测收益率，智能定投 vs 普通定投', finance: '图 3：单季营收与归母净利润'};
   async function render(spec, format, svgs = {}) {
     let bytes;
     if (format === 'html') bytes = Buffer.from(reportToHtml(spec, {charts: svgs}), 'utf8');
     else if (format === 'pptx') bytes = (await generateDocument('pptx', reportToPptx(spec))).bytes;
     else {
       const pngs = [];
-      if (rasterize) for (const [k, svg] of Object.entries(svgs)) { try { const png = await rasterize(svg, {width: 960, height: k === 'kline' ? 460 : 300}); if (png?.length >= 24) pngs.push([CHART_NAMES[k] || k, Buffer.from(png)]); } catch {} }
+      if (rasterize) for (const [k, svg] of Object.entries(svgs)) { try { const png = await rasterize(svg, {width: 960, height: k === 'kline' ? 460 : k === 'finance' ? 260 : 300}); if (png?.length >= 24) pngs.push([CHART_NAMES[k] || k, Buffer.from(png)]); } catch {} }
       bytes = (await generateDocument('docx', reportToDocx(spec, {charts: pngs.map(x => x[0])}))).bytes;
       for (const [, png] of pngs) { try { bytes = appendWordImage(bytes, png).bytes; } catch {} }
     }
@@ -172,15 +172,17 @@ export function createResearchService({store, documents, market = null, quant = 
     if (p.ai !== false && quant && signal) { const r = await settle(() => quant.handle({action: 'insight', code})); if (ok(r) && r.available !== false && r.text) insight = String(r.text); }
     const name = n0 || signal?.summary?.name || kl?.name || list[0]?.name || code;
     const rt = signal?.charts?.curve ? backtestReturns(signal.charts.curve) : null;
-    const spec = buildStockReport({code, name, date: today(now()), quote: kl?.quote || null, bars: kl?.bars || [], signal: signal?.summary || null, returns: lastReturns(rt, signal?.summary?.backtest), holding: signal?.holding || null, notices: list, insight});
+    const fz = finance ? await settle(() => finance(code)) : null, fd = ok(fz); // [F3] {table, lines, svg}
+    const spec = buildStockReport({code, name, date: today(now()), quote: kl?.quote || null, bars: kl?.bars || [], signal: signal?.summary || null, returns: lastReturns(rt, signal?.summary?.backtest), finance: fd ? {table: fd.table, lines: fd.lines, chart: !!fd.svg} : null, holding: signal?.holding || null, notices: list, insight});
     const svgs = {};
     if (kl?.bars?.length > 1) svgs.kline = klineSvg(kl.bars, {w: 960, h: 460, last: 120, marks: opsMarks(signal?.charts?.ops)});
     if (rt?.rows?.length > 1) svgs.returns = returnSvg(rt.rows, {labels: rt.labels, w: 960, h: 300});
+    if (fd?.svg) svgs.finance = fd.svg;
     const doc = await render(spec, format, svgs);
     const item = addItem({kind: 'report', code, name, title: spec.title, summary: spec.summary, documentId: doc.id, format, tags: [format === 'docx' ? 'Word' : format === 'pptx' ? 'PPT' : '网页']});
     await store.save?.(); notify();
     return {document: doc, item, summary: spec.summary, sections: spec.sections.map(s => s.title), gaps: spec.gaps,
-      warnings: [sig?.__error && '量化信号：' + sig.__error, k?.__error && '行情：' + k.__error, ns?.__error && '公告：' + ns.__error].filter(Boolean)};
+      warnings: [fz?.__error && '财务数据：' + fz.__error, sig?.__error && '量化信号：' + sig.__error, k?.__error && '行情：' + k.__error, ns?.__error && '公告：' + ns.__error].filter(Boolean)};
   }
   async function exportDoc(p = {}) {
     const kind = String(p.kind || ''), format = REPORT_FORMATS.includes(p.format) ? p.format : 'docx';
@@ -261,6 +263,11 @@ export function createResearchService({store, documents, market = null, quant = 
         r.library = r.library.filter(x => x.id !== it.id);
         await store.save?.(); notify(); return {removed: it.id};
       }
+      if (a === 'archive') { // [F3] other services file their documents (topic digests …) into the library
+        const it = addItem({kind: ['report', 'export', 'doc'].includes(p.kind) ? p.kind : 'export', code: p.code, name: p.name, title: p.title, summary: p.summary, documentId: p.documentId, format: p.format, tags: p.tags || []});
+        await store.save?.(); notify(); return {item: it};
+      }
+      if (a === 'render') { const doc = await render(p.spec, REPORT_FORMATS.includes(p.format) ? p.format : 'docx', p.svgs || {}); return {document: doc}; } // [F3]
       if (a === 'watch') {
         const r = st();
         if (typeof p.enabled === 'boolean') r.watch.enabled = p.enabled;

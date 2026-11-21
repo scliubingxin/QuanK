@@ -1350,3 +1350,21 @@ html,body,.main,.workspace{background:#f7f8fc}
 
 /* [v47.1] return chart disagrees with the summary */
 .q-return-note.warn{color:#b45309;background:#fff8e7;border-left:3px solid #f59e0b;padding:6px 10px;border-radius:6px}
+
+/* [F3] 投研知识库: stock-detail box (财务 / 关系图) and the 量化-page search + topics */
+.kn-box{margin-top:14px}.kn-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;margin-bottom:10px}.kn-head h3{margin:0}
+.kn-tabs button{padding:5px 12px}.kn-tools button{padding:4px 10px;font-size:12px}
+.kn-lines{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:6px}.kn-lines li{padding:7px 12px;border-radius:10px;background:#f8faff;font-size:13px;line-height:1.7;color:#14213d}
+.kn-table td.up{color:#dc2626}.kn-table td.down{color:#059669}.kn-table td,.kn-table th{white-space:nowrap}
+.kn-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:10px}.kn-cols h4{margin:0 0 8px;font-size:13px;color:#4c5a85}.kn-cols h4 small{margin-left:8px;color:#9aa3b8;font-weight:400}
+.kn-dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:12.5px}.kn-dl dt{color:#8a94ad}.kn-dl dd{margin:0;color:#14213d}
+.kn-biz{margin:8px 0 0;font-size:12.5px;line-height:1.7;color:#5b6787;max-height:7.2em;overflow:auto}
+.kn-holders{margin:0;padding-left:20px;font-size:12.5px;display:grid;gap:4px}.kn-holders li span{display:inline-block;max-width:78%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}.kn-holders li b{float:right;font-variant-numeric:tabular-nums;color:#2f62f5}
+.quant-page .q-box.q-knowledge{position:relative;margin:0 0 18px;padding:18px 20px;border:1px solid #e6ecf6;border-radius:18px;background:linear-gradient(180deg,#eef3ff 0,#fff 76px);box-shadow:0 10px 30px -24px #1e3a8a55}
+.quant-page .q-knowledge>.plaza-section-head{margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid #edf1f7}
+.kn-search{display:flex;gap:8px;margin-bottom:10px}.kn-search input{flex:1;min-width:0}
+.kn-sub{margin:14px 0 8px;font-size:13px;color:#4c5a85}
+.kn-hits{list-style:none;margin:0;padding:0;display:grid;gap:8px}.kn-hits li{padding:9px 12px;border-radius:10px;background:#f8faff}
+.kn-hit-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}.kn-hit-head b{font-size:13px;color:#14213d}.kn-hit-head small{color:#9aa3b8;font-size:11.5px}.kn-hit-head .rs-acts{margin-left:auto}
+.kn-hits p{margin:6px 0 0;font-size:12.5px;line-height:1.7;color:#5b6787}
+.q-box ul.rs-list.kn-topics{padding-left:0}
