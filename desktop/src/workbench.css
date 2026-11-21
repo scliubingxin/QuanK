@@ -1228,3 +1228,51 @@ html,body,.main,.workspace{background:#f7f8fc}
 .fd-badge.av{width:42px!important;height:42px}
 .lib-icon.av{width:46px;height:46px;border-radius:0!important;box-shadow:none;filter:drop-shadow(0 4px 8px #0f172a14)}
 .agent-card .pc-icon.av,.mine-card .pc-icon.av{width:52px;height:52px}
+
+/* ===== [F1e] 首页股票卡横排、K 线文字、AI 研判版式、评分卡、指标卡、头像描边 ===== */
+.qk-home .home-quant .hq-grid .hq-stock .hq-name{display:grid!important;grid-template-columns:auto minmax(0,1fr);column-gap:10px;row-gap:1px;align-items:center;justify-items:start;text-align:left!important;width:100%}
+.qk-home .home-quant .hq-grid .hq-stock .hq-name:not(:has(.hq-logo)){column-gap:0}
+.qk-home .home-quant .hq-grid .hq-stock .hq-name>b,.qk-home .home-quant .hq-grid .hq-stock .hq-name>small{grid-column:2;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.qk-home .home-quant .hq-grid .hq-stock .hq-name>.hq-logo{grid-column:1;grid-row:1 / span 2;width:34px!important;height:34px!important;margin:0!important;border-radius:10px;padding:3px;background:#fff;box-shadow:0 0 0 1px #eef1f7;object-fit:contain}
+.av svg{stroke:none;fill:none;width:100%!important;height:100%!important}
+.mk-kline,.mk-trend,.mk-kline text,.mk-trend text,.mk-kline tspan,.mk-trend tspan{stroke:none}
+/* AI 研判 */
+#modal:has(.in-wrap){width:min(880px,94vw)}
+.in-wrap{display:grid;gap:14px;max-height:68vh;overflow:auto;padding:2px 4px 4px 0}
+.in-hero{border-radius:16px;padding:16px 18px;background:linear-gradient(135deg,#eef3ff,#f4efff);border:1px solid #e2e8fb}
+.in-hero.in-bear{background:linear-gradient(135deg,#ecfaf2,#f3fbf7);border-color:#cdeedc}.in-hero.in-bull{background:linear-gradient(135deg,#fff1f1,#fff7f5);border-color:#f6d3d3}
+.in-hero-top{display:flex;align-items:center;gap:8px;color:#4c5a85;font-size:12.5px}
+.in-verdict{margin:8px 0 6px;font-size:22px;font-weight:800;letter-spacing:.2px;background:linear-gradient(90deg,#0b2ba6,#183ff5);-webkit-background-clip:text;background-clip:text;color:transparent}
+.in-bear .in-verdict{background:linear-gradient(90deg,#0f7a45,#18a058);-webkit-background-clip:text;background-clip:text}.in-bull .in-verdict{background:linear-gradient(90deg,#c0262d,#e5484d);-webkit-background-clip:text;background-clip:text}
+.in-hero p{margin:0;font-size:13.5px;line-height:1.8;color:#24324f}
+.in-stats{display:flex;flex-wrap:wrap;gap:8px}.in-stats span{font-size:12px;color:#5b6787;background:#f3f6fc;border-radius:999px;padding:4px 12px}.in-stats b{color:#2f62f5;margin-right:3px;font-size:14px}.in-stats .warn b{color:#d97706}
+.in-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+.in-card{border:1px solid #eaeef6;border-radius:14px;padding:14px 16px;background:#fff}
+.in-card h4{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:14.5px;color:#14213d}
+.in-ico{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;background:#eef2ff;color:#2f62f5;flex:none}.in-ico svg{width:16px!important;height:16px!important;stroke:currentColor;stroke-width:1.8;fill:none}
+.in-k-risk .in-ico{background:#fff4e5;color:#d97706}.in-k-action .in-ico{background:#e8f6ee;color:#0f8a4b}.in-k-data .in-ico{background:#f0ecff;color:#6a5cf0}
+.in-card p{margin:0 0 8px;font-size:13px;line-height:1.75;color:#374151}
+.in-card ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.in-card li{display:grid;gap:3px;padding-left:12px;border-left:3px solid #dfe6fb;font-size:13px;line-height:1.7;color:#374151}.in-k-risk li{border-left-color:#fde2bf}
+.in-lead{color:#14213d;font-size:13.5px}
+.in-up{color:#e5484d;font-weight:600}.in-down{color:#18a058;font-weight:600}
+.in-foot{margin:0;font-size:11.5px;color:#9aa3b8}
+/* 信号理由 / 风控 列表 */
+.q-box ul.q-list{list-style:none;padding:0;display:grid;gap:8px}
+.q-box ul.q-list li{position:relative;padding:8px 12px 8px 26px;border-radius:10px;background:#f8faff;line-height:1.65}
+.q-box ul.q-list li:before{content:'';position:absolute;left:11px;top:15px;width:6px;height:6px;border-radius:50%;background:#2f62f5}
+.q-box.q-gates ul.q-list li{background:#fffaf2}.q-box.q-gates ul.q-list li:before{background:#f59e0b}
+/* 评分构成 */
+.qf-list{display:grid;gap:12px}
+.qf-row{display:grid;gap:6px;padding:10px 12px;border-radius:12px;background:#f8faff}
+.qf-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.qf-name{font-size:13.5px;font-weight:600;color:#14213d}
+.qf-score b{font-size:16px;font-weight:800;color:#2f62f5;font-variant-numeric:tabular-nums}.qf-score small{font-size:12px;color:#9aa3b8}
+.qf-bar{height:6px;border-radius:999px;background:#e6ebf7;overflow:hidden}.qf-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#2f62f5,#8c7cff)}
+.qf-row.zero .qf-score b{color:#9aa3b8}
+.qf-row p{margin:0;font-size:12.5px;line-height:1.65;color:#5b6787}
+/* 指标 */
+.qi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.qi{display:grid;gap:4px;padding:12px 14px;border-radius:12px;background:linear-gradient(180deg,#f8faff,#fff);border:1px solid #edf1f8}
+.qi small{font-size:12px;color:#6b7591}.qi b{font-size:19px;font-weight:800;color:#14213d;font-variant-numeric:tabular-nums}
+.qi b.up{color:#e5484d}.qi b.down{color:#18a058}

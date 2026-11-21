@@ -36,7 +36,8 @@
     const horizontal = c.type === 'hbar';
     const cat = {type: 'category', data: c.labels, axisLabel, axisTick: {alignWithLabel: true}}, val = {type: 'value', axisLabel, splitLine: {lineStyle: {color: '#eef0f3'}}};
     return {...base, xAxis: horizontal ? val : cat, yAxis: horizontal ? cat : val,
-      dataZoom: !horizontal && c.labels.length > 24 ? [{type: 'inside'}, {type: 'slider', height: 14, bottom: 0}] : undefined,
+      grid: {...base.grid, bottom: c.labels.length > 24 && !horizontal ? 40 : 8}, // [F1e] room for the date axis above the slider
+      dataZoom: !horizontal && c.labels.length > 24 ? [{type: 'inside'}, {type: 'slider', height: 14, bottom: 4}] : undefined,
       series: c.series.map(s => ({name: s.name, type: c.type === 'line' ? 'line' : 'bar', data: s.values, smooth: c.type === 'line', showSymbol: c.labels.length <= 40,
         stack: c.type === 'stackedBar' ? 'total' : undefined, barMaxWidth: 36, areaStyle: c.type === 'line' && c.series.length === 1 ? {opacity: 0.08} : undefined,
         emphasis: {focus: 'series'}}))};

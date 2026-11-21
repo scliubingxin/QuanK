@@ -17,6 +17,7 @@ import {mountWordRuns} from './ui/word-runs.js';
 import {mountWordCanvas} from './ui/word-canvas.js';
 import {documentLibrary,documentExamples,messageDocuments} from './ui/documents.js';
 import { escape, rich, htmlPreview } from './ui/markdown.js';
+import { insightHtml } from './ui/insight.js';
 import * as views from './ui/workspace.js';
 import { memoryPage } from './ui/memory.js';
 import { recentSections, chatMarkdown } from './ui/chats.js';
@@ -1282,7 +1283,7 @@ async function handle(actionId, id) {
         if (actionId === 'quantClose') { quantOpen = ''; quantDetailData = null; render(); return; }
         if (actionId === 'quantRefresh') { if (quantOpen === id) return loadDetail(id, true); toast('正在重新计算…'); await call({ action: 'signal', code: id, fresh: true }); render(); toast('已更新'); return; }
         if (actionId === 'quantRefreshAll') { toast('正在逐只计算，可能需要几分钟…'); const r = await call({ action: 'refreshAll' }); render(); const bad = (r.results || []).filter(x => x.error).length; toast(bad ? `完成，${bad} 只失败` : '全部已更新'); return; }
-        if (actionId === 'quantInsight') { toast('正在生成 AI 研判…'); const r = await call({ action: 'insight', code: id }); modal('AI 研判', `${r.available ? '' : `<p class="hint">${escape(r.reason || 'AI 大模型研判暂不可用，以下为算法结论')}</p>`}<div class="q-insight">${escape(r.text || '')}</div>`); return; }
+        if (actionId === 'quantInsight') { toast('正在生成 AI 研判…'); const r = await call({ action: 'insight', code: id }); modal('AI 研判', `${r.available ? '' : `<p class="hint">${escape(r.reason || 'AI 大模型研判暂不可用，以下为算法结论')}</p>`}${insightHtml(r.text || '', {name: r.name || '', code: id})}`); return; } // [F1e]
     }
     if (/^miniapp/.test(actionId)) { // [p4-m4] mini apps
         const call = async p => { const out = await invoke('miniapp', p); if (out?.state) { applyState(out.state); render(); } return out?.result || {}; };
@@ -1601,6 +1602,7 @@ api?.onStream?.(event => {
                 scroller.scrollTop = scroller.scrollHeight;
         }, 40);
 });
+document.addEventListener('click', event => { const row = event.target.closest?.('.feed-row[data-feed].unread'); if (row) update('feed', { action: 'read', id: row.dataset.feed }).catch(() => {}); }); // [F1e] opening a feed item marks it read
 document.addEventListener('click', event => { const link = event.target.closest('a.rendered-link'); if (!link)
     return; event.preventDefault(); const url = link.getAttribute('href'); if (url && /^https?:\/\//i.test(url))
     invoke('openBrowser', { url }).catch(error => toast(error.message)); });

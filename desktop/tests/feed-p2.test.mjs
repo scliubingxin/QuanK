@@ -71,7 +71,7 @@ test('workspace feed handler persists state', async () => {
   const w = createWorkspaceService({store, active: new Map(), view: () => store.data});
   await w.feed({action: 'seen', at: 999});
   await w.feed({action: 'dismiss', id: 'log:l1'});
-  assert.deepEqual(store.data.feed, {seenAt: 999, dismissed: ['log:l1']}); assert.equal(store.saved, 2);
+  assert.deepEqual(store.data.feed, {seenAt: 999, dismissed: ['log:l1'], read: []}); // [F1e] per-item read state assert.equal(store.saved, 2);
   await assert.rejects(w.feed({action: 'nope'}), /未知操作/);
 });
 
