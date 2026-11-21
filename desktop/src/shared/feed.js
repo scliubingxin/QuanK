@@ -79,6 +79,7 @@ export function buildFeed(data) {
   const structured = /^(任务已完成|任务未完成|已完成对话|对话达到轮数上限|连接有新内容)$/;
   for (const a of data.activity || []) {
     if (structured.test(a.title)) continue;
+    if (a.title === '主题周报') { items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.detail, 80) || '主题周报', detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: [{label: '查看投研资料库', action: 'quantHome', id: ''}]}); continue; } // [F3]
     if (a.title === '公告提醒') { const code = a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1]; items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.detail, 80) || '公告提醒', detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: code ? [{label: '查看公告', action: 'researchNotices', id: code}] : []}); continue; } // [F2]
     if (/^(行情提醒|自选股涨停|自选股跌停|自选股异动)$/.test(a.title)) { const code = a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1]; items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.title, 80), detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: code ? [{label: '查看行情', action: 'mkStock', id: code}] : []}); continue; } // [F1c]
     items.push({id: 'log:' + a.id, kind: 'log', group: 'log', title: clip(a.title, 80), detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: []});

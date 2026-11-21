@@ -39,6 +39,7 @@ import { renderInfographicSvg } from './shared/infographic.js';
 import { miniappPage, miniappForm, miniappPayload, miniappReviseForm, miniappRevisePayload, miniappVersionsView, mountMiniApp } from './ui/miniapp.js';
 import { quantPage, quantDashboards, quantAddForm, quantAddPayload, quantSettingsForm, quantSettingsPayload, quantWatchForm, quantWatchPayload, quantTradeForm, quantTradePayload, quantPlanForm, quantPlanPayload, quantReportDetail, quantReportAutoForm, quantReportAutoPayload } from './ui/quant.js';
 import { researchUI } from './ui/research.js'; // [F2]
+import { knowledgeUI } from './ui/knowledge.js'; // [F3]
 import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView } from './ui/market.js';
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
 import { feedUnread } from './shared/feed.js';
@@ -230,6 +231,7 @@ function render() {
         }
     }
     mountKlineBoxes(document, p => invoke('market', p)); marketPing(); signalPopups(); // [F1] [F1c]
+    knowledgeUI.mountKnowledge(document, p => invoke('knowledge', p)); // [F3]
     { // [p4-m4] mini app viewer: code and data are fetched when the viewer appears; every data change goes to main
         const mh = $('#miniappHost');
         if (!mh && miniappDispose) { miniappDispose(); miniappDispose = null; }
@@ -1257,6 +1259,15 @@ async function handle(actionId, id) {
         const d = (state.dashboards || []).find(x => x.id === id);
         modal('删除仪表盘', `<p>删除「${escape(d?.name || '')}」和它保存的数据快照。原始表格不受影响。</p>`, '删除', async () => { const out = await invoke('dashboard', { action: 'remove', id }); applyState(out.state); render(); toast('已删除'); });
         return;
+    }
+    if (/^kn[A-Z]/.test(actionId)) { // [F3] 投研知识库: search, topics
+        const call = async p => { const out = await invoke('knowledge', p); if (out?.state) applyState(out.state); return out?.result || {}; };
+        const K = knowledgeUI, topic = () => (state.knowledge?.topics || []).find(t => t.id === id);
+        if (actionId === 'knSearch') { const q = ($('#knQuery')?.value || '').trim(); if (q.length < 2) { toast('请输入至少 2 个字'); return; } const box = $('#knResults'); if (box) box.innerHTML = '<p class="empty-note">正在检索…</p>'; const r = await call({ action: 'search', query: q }); const out = $('#knResults'); if (out) out.innerHTML = K.searchResultsHtml(r, { action }); return; }
+        if (actionId === 'knTopicNew' || actionId === 'knTopicEdit') { const t = actionId === 'knTopicEdit' ? topic() : null; modal(t ? `编辑研究主题 · ${t.name}` : '新建研究主题', K.topicForm(t || {}), '保存', async f => { const r = await call(K.topicPayload(f, t?.id)); render(); toast(r.topic?.enabled ? '已保存，按计划每周生成主题周报' : '已保存'); }); return; }
+        if (actionId === 'knTopicRemove') { const t = topic(); modal('删除研究主题', `<p>删除「${escape(t?.name || '')}」？已生成的周报会保留在成果中心。</p>`, '删除', async () => { await call({ action: 'topicRemove', id }); render(); toast('已删除'); }); return; }
+        if (actionId === 'knTopicCollect') { const t = topic(); toast('正在汇集公告、资讯和资料…'); const r = await call({ action: 'topicCollect', id }); modal(`主题动态 · ${t?.name || ''}`, K.topicItemsHtml(r), '生成周报', async () => handle('knTopicDigest', id)); return; }
+        if (actionId === 'knTopicDigest') { toast('正在生成主题周报…'); const r = await call({ action: 'topicDigest', id, format: 'docx' }); render(); toast(`主题周报已生成（${r.count} 条动态）`); if (r.document?.id) await handle('documentView', r.document.id); return; }
     }
     if (/^research/.test(actionId)) { // [F2] 投研文档: reports, announcements, library, exports
         const call = async p => { const out = await invoke('research', p); if (out?.state) applyState(out.state); return out?.result || {}; };
