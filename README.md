@@ -4,7 +4,7 @@
   <p><b>量化工作，一键搞定</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.46.0-2F62F5" alt="version">
+    <img src="https://img.shields.io/badge/version-0.47.0-2F62F5" alt="version">
     <img src="https://img.shields.io/badge/macOS-12%2B%20·%20Apple%20芯片-0B2BA6" alt="platform">
     <img src="https://img.shields.io/badge/license-Apache--2.0-8C7CFF" alt="license">
   </p>
@@ -22,7 +22,7 @@
 <tr>
 <td width="20%" valign="top"><b>🖥 本机运行</b><br>策略、持仓、回测都在你的电脑上计算，策略代码不出本机</td>
 <td width="20%" valign="top"><b>🤖 金融智能体</b><br>投研、建模、量化、风控 4 个智能体，11 个投研技能</td>
-<td width="20%" valign="top"><b>📡 行情数据</b><br>A 股与全球行情、财报数据，一句话接入</td>
+<td width="20%" valign="top"><b>📡 行情数据</b><br>A 股与全球行情、公司公告、财报数据，一句话接入</td>
 <td width="20%" valign="top"><b>⏰ 自动盯盘</b><br>盘前晨报、收盘日报、信号变化即时提醒</td>
 <td width="20%" valign="top"><b>🧠 智能记忆</b><br>知识图谱与记忆库，越用越懂你的投研习惯</td>
 </tr>
@@ -47,7 +47,7 @@
 
 ## 下载与安装
 
-**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.46.0-mac-arm64.dmg`**。
+**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.47.0-mac-arm64.dmg`**。
 
 1. 双击 DMG，把 **QuanK** 拖到 **应用程序**。
 2. 首次打开：在「应用程序」里右键 QuanK → 打开（只需一次）。
@@ -86,6 +86,24 @@
 | ![个股 K 线：日 K 上标出回测买卖点（红 B / 绿 S）](docs/images/app-quant-kline.png) | ![回测收益率：智能定投与普通定投对比，含 0% 基准线](docs/images/app-quant-return.png) |
 
 *左：个股 K 线，日 K 上标出回测买卖点——红 B 为买入、绿 S 为卖出，悬停显示日期、价格、股数与原因，切到周 K / 月 K 时买卖点自动对齐；右：回测收益率对比，智能定投（策略）与普通定投（基准）两条曲线同图对比，带 0% 基准线。*
+
+### 投研文档：研报、公告与资料库
+
+- **一句话研报**：说「给通威股份出一份研报」，或在个股页点「生成研报」，汇总本机量化信号与风控、回测、持仓、行情和近期公告，生成 Word / PPT / 网页并保存到成果中心；Word 版附 K 线与收益率图
+- **公告解读**：自动拉取自选股公告，按风险事项、业绩预告、定期报告、股东变动、资本运作等分类并标注重要程度，摘录关键数字，可选 AI 解读，附交易所 PDF 原文
+- **公告提醒**：工作日每 30 分钟检查股票池，重要公告进入「动态」并发系统通知
+- **研究资料库**：研报、公告、笔记、关联文档按股票归档，对话里可引用
+- **导出**：组合复盘、每日简报、量化引擎报告导出为 Word / PPT / 网页
+
+| | |
+| --- | --- |
+| ![个股详情页的「投研资料」：近期公告与我的资料](docs/images/app-research-detail.png) | ![量化页的「投研资料库」：跨股票归档](docs/images/app-research-library.png) |
+
+*左：个股详情页「投研资料」——近期公告按类型与重要程度标注并摘录要点，「我的资料」按股票归档；右：量化页「投研资料库」——跨股票的研报、公告、笔记与导出，可直接打开或删除。*
+
+![个股研究报告（网页版）：核心结论、近期公告与风险提示](docs/images/app-research-report.png)
+
+*一句话生成的个股研报（网页版）：核心结论、近期公告要点与风险提示；同一份内容还能导出为 Word（附 K 线与收益率图）和 PPT。*
 
 ### 金融智能体与投研技能
 
@@ -179,6 +197,7 @@ cd QuanK/desktop && npm install && npm start
 
 ## 更新记录
 
+- **v0.47** — F2 投研文档：一句话个股研报（Word/PPT/网页）、公告分类解读与提醒、研究资料库、复盘与简报导出。下载 `QuanK-v0.47.0-mac-arm64.dmg`。
 - **v0.46** — F1 行情工作台：首页市场行情卡片与完整行情页（指数、涨跌家数、涨跌幅榜、板块热力图、价格提醒）；纯 SVG K 线（日 / 周 / 月 / 60 分 / 分时 + MA / MACD / KDJ / 成交量）；自选股实时价与涨跌停异动提醒；个股详情标出回测买卖点、回测收益率改为智能定投与普通定投对比；输入框 @ 与 / 菜单不再被首页卡片裁切。下载 `QuanK-v0.46.0-mac-arm64.dmg`。
 - **v0.45** — 更名 QuanK 独立发布；全新首页工作台与走势线；4 个金融智能体与 11 个投研技能；行情数据源支持浏览器登录与本机程序接入；持仓定投、盯盘提醒与收盘日报；DMG 一键安装（`QuanK-0.45.0-arm64.dmg`）。
 - **v0.44** 及更早版本见 [WillBuddy](https://github.com/scliubingxin/WillBuddy/releases)。

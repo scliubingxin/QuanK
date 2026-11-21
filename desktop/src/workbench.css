@@ -1320,3 +1320,30 @@ html,body,.main,.workspace{background:#f7f8fc}
 
 /* [v46] keep the icon-size svg rule off the return chart */
 .q-return svg.q-return-svg{width:100%;height:auto;stroke:none;vertical-align:top}
+
+/* [F2] 投研资料 box (stock detail) and 投研资料库 (量化 page) */
+.rs-box{margin-top:14px}
+.rs-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;margin-bottom:10px}
+.rs-head h3{margin:0}.rs-tools,.q-research .q-head-tools{display:flex;flex-wrap:wrap;gap:6px}
+.rs-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.rs-col h4{margin:0 0 8px;font-size:13px;color:#4c5a85;display:flex;align-items:baseline;gap:8px}.rs-col h4 small{font-weight:400;color:#9aa3b8;font-size:11.5px}
+.rs-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.rs-row{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;background:#f8faff;font-size:12.5px}
+.rs-row time{color:#9aa3b8;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rs-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#14213d}.rs-title small{color:#9aa3b8}
+.rs-acts{display:flex;gap:4px}.rs-acts button{padding:3px 9px;font-size:12px}
+.rs-point{margin:-2px 0 2px 0;padding:0 12px 4px 92px;font-size:12px;color:#5b6787;line-height:1.6}
+.rs-tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:11px;white-space:nowrap;background:#eef1f6;color:#5b6787}
+.rs-tag.rs-high{background:#fde8e8;color:#c62828}.rs-tag.rs-medium{background:#fff4e0;color:#b45309}.rs-tag.rs-low{background:#eef1f6;color:#5b6787}
+.rs-tag.rs-kind-report{background:#e8eeff;color:#2f62f5}.rs-tag.rs-kind-notice{background:#fff4e0;color:#b45309}.rs-tag.rs-kind-note{background:#efeaff;color:#6d4fd8}.rs-tag.rs-kind-doc{background:#e7f6ee;color:#15803d}.rs-tag.rs-kind-export{background:#e6f3fb;color:#0369a1}
+.quant-page .q-box.q-research{position:relative;margin:0 0 18px;padding:18px 20px;border:1px solid #e6ecf6;border-radius:18px;background:linear-gradient(180deg,#eef3ff 0,#fff 76px);box-shadow:0 10px 30px -24px #1e3a8a55}
+.quant-page .q-research>.plaza-section-head{margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid #edf1f7}
+.rs-ai{margin:8px 0 12px;padding:10px 12px;border-radius:10px;background:#f3f6ff;border-left:3px solid #2f62f5}.rs-ai b{display:block;margin-bottom:4px;color:#2f62f5}
+.rs-ai-text{white-space:pre-wrap;font-size:13px;line-height:1.75}.rs-ai small{display:block;margin-top:6px;color:#9aa3b8}
+.rs-points{margin:4px 0 10px;padding-left:18px;font-size:13px;line-height:1.75}
+.rs-full summary{cursor:pointer;color:#2f62f5;font-size:13px}.rs-text{white-space:pre-wrap;max-height:46vh;overflow:auto;font-size:12.5px;line-height:1.7;background:#f8faff;border-radius:10px;padding:10px 12px;font-family:inherit}
+.rs-modal-acts{display:flex;gap:12px;align-items:center;margin-top:10px}
+@media (max-width:760px){.rs-row{grid-template-columns:auto minmax(0,1fr) auto}.rs-row time{display:none}.rs-point{padding-left:12px}}
+
+/* [F2] list rows sit flush with the box (q-box ul adds an indent) */
+.q-box ul.rs-list{padding-left:0;margin:0}
