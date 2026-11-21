@@ -38,6 +38,7 @@ import { infographicPage, infographicForm, infographicPayload, infographicEditFo
 import { renderInfographicSvg } from './shared/infographic.js';
 import { miniappPage, miniappForm, miniappPayload, miniappReviseForm, miniappRevisePayload, miniappVersionsView, mountMiniApp } from './ui/miniapp.js';
 import { quantPage, quantDashboards, quantAddForm, quantAddPayload, quantSettingsForm, quantSettingsPayload, quantWatchForm, quantWatchPayload, quantTradeForm, quantTradePayload, quantPlanForm, quantPlanPayload, quantReportDetail, quantReportAutoForm, quantReportAutoPayload } from './ui/quant.js';
+import { researchUI } from './ui/research.js'; // [F2]
 import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView } from './ui/market.js';
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
 import { feedUnread } from './shared/feed.js';
@@ -1257,6 +1258,27 @@ async function handle(actionId, id) {
         modal('删除仪表盘', `<p>删除「${escape(d?.name || '')}」和它保存的数据快照。原始表格不受影响。</p>`, '删除', async () => { const out = await invoke('dashboard', { action: 'remove', id }); applyState(out.state); render(); toast('已删除'); });
         return;
     }
+    if (/^research/.test(actionId)) { // [F2] 投研文档: reports, announcements, library, exports
+        const call = async p => { const out = await invoke('research', p); if (out?.state) applyState(out.state); return out?.result || {}; };
+        const R = researchUI, rs = state.research || {}, nameOf = c => (state.quant?.pool || []).find(p => p.code === c)?.name || c;
+        const openDoc = async docId => { render(); if (docId) await handle('documentView', docId); };
+        if (actionId === 'researchReport') { modal(`生成研报 · ${nameOf(id)}`, R.reportForm(), '生成', async f => { const p = R.reportPayload(f, id); toast('正在汇总信号、行情和公告并生成研报，大约需要 10–60 秒…'); const r = await call(p); toast(r.warnings?.length ? `研报已生成（部分内容缺失：${r.warnings.join('；')}）` : '研报已生成，已保存到成果中心和资料库'); await openDoc(r.document?.id); }); return; }
+        if (actionId === 'researchNotices') { toast('正在获取公告…'); const r = await call({ action: 'notices', code: id, fresh: true }); if (quantOpen !== id) { await handle('quantOpen', id); } else render(); toast(`已获取 ${r.notices?.length || 0} 条公告`); return; }
+        if (actionId === 'researchNotice') { toast('正在读取公告…'); const r = await call({ action: 'notice', id }); render(); modal(r.title || '公告解读', R.noticeDetail(r)); return; }
+        if (actionId === 'researchSaveNotice') { await call({ action: 'saveNotice', id }); render(); toast('已收入资料库'); return; }
+        if (actionId === 'researchNote') { modal(`记笔记${id ? ' · ' + nameOf(id) : ''}`, R.noteForm(), '保存', async f => { await call(R.notePayload(f, id)); render(); toast('笔记已保存到资料库'); }); return; }
+        if (actionId === 'researchLink') { modal('关联成果中心文档', R.linkForm(state.documents || []), '关联', async f => { await call(R.linkPayload(f, id)); render(); toast('已关联到资料库'); }); return; }
+        if (actionId === 'researchOpen') {
+            const it = (rs.library || []).find(x => x.id === id);
+            if (!it) throw new Error('资料不存在或已删除');
+            if (it.documentId) { if (!(state.documents || []).some(d => d.id === it.documentId)) throw new Error('这份文档已从成果中心删除'); return openDoc(it.documentId); }
+            if (it.kind === 'notice' && it.noticeId) return handle('researchNotice', it.noticeId);
+            const r = await call({ action: 'read', id }); modal(r.title || '笔记', R.noteDetail(r)); return;
+        }
+        if (actionId === 'researchRemove') { const it = (rs.library || []).find(x => x.id === id); modal('删除资料', `<p>从资料库删除「${escape(it?.title || '')}」？${it?.documentId ? '成果中心里的文档不会被删除。' : ''}</p>`, '删除', async () => { await call({ action: 'remove', id }); render(); toast('已删除'); }); return; }
+        if (actionId === 'researchExport') { modal('导出到成果中心', R.exportForm(id, state), '导出', async f => { const p = R.exportPayload(f); toast('正在生成…'); const r = await call(p); toast('已导出到成果中心'); await openDoc(r.document?.id); }); return; }
+        if (actionId === 'researchWatch') { modal('公告提醒', R.watchForm(rs.watch || {}), '保存', async f => { const r = await call(R.watchPayload(f)); render(); toast(r.text || '已保存'); }); return; }
+    }
     if (/^quant/.test(actionId)) { // [q1] local quant engine
         const call = async p => { const out = await invoke('quant', p); if (out?.state) applyState(out.state); return out?.result || {}; };
         const loadDetail = async (code, fresh = false) => {
@@ -1528,7 +1550,7 @@ async function boot() {
     }
 }
 let runtimeTimer;
-api?.onOpenPage?.(p => { if (p?.page === 'market') { marketStockCode = p.code ? String(p.code) : ''; navigate('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code)).catch(e => toast(e.message)); else { quantOpen = ''; navigate('quant'); } return; } if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context'].includes(p?.page)) navigate(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
+api?.onOpenPage?.(p => { if (p?.page === 'library' && p.document) { navigate('library'); Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { marketStockCode = p.code ? String(p.code) : ''; navigate('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code)).catch(e => toast(e.message)); else { quantOpen = ''; navigate('quant'); } return; } if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context'].includes(p?.page)) navigate(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
 api?.onOpenChat?.(p => { if (p?.id && state.chats.some(c => c.id === p.id)) handle('openChat', p.id).catch(e => toast(e.message)); });
 api?.onRuntime?.(() => {
     clearTimeout(runtimeTimer);
