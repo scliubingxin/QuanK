@@ -4,7 +4,7 @@
   "version": "0.49.0",
   "checked_date": "2026-11-21",
   "source_status": "m4_development_checkpoint_not_a_release",
-  "original_web_release_record": "docs/WEB_RELEASE_STATUS_ORIGINAL.json",
+  "original_web_release_record": "docs/archive/legacy/WEB_RELEASE_STATUS_ORIGINAL.json",
   "desktop": {
     "electron": "42.0.0",
     "entry": "desktop/main.mjs",
@@ -114,11 +114,11 @@
     "version": "6.7.0",
     "dmg_inventory": "root_hash_observed",
     "javascript_analysis": "partial_host_process_ownership_blocked",
-    "report": "docs/REA_FINDINGS.md"
+    "report": "docs/archive/dev-notes/REA_FINDINGS.md"
   },
   "notes": "13 Skills/8 MCP templates retained; embedded LibreOfficeKit basic Office and document-scoped AI; see validation",
   "architecture": {
-    "guide": "docs/ARCHITECTURE.md",
+    "guide": "docs/guides/ARCHITECTURE.md",
     "layers": [
       "electron host",
       "main adapters",
@@ -152,11 +152,11 @@
   "github_current_version": "0.37.19 not uploaded/PR/main/tag/Release;read-only main27bd38f remains0.37.1;no alternate write route",
   "installation_fix_candidate": {
     "status": "r2 diagnostic retained; Mac codesign/performance still unresolved; no new small updater for 0.37.2",
-    "guide": "docs/UPDATE_REPAIR_R2.md"
+    "guide": "docs/archive/dev-notes/UPDATE_REPAIR_R2.md"
   },
   "office_interaction": {
     "status": "379 core, 3 Chromium, 20 packaging pass; native Mac unverified",
-    "guide": "docs/OFFICE_INTERACTION_0372.md",
+    "guide": "docs/archive/dev-notes/OFFICE_INTERACTION_0372.md",
     "mac_cjk_fixed": false,
     "native_mac_tested": false,
     "explicit_send_version_selection_guard": true,
@@ -279,7 +279,7 @@
     "runtime_entries_changed": 0
   },
   "office_navigation_0377": {
-    "guide": "docs/OFFICE_KEYBOARD_SELECTION_0377.md",
+    "guide": "docs/archive/dev-notes/OFFICE_KEYBOARD_SELECTION_0377.md",
     "keys": [
       "ArrowDown",
       "ArrowUp",
@@ -350,7 +350,7 @@
     "chromium": 6,
     "packaging": 26,
     "legacy_cli_this_run": "unchanged baseline and full core passed; previous failure not reproduced, root cause unknown",
-    "guide": "docs/OFFICE_PDF_RUNTIME_0378.md",
+    "guide": "docs/archive/dev-notes/OFFICE_PDF_RUNTIME_0378.md",
     "native_mac_tested": false,
     "legacy_failed_candidate_preserved": true
   },
@@ -382,7 +382,7 @@
     "core": 411,
     "chromium": 7,
     "packaging": 26,
-    "guide": "docs/OFFICE_SELECTION_COLORS_0379.md",
+    "guide": "docs/archive/dev-notes/OFFICE_SELECTION_COLORS_0379.md",
     "grid": "prototype rejected by independent DOCX evidence; not shipped",
     "native_mac_tested": false
   },
@@ -410,7 +410,7 @@
     "runtime_unchanged": true
   },
   "office_cells_03710": {
-    "guide": "docs/OFFICE_CELLS_03710.md",
+    "guide": "docs/archive/dev-notes/OFFICE_CELLS_03710.md",
     "core": 419,
     "related": 12,
     "chromium": 8,
@@ -445,7 +445,7 @@
     "mac_native_tested": false
   },
   "office_literal_03711": {
-    "guide": "docs/OFFICE_LITERAL_TEXT_03711.md",
+    "guide": "docs/archive/dev-notes/OFFICE_LITERAL_TEXT_03711.md",
     "core": 424,
     "chromium": 8,
     "packaging": 26,
@@ -479,7 +479,7 @@
     "zero_residuals": true
   },
   "office_cell_format_03712": {
-    "guide": "docs/OFFICE_CELL_FORMAT_03712.md",
+    "guide": "docs/archive/dev-notes/OFFICE_CELL_FORMAT_03712.md",
     "core": 433,
     "format_related_final": 9,
     "chromium": 9,

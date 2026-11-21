@@ -200,7 +200,7 @@ test('app tools: status, signal, scan, insight, pool changes need confirmation, 
 
 test('wiring, and the public code carries no strategy-specific names', async () => {
   const read = p => readFile(new URL(p, import.meta.url), 'utf8');
-  const files = ['../main.mjs', '../src/app.js', '../services/conversation.mjs', '../src/ui/sidebar.js', '../preload.cjs', '../src/shared/quant.js', '../services/quant-engine.mjs', '../src/ui/quant.js', '../services/app-tools.mjs', './acceptance/quant-engine-live.mjs', '../../docs/QUICK_QUANT_PLAN.md'];
+  const files = ['../main.mjs', '../src/app.js', '../services/conversation.mjs', '../src/ui/sidebar.js', '../preload.cjs', '../src/shared/quant.js', '../services/quant-engine.mjs', '../src/ui/quant.js', '../services/app-tools.mjs', './acceptance/quant-engine-live.mjs', '../../docs/plans/QUICK_QUANT_PLAN.md'];
   const [main, app, conv, sidebar, preload, ...rest] = await Promise.all(files.map(read));
   assert.match(main, /register\('quant'/); assert.match(main, /quant:_quant,\.\.\.publicData/); assert.match(main, /quant\?\.stop\(\)/); assert.match(main, /get quant\(\) \{ return quant; \}/);
   assert.match(app, /if \(page === 'quant'\)/); assert.match(app, /quantDashboards\(qc\.dataset\.code/);

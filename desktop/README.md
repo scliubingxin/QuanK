@@ -1,6 +1,6 @@
 # QuanK 桌面开发与安装指南
 
-产品介绍与日常用法见[首页](../README.md)。安装包、版本变化、签名状态和测试范围统一见[下载与版本说明](../docs/DOWNLOADS.md)及 [GitHub Releases](https://github.com/scliubingxin/QuanK/releases)。
+产品介绍与日常用法见[首页](../README.md)。安装包、版本变化、签名状态和测试范围统一见[下载与版本说明](../docs/releases/DOWNLOADS_v0.1-v0.37.md)及 [GitHub Releases](https://github.com/scliubingxin/QuanK/releases)。
 
 ## 直接使用应用
 
@@ -34,7 +34,7 @@ npm --prefix desktop start
 | `../local-runner/` | 保留的原 Python 本地执行器 |
 | `../app/` / `../lib/` | 保留的原 Web 系统；尚未与桌面共用完整业务核心 |
 
-架构分层详见 [ARCHITECTURE](../docs/ARCHITECTURE.md)。
+架构分层详见 [ARCHITECTURE](../docs/guides/ARCHITECTURE.md)。
 
 ## 开发验证
 
@@ -91,24 +91,24 @@ python3 scripts/package-desktop-source.py /absolute/output/QuanK-source.zip
 
 ## 进一步阅读
 
-[下载与版本说明](../docs/DOWNLOADS.md) · [Skills / MCP](../docs/SKILLS_AND_CONNECTORS.md) · [智能体](../docs/AGENT_CAPABILITIES.md) · [Office](../docs/OFFICE_PREVIEW.md) · [HTML 交互预览](../docs/HTML_INTERACTIVE_PREVIEW.md) · [对话富媒体](../docs/CHAT_RICH_MEDIA.md) · [原 Web 文档](../docs/WEB_README_ORIGINAL.md)
+[下载与版本说明](../docs/releases/DOWNLOADS_v0.1-v0.37.md) · [Skills / MCP](../docs/guides/SKILLS_AND_CONNECTORS.md) · [智能体](../docs/guides/AGENT_CAPABILITIES.md) · [Office](../docs/guides/OFFICE_PREVIEW.md) · [HTML 交互预览](../docs/guides/HTML_INTERACTIVE_PREVIEW.md) · [对话富媒体](../docs/guides/CHAT_RICH_MEDIA.md) · [原 Web 文档](../docs/archive/legacy/WEB_README_ORIGINAL.md)
 
 代码项目与图片实现见 runtime/code-project.mjs、services/code-projects.mjs、main/image-files.mjs；开发验收：`node --test tests/code-projects.test.mjs tests/image-usability.test.mjs`，真实UI：`CHROME_PATH=... node --test tests/acceptance/projects-live.mjs tests/acceptance/images-live.mjs`。可选外部npm/Python只用于用户代码项目，不是QuanK安装依赖。
 
-项目服务核心验证：`node --test tests/project-services.test.mjs`。真实浏览器：设置CHROME_PATH后执行 `node --test tests/acceptance/project-services-live.mjs`；原生桥/审批为测试夹具。服务策略与日志边界见[项目服务](../docs/PROJECT_SERVICES.md)。
+项目服务核心验证：`node --test tests/project-services.test.mjs`。真实浏览器：设置CHROME_PATH后执行 `node --test tests/acceptance/project-services-live.mjs`；原生桥/审批为测试夹具。服务策略与日志边界见[项目服务](../docs/guides/PROJECT_SERVICES.md)。
 
 预置目录源码：`runtime/presets/catalog.json`，重建脚本 `scripts/vendor-capability-presets.py` 固定上游commit。核心 `tests/capability-presets.test.mjs`；真实浏览器 `tests/acceptance/presets-live.mjs`。
 
-Skill运行示例在 `examples/skills/office-runtime/`；修改后运行 `python3 scripts/update-runtime-skill.py` 更新独立预置，再运行 `node --test desktop/tests/skill-runtime.test.mjs`（从根目录运行时需进入desktop以便使用完整测试环境）。详见[运行协议](../docs/SKILL_RUNTIME.md)。
+Skill运行示例在 `examples/skills/office-runtime/`；修改后运行 `python3 scripts/update-runtime-skill.py` 更新独立预置，再运行 `node --test desktop/tests/skill-runtime.test.mjs`（从根目录运行时需进入desktop以便使用完整测试环境）。详见[运行协议](../docs/guides/SKILL_RUNTIME.md)。
 
-运行时构建入口：../scripts/prepare-native-runtimes.py；electron-builder 要求 ../native-runtimes，离线打包脚本要求 --native-runtimes。Python wheel 哈希锁为 python-wheels.lock.json/requirements-native-python.txt。详见 ../docs/NATIVE_OFFICE_AND_PYTHON.md。
+运行时构建入口：../scripts/prepare-native-runtimes.py；electron-builder 要求 ../native-runtimes，离线打包脚本要求 --native-runtimes。Python wheel 哈希锁为 python-wheels.lock.json/requirements-native-python.txt。详见 ../docs/guides/NATIVE_OFFICE_AND_PYTHON.md。
 
 ## 嵌入式 Office 开发
 
-详见 ../docs/QUANK_OFFICE.md。运行测试可设置 WB_TEST_OFFICE_DIRECTORY 指向 LibreOffice program（Mac为Contents/MacOS），WB_TEST_PYTHON 指向包含Pillow的Python。生产仅使用包内运行时；不自动发现系统安装。独立worker与ABI会从ASAR复制到私有目录再执行。
+详见 ../docs/guides/QUANK_OFFICE.md。运行测试可设置 WB_TEST_OFFICE_DIRECTORY 指向 LibreOffice program（Mac为Contents/MacOS），WB_TEST_PYTHON 指向包含Pillow的Python。生产仅使用包内运行时；不自动发现系统安装。独立worker与ABI会从ASAR复制到私有目录再执行。
 
 可从已验证0.36原始离线包升级构建（仅开发主机）：`python3 scripts/repackage-native-mac.py --base BASE_ZIP --work-dir NEW_PRIVATE_DIR --output OUTPUT_ZIP --signing-tool RCODESIGN`。脚本固定校验base SHA，保留原厂LO全部文件字节、重签外壳/Python并检查所有代码页/封闭ZIP/链接/执行位；base不是安装端下载依赖。最终仍需Mac codesign/Gatekeeper/启动验收。
 
 PDF预览构建：node scripts/vendor-pdf-preview.mjs 固定读取锁定pdfjs-dist，将CMap和标准字体离线内联，禁止运行时下载。开发中文PDF验收需要宿主可用CJK字体，原始图文档的字体兼容需目标Mac验收。0.37.1 repackage-native-mac.py已固定已验0.37完整app base SHA，保留上游运行时字节。
 
-安装版PDF预览和Office编辑共用runtime/office-kit.mjs；PDF核心为runtime/office-pdf.mjs。新增验证 `node --test tests/office-pdf.test.mjs`，生产UI `CHROME_PATH=... node --test tests/acceptance/office-pdf-kit-live.mjs`。原CLI显式开发路径测试继续保留。参见[内核导出与生命周期](../docs/OFFICE_PDF_RUNTIME_0378.md)。
+安装版PDF预览和Office编辑共用runtime/office-kit.mjs；PDF核心为runtime/office-pdf.mjs。新增验证 `node --test tests/office-pdf.test.mjs`，生产UI `CHROME_PATH=... node --test tests/acceptance/office-pdf-kit-live.mjs`。原CLI显式开发路径测试继续保留。参见[内核导出与生命周期](../docs/archive/dev-notes/OFFICE_PDF_RUNTIME_0378.md)。
