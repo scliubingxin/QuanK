@@ -1,4 +1,5 @@
 import {escape} from './markdown.js';
+import {skillAvatar, mcpAvatar} from './avatars.js'; // [F1d]
 // [ux10] Skill / MCP "plaza" layout: hero with a large search box and live counts, a category bar, and uniform cards
 // (icon, name, tags, two-line description, footer). Search / category filtering keeps the data-preset-* contract.
 const PALETTE = ['#2F62F5', '#4A7CFC', '#7B6CF6', '#1236F0', '#0B2BA6', '#5B8DEF', '#6A5CF0', '#3D5AFE', '#8C7CFF', '#2B6CF0']; // [theme2] reference palette
@@ -38,7 +39,7 @@ function presetCard(kind, p, state) {
     : `<button class="pc-add${installed ? ' done' : ''}" data-action="newPresetMcp" data-id="${escape(p.id)}">${installed ? '查看配置' : '配置连接'}</button>`;
   const foot = skill ? `<span>${escape(origin)}</span><span>${p.fileCount} 个文件</span>` : `<span class="pc-url">${escape(p.transport === 'stdio' ? [p.command, ...(p.args || [])].join(' ') : host(p.url))}</span><span>${p.transport === 'stdio' ? '在本机运行' : p.auth === 'bearer' ? '需要你填写密钥' : p.auth === 'oauth' ? '浏览器登录你的账号' : '公共入口 · 可能限流'} · ${installed ? '已配置，状态见上方' : '未配置、未测试'}</span>`;
   return `<div class="card preset-card plaza-card" data-preset-searchable="${escape([p.title, p.description, p.category].join(' ').toLowerCase())}" data-preset-kind="${escape(p.category)}">
-<div class="pc-head">${plazaIcon(p.title)}<div class="pc-title"><h3>${escape(p.title)}</h3><small>${escape(p.category)} · ${escape(origin)}</small></div>${btn}</div>
+<div class="pc-head">${skill ? skillAvatar(p) : mcpAvatar(p)}<div class="pc-title"><h3>${escape(p.title)}</h3><small>${escape(p.category)} · ${escape(origin)}</small></div>${btn}</div>
 <div class="pc-tags">${tags.join('')}</div><p class="pc-desc">${escape(p.description)}</p>${skill ? '' : `<p class="pc-setup">${escape(p.setup)}</p>`}
 <div class="pc-foot">${foot}</div>
 <details class="pc-more"><summary>来源与使用条件</summary><p>${escape(p.source)}</p><p>目录核对日期：${escape(state.capabilityPresets?.checkedDate || '')}。${skill ? '技能不新增工具权限；依赖CLI或其他技能时须单独具备。' : '账户权限、服务可用性和费用以提供方为准。'}</p></details></div>`;

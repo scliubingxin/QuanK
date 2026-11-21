@@ -2,6 +2,7 @@
 // 纯视图：只返回 HTML；交互沿用已有 data-action / data-page。
 import { escape } from './markdown.js';
 import { homeQuant } from './home-quant.js';
+import { agentAvatar, skillAvatar } from './avatars.js'; // [F1d]
 import { marketHomeCard } from './market.js'; // [F1]
 import { actionLabel, actionTone, describeWatch } from '../shared/quant.js';
 
@@ -77,10 +78,10 @@ ${head('股票池排行', '<label for="qk-rank-score" class="qk-tab">综合分</
 export function appsCard(state, {action}) {
   const agents = [...AGENT_ORDER.map(id => (state.agents || []).find(a => a.id === id)).filter(Boolean), ...(state.agents || []).filter(a => !AGENT_ORDER.includes(a.id))].slice(0, 8);
   const tags = s => String(s || '').split(/[、，,]/).map(t => t.trim()).filter(Boolean).slice(0, 2);
-  const agentTiles = agents.map((a, i) => `<button class="qk-app" data-action="useAgent" data-id="${escape(a.id)}">${badge(a.name, i)}<span class="qk-app-text"><b>${escape(a.name)}</b><small>${escape(a.description || '')}</small><span class="qk-chips">${tags(a.description).map(t => `<em># ${escape(t.slice(0, 8))}</em>`).join('')}</span></span></button>`).join('');
+  const agentTiles = agents.map((a, i) => `<button class="qk-app" data-action="useAgent" data-id="${escape(a.id)}">${agentAvatar(a, 'qk-badge')}<span class="qk-app-text"><b>${escape(a.name)}</b><small>${escape(a.description || '')}</small><span class="qk-chips">${tags(a.description).map(t => `<em># ${escape(t.slice(0, 8))}</em>`).join('')}</span></span></button>`).join('');
   const installed = new Set((state.skillPackages || []).map(s => s.sha256));
   const skills = (state.capabilityPresets?.skills || []).filter(s => s.id.startsWith('fin-')).slice(0, 8);
-  const skillTiles = skills.map((s, i) => { const on = installed.has(s.sha256); return `<button class="qk-app" ${on ? 'data-page="agents"' : `data-action="addPresetSkill" data-id="${escape(s.id)}"`}>${badge(s.title, i + 2)}<span class="qk-app-text"><b>${escape(s.title)}</b><small>${escape(s.description)}</small><span class="qk-chips"><em># ${escape(s.category)}</em><em class="${on ? 'on' : ''}">${on ? '已添加' : '点击添加'}</em></span></span></button>`; }).join('');
+  const skillTiles = skills.map((s, i) => { const on = installed.has(s.sha256); return `<button class="qk-app" ${on ? 'data-page="agents"' : `data-action="addPresetSkill" data-id="${escape(s.id)}"`}>${skillAvatar(s, 'qk-badge')}<span class="qk-app-text"><b>${escape(s.title)}</b><small>${escape(s.description)}</small><span class="qk-chips"><em># ${escape(s.category)}</em><em class="${on ? 'on' : ''}">${on ? '已添加' : '点击添加'}</em></span></span></button>`; }).join('');
   return `<section class="qk-card qk-apps"><input type="radio" name="qk-apps" id="qk-apps-agents" checked hidden><input type="radio" name="qk-apps" id="qk-apps-skills" hidden>
 ${head('常用智能体', '<label for="qk-apps-agents" class="qk-tab">智能体</label><label for="qk-apps-skills" class="qk-tab">投研技能</label>')}
 <div class="qk-apps-pane qk-pane-agents">${agentTiles || '<p class="qk-empty">还没有智能体。</p>'}</div>

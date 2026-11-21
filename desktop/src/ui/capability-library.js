@@ -1,4 +1,5 @@
 import {presetCatalog, plazaIcon, iconColor, iconText} from './preset-catalog.js'; // [ux10]
+import {skillAvatar, mcpAvatar} from './avatars.js'; // [F1d]
 export {iconColor, iconText};
 import { escape } from "./markdown.js";
 export { mcpForm, bindMcpForm, mcpPayload } from "./mcp-form.js"; // [mcp2]
@@ -31,7 +32,7 @@ export function registryChoices(kind, state, a = {}) {
 }
 export function skillsPage(state) { // [ux10] plaza layout: my skills above the catalogue, same card style
   const mine = (state.skillPackages || []).map((s) => `<div class="card plaza-card mine-card" data-preset-searchable="${escape([s.name, s.description].join(' ').toLowerCase())}" data-preset-mine>
-<div class="pc-head">${plazaIcon(s.name)}<div class="pc-title"><h3>${escape(s.name)}</h3><small>${s.preset ? '预置技能' : '你上传的技能'} · ${s.files.length} 个文件 · ${Math.max(1, Math.round(s.bytes / 1024))} KB</small></div><span class="pc-state${s.enabled ? ' on' : ''}">${s.enabled ? "已启用" : "已停用"}</span></div>
+<div class="pc-head">${skillAvatar({id: typeof s.preset === "string" ? s.preset : s.presetId || s.id, name: s.name, category: s.category})}<div class="pc-title"><h3>${escape(s.name)}</h3><small>${s.preset ? '预置技能' : '你上传的技能'} · ${s.files.length} 个文件 · ${Math.max(1, Math.round(s.bytes / 1024))} KB</small></div><span class="pc-state${s.enabled ? ' on' : ''}">${s.enabled ? "已启用" : "已停用"}</span></div>
 <p class="pc-desc">${escape(s.description)}</p>
 <div class="pc-actions"><button class="secondary" data-action="inspectSkill" data-id="${escape(s.id)}">查看内容</button><button class="secondary" data-action="toggleSkill" data-id="${escape(s.id)}">${s.enabled ? "停用" : "启用"}</button><button class="link-danger" data-action="removeSkill" data-id="${escape(s.id)}">删除</button></div></div>`).join("");
   const section = `<div class="plaza-section-head"><h2>我的 Skill</h2><small>${mine ? '在构建智能体时按需绑定。ZIP 输入 32MiB／展开 16MiB／单资源 4MiB；资源保存在本机。' : '还没有技能。上传 SKILL.md 或 ZIP，或从下方预置技能里添加。'}</small></div>${mine ? `<div class="plaza-grid">${mine}</div>` : ''}`;
@@ -43,7 +44,7 @@ export function mcpPage(state, busy = new Set()) { // [ux10]
     const tested = c.lastTest?.status === "succeeded";
     const status = busy.has(c.id) ? "正在测试" : tested ? "上次发现 " + c.lastTest.tools.length + " 项工具" : c.lastTest ? "上次测试未通过" : "尚未测试";
     return `<div class="card plaza-card mine-card" data-preset-searchable="${escape([c.name, c.description, c.url].join(' ').toLowerCase())}" data-preset-mine>
-<div class="pc-head">${plazaIcon(c.name)}<div class="pc-title"><h3>${escape(c.name)}</h3><small class="connection-url">${escape(c.transport === "stdio" ? [c.command, ...(c.args || [])].join(" ") : c.url)}</small></div><span class="pc-state${c.enabled ? ' on' : ''}">${c.enabled ? "已启用" : "已停用"}</span></div>
+<div class="pc-head">${mcpAvatar({id: c.presetId || (typeof c.preset === "string" ? c.preset : ""), name: c.name, url: c.url})}<div class="pc-title"><h3>${escape(c.name)}</h3><small class="connection-url">${escape(c.transport === "stdio" ? [c.command, ...(c.args || [])].join(" ") : c.url)}</small></div><span class="pc-state${c.enabled ? ' on' : ''}">${c.enabled ? "已启用" : "已停用"}</span></div>
 <div class="pc-tags"><span class="pc-tag t-blue">${c.transport === "stdio" ? "本机程序" + ((c.envNames || []).length ? " · " + c.envNames.length + " 个环境变量" : "") : c.auth === "oauth" ? "浏览器登录 · " + (c.signedIn ? "已登录" : "未登录") : c.auth === "bearer" ? "Bearer · " + (c.hasToken ? "凭据已配置" : "缺少凭据") : "无认证"}</span><span class="pc-tag${tested ? ' t-green' : c.lastTest ? ' t-red' : ''}">${status}</span></div>
 <p class="pc-desc">${escape(c.description || "自定义MCP服务")}</p>
 <div class="pc-actions"><button class="secondary" data-action="editMcp" data-id="${escape(c.id)}">配置</button>${c.auth === "oauth" ? `<button class="${c.signedIn ? "secondary" : "primary"}" data-action="mcpSignIn" data-id="${escape(c.id)}">${c.signedIn ? "重新登录" : "登录"}</button>${c.signedIn ? `<button class="secondary" data-action="mcpSignOut" data-id="${escape(c.id)}">退出登录</button>` : ""}` : ""}<button class="secondary" data-action="testMcp" data-id="${escape(c.id)}" ${busy.has(c.id) || !c.enabled ? "disabled" : ""}>测试连接</button>${busy.has(c.id) ? `<button class="secondary" data-action="cancelMcpTest" data-id="${escape(c.id)}">取消测试</button>` : ""}<button class="link-danger" data-action="removeMcp" data-id="${escape(c.id)}">删除</button></div>

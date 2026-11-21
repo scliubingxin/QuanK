@@ -3,6 +3,7 @@
 // day-grouped rows (coloured letter badges like the agent cards).
 import { escape } from './markdown.js';
 import { visibleFeed, FEED_FILTERS, feedState } from '../shared/feed.js';
+import { feedAvatar } from './avatars.js'; // [F1d]
 
 const KIND = {approval: ['确', '#f59e0b', '#f97316', '待确认'], task: ['任', '#2f62f5', '#5b8def', '定时任务'], research: ['研', '#7b6cf6', '#a78bfa', '研究'],
   plan: ['划', '#0ea5e9', '#38bdf8', '计划'], chat: ['话', '#4f46e5', '#7b6cf6', '对话'], connector: ['连', '#0d9488', '#2dd4bf', '连接'],
@@ -22,7 +23,7 @@ export function feedPage(state, {action, date, heading, empty, filter = 'all', n
   const tabs = `<div class="feed-filters" role="tablist">${FEED_FILTERS.map(([id, label]) => `<button type="button" role="tab" aria-selected="${id === filter}" class="${id === filter ? 'chosen' : ''}" data-action="feedFilter" data-id="${id}">${label}${['unread', 'action'].includes(id) && count(id) ? ` <small>${count(id)}</small>` : ''}</button>`).join('')}</div>`;
   const row = x => {
     const [ch, a, b, label] = KIND[x.kind] || KIND.log;
-    return `<div class="feed-row fk-${escape(x.kind)} fs-${escape(x.status)}${x.unread ? ' unread' : ''}" data-feed="${escape(x.id)}"><span class="feed-icon fd-badge" aria-hidden="true" style="background:linear-gradient(135deg,${a},${b})">${ch}</span><div class="feed-body"><b>${escape(x.title)}</b>${x.detail ? `<small>${escape(plainDetail(x.detail))}</small>` : ''}<span class="meta"><em class="fd-kind">${label}</em>${escape(date(x.time))}</span></div><div class="actions">${x.actions.map(a => action(escape(a.label), a.action, a.id, a.kind || 'secondary')).join('')}${x.kind !== 'log' && x.kind !== 'approval' ? action('移除', 'feedDismiss', x.id) : ''}</div></div>`;
+    return `<div class="feed-row fk-${escape(x.kind)} fs-${escape(x.status)}${x.unread ? ' unread' : ''}" data-feed="${escape(x.id)}">${feedAvatar(x.kind)}<div class="feed-body"><b>${escape(x.title)}</b>${x.detail ? `<small>${escape(plainDetail(x.detail))}</small>` : ''}<span class="meta"><em class="fd-kind">${label}</em>${escape(date(x.time))}</span></div><div class="actions">${x.actions.map(a => action(escape(a.label), a.action, a.id, a.kind || 'secondary')).join('')}${x.kind !== 'log' && x.kind !== 'approval' ? action('移除', 'feedDismiss', x.id) : ''}</div></div>`;
   };
   let lastDay = null, rows = '';
   for (const x of items) {
