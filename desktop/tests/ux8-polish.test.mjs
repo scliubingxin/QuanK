@@ -102,7 +102,7 @@ test('library cards: compact, escaped, every action still present and reachable'
   assert.equal(cards.length, 3);
   assert.equal(doc.querySelectorAll('h3 b').length, 0);
   assert.match(cards[0].querySelector('.lib-title small').textContent, /v1 · 11月19日 17:29 · 3\.6 MB/);
-  assert.equal(cards[0].querySelector('.lib-icon').textContent, 'PPT');
+  assert.equal(cards[0].querySelector('.lib-icon').dataset.kind, 'PPT'); // [F1d] Office-style icon
   const edit = cards[0].querySelector('.lib-main [data-action="documentEditor"]');
   assert.deepEqual([edit.textContent, edit.getAttribute('aria-label')], ['编辑', 'QuanK Office 编辑']);
   assert.ok(cards[0].querySelector('.lib-main [data-action="documentView"]'));

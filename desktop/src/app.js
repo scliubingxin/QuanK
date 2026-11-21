@@ -1,4 +1,5 @@
 import {bindPresetFilters, plazaIcon} from './ui/preset-catalog.js'; // [ux11] plazaIcon
+import {agentAvatar} from './ui/avatars.js';
 import {codeProjectsView} from './ui/code-projects.js';
 import {createComposerImages} from './ui/composer-images.js';
 import {compactComposer,createComposerMenus} from './ui/composer.js';
@@ -388,7 +389,7 @@ function content() {
     if (page === 'agents') { // [ux11] plaza cards
         const ag = state.agents || [], skillN = a => (a.skills || []).length + (a.skillIds || []).length, mcpN = a => (a.mcp || []).length + (a.mcpIds || []).length;
         const tags = a => [[(a.knowledge || []).length, '份知识', 'blue'], [skillN(a), '项技能', 'violet'], [mcpN(a), '个 MCP', 'orange']].filter(([n]) => n).map(([n, l, t]) => `<span class="pc-tag t-${t}">${n} ${l}</span>`).join('') || '<span class="pc-tag">通用对话</span>';
-        const cards = ag.map(a => `<div class="card plaza-card agent-card"><div class="pc-head">${plazaIcon(a.name)}<div class="pc-title"><h3>${escape(a.name)}</h3><small>${a.id === 'assistant' ? '内置智能体' : '自定义智能体'} · ReAct ${a.maxSteps || 32} 轮</small></div></div>
+        const cards = ag.map(a => `<div class="card plaza-card agent-card"><div class="pc-head">${agentAvatar(a)}<div class="pc-title"><h3>${escape(a.name)}</h3><small>${a.id === 'assistant' ? '内置智能体' : '自定义智能体'} · ReAct ${a.maxSteps || 32} 轮</small></div></div>
 <div class="pc-tags">${tags(a)}</div><p class="pc-desc">${escape(a.description)}</p><div class="pc-actions">${action('开始对话', 'useAgent', a.id, 'primary')}${action('编辑', 'editAgent', a.id)}${a.id !== 'assistant' ? action('删除', 'deleteAgent', a.id) : ''}</div></div>`).join('');
         return `<div class="page">${capabilityTabs('agents')}${heading('', '为每一种工作，找到好搭档。', '配置知识文档、Skills、MCP、工具和提示词，通过 ReAct 循环完成任务。', action('清除检索索引', 'clearKnowledgeIndex') + action(icon('plus') + '新建智能体', 'newAgent', '', 'primary'),
             [[ag.length, '个智能体'], [ag.reduce((n, a) => n + skillN(a), 0), '项已绑定技能'], [ag.reduce((n, a) => n + mcpN(a), 0), '个已绑定 MCP']])}

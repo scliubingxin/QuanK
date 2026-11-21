@@ -1,4 +1,5 @@
 import { escape } from "./markdown.js";
+import { docIcon } from "./avatars.js"; // [F1d]
 const excerpt=d=>d.text.replace(/^\[(?:word|xl|ppt)\/[^\]]+\]\s*$/gm,'').replace(/\s+/g,' ').trim().slice(0,120);
 export function documentLibrary({ state, action, date }) {
   // [ux8] compact cards: type icon, name, meta, two-line excerpt; preview + edit up front, the rest as quiet links
@@ -12,7 +13,7 @@ export function documentLibrary({ state, action, date }) {
       office(d) && !state.officeWorkspace ? b("收回编辑结果", "officeCollect", d.id, "") : "", b("AI 修改", "documentContinue", d.id, ""), !d.hasRichSource ? b("精确修改", "documentEdit", d.id, "") : "",
       office(d) ? b("导出 PDF", "documentExportPdf", d.id, "") : "", b("导出文件", "documentExport", d.id, ""), d.history.length ? b("历史版本", "documentHistory", d.id, "") : "",
       b("删除文档", "documentDelete", d.id, "danger-text")].join("");
-    return `<article class="lib-card" data-document="${escape(d.id)}"><div class="lib-top"><span class="lib-icon ${escape(d.format)}">${escape(d.format.toUpperCase().replace("DOCX", "DOC").replace("PPTX", "PPT").replace("XLSX", "XLS"))}</span><div class="lib-title"><h3 title="${escape(d.name)}">${escape(d.name)}</h3><small>v${d.revision} · ${date(d.time)} · ${size(d.size)}${d.history.length ? ` · ${d.history.length} 个前版` : ""}</small></div></div>
+    return `<article class="lib-card" data-document="${escape(d.id)}"><div class="lib-top">${docIcon(d.format, "lib-icon " + String(d.format || "").replace(/\W/g, ""))}<div class="lib-title"><h3 title="${escape(d.name)}">${escape(d.name)}</h3><small>v${d.revision} · ${date(d.time)} · ${size(d.size)}${d.history.length ? ` · ${d.history.length} 个前版` : ""}</small></div></div>
 <p class="lib-excerpt">${escape(excerpt(d)) || "（空文档）"}</p><div class="lib-main">${b("预览", "documentView", d.id)}${edit}</div><div class="lib-more">${more}</div></article>`;
   };
   const docs = state.documents || [];

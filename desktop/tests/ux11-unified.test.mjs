@@ -33,7 +33,7 @@ test('heading renders the plaza hero: highlighted second half, stats, actions; k
 test('agents page uses plaza cards with icons, capability tags and the original actions', async () => {
   const app = await read('../src/app.js');
   const i = app.indexOf("if (page === 'agents') { // [ux11]"), block = app.slice(i, app.indexOf("if (page === 'tasks')", i));
-  for (const s of ['plaza-grid', 'plazaIcon(a.name)', "'useAgent'", "'editAgent'", "'deleteAgent'", "'newAgent'", "'clearKnowledgeIndex'", '个智能体']) assert.ok(block.includes(s), s);
+  for (const s of ['plaza-grid', 'agentAvatar(a)', "'useAgent'", "'editAgent'", "'deleteAgent'", "'newAgent'", "'clearKnowledgeIndex'", '个智能体']) assert.ok(block.includes(s), s);
   assert.match(app, /import \{bindPresetFilters, plazaIcon\} from '\.\/ui\/preset-catalog\.js'/);
   const helper = await read('./helpers/load-ui.mjs');
   assert.equal(helper.split('bindPresetFilters,plazaIcon,codeProjectsView').length, 3);
