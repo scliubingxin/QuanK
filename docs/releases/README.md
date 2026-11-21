@@ -4,6 +4,7 @@ QuanK 每个正式版本的打包与发布过程记录（同步清单、asar 检
 
 | 版本 | 日期 | 内容 | 合并提交 | 发布记录提交 | DMG 字节 | DMG sha256 | ZIP sha256 | 记录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| [v0.49.1](https://github.com/scliubingxin/QuanK/releases/tag/v0.49.1) | 2026-11-21 | 修复投研与组合功能无法使用 | `fe3a644` | `本次` | 457,594,205 | `1e479b30d1fb…` | `e196668fc78a…` | [v0.49.1.md](v0.49.1.md) |
 | [v0.49.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.49.0) | 2026-11-21 | F4 组合与风控 | `2605751` | `900de41` | 457,594,417 | `db91e32dbe98…` | `d0f3f75bddd1…` | [v0.49.0.md](v0.49.0.md) |
 | [v0.48.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.48.0) | 2026-11-21 | F3 投研知识库 | `66a440d` | `cc5d779` | 457,712,164 | `4baa33d986d2…` | `42c311297cf3…` | [v0.48.0.md](v0.48.0.md) |
 | [v0.47.1](https://github.com/scliubingxin/QuanK/releases/tag/v0.47.1) | 2026-11-21 | 行情备用源与回测口径修复 | `108291d` | `d5c7abb` | 457,637,376 | `4ccc523700b6…` | `09a62941c33a…` | [v0.47.1.md](v0.47.1.md) |
