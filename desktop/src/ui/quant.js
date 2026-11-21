@@ -2,7 +2,6 @@
 // wb-engine.json maps its own response onto them (see src/shared/quant.js).
 import { escape } from './markdown.js';
 import { actionLabel, actionTone, normalizeWatch, describeWatch, WATCH_INTERVALS, normalizeReportAuto, describeReportAuto } from '../shared/quant.js';
-import { tableFromGrid, inferColumns, normalizeSpec } from '../shared/dashboard.js';
 import { plazaIcon } from './preset-catalog.js';
 import { sparkSvg } from './spark.js'; // [fin2]
 import { klineBox, opsMarks } from './market.js'; // [F1]
@@ -62,23 +61,60 @@ function quantDetail(q, code, d, {action, date}) {
 <div class="q-kpis">${kpi('综合分', f(s.score, 1) + (s.scoreRaw != null && s.scoreRaw !== s.score ? `<em>调整前 ${f(s.scoreRaw, 1)}</em>` : ''))}${kpi('倍率', s.multiplier == null ? '—' : f(s.multiplier, 1) + '×')}${kpi('现价', f(s.price), up)}${kpi('涨跌', pct(s.changePct), up)}${kpi('模型概率', s.probPct == null ? '—' : f(s.probPct, 1) + '%')}</div></div>
 ${s.advice ? `<p class="q-sizing">${escape(s.advice)}</p>` : ''}${holdingDetail(d.holding, code, q, {action})}
 <div class="q-kpis q-bt">${kpi('策略收益', pct(bt.smartPct))}${kpi('基准收益', pct(bt.blindPct))}${kpi('超额', pct(bt.excess))}${kpi('胜率', bt.winRate == null ? '—' : f(bt.winRate, 0) + '%')}${kpi('交易次数', f(bt.trades, 0))}${kpi('最大回撤', pct(bt.maxDrawdown))}</div>
-${klineBox(code, {marks: opsMarks(d.charts?.ops)})}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
-<div class="q-grid2">${list('信号理由', s.reasons)}${list('约束与风控', s.gates, 'q-gates')}</div><div class="q-grid2">${factors}${inds}</div>${ops}
+${klineBox(code, {marks: opsMarks(d.charts?.ops)})}${returnBox(d.charts)}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
+<div class="q-grid2">${list('信号理由', s.reasons)}${list('约束与风控', s.gates, 'q-gates')}</div>${factors}${inds}${ops}
 <p class="auto-note">数据由本机私有引擎计算${s.plan ? `（${escape(s.plan)}）` : ''}${s.model ? `，模型 ${escape(s.model)}` : ''}。仅供研究，不构成投资建议。</p></div>`;
 }
 
-/** Dashboard objects for mountDashboard(): price & score lines, backtest curves (column names come from the engine's labels). */
-export function quantDashboards(code, charts) {
-  const out = [], L = charts?.labels || {}, make = (id, title, grid, chartsSpec) => {
-    const table = tableFromGrid(grid), cols = inferColumns(table.columns, table.rows);
-    const spec = normalizeSpec({title, charts: chartsSpec}, cols, title);
-    if (spec?.charts?.length) out.push({id: `quant-${code}-${id}`, name: title, table, spec});
-  };
-  if (charts?.price) make('price', `${L.price || '价格'}与${L.score || '评分'}`, charts.price, [{type: 'line', title: L.price || '价格', x: '日期', timeUnit: 'day', series: [{column: charts.price[0][1], agg: 'avg'}]}, {type: 'line', title: L.score || '评分', x: '日期', timeUnit: 'day', series: [{column: charts.price[0][2], agg: 'avg'}]}]);
-  if (charts?.curve) make('curve', `回测：${L.a || '策略'} vs ${L.b || '基准'}`, charts.curve, [{type: 'line', title: '持仓市值', x: '日期', timeUnit: 'day', series: charts.curve[0].slice(1).map(column => ({column, agg: 'avg'}))}]);
+/** [v46] Backtest curve grid -> return % per day for both plans: (value - invested) / invested. The plain plan uses its own
+ *  invested column when the engine reports one, otherwise the smart plan's. Rows without a positive investment are skipped. */
+export function backtestReturns(curve) {
+  if (!Array.isArray(curve) || curve.length < 2) return {rows: [], labels: {}, ownCostB: false};
+  const [h, ...rows] = curve, ownCostB = h.length > 4, r = (v, k) => v === null || v === undefined || !(k > 0) ? null : Math.round((v - k) / k * 1e4) / 100;
+  const strip = s => String(s || '').replace(/市值$/, '');
+  return {ownCostB, labels: {a: `${strip(h[1]) || '策略'}收益率`, b: `${strip(h[2]) || '基准'}收益率`, title: `回测：${strip(h[1]) || '策略'} vs ${strip(h[2]) || '基准'}收益率`},
+    rows: rows.map(x => ({date: x[0], a: r(x[1], x[3]), b: r(x[2], ownCostB ? x[4] : x[3])})).filter(x => x.a !== null || x.b !== null)};
+}
+/** [v46] Pure-SVG return chart (no chart frame, no row-count header). Presentation is inline: the app-wide
+ *  `svg{width:18px;stroke:currentColor}` icon rule must not shrink it or outline the hover columns. */
+export function niceTicks(lo, hi, n = 5) {
+  const raw = (hi - lo) / Math.max(1, n - 1), mag = 10 ** Math.floor(Math.log10(raw || 1)), step = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= raw) || raw;
+  const out = [], end = Math.ceil(hi / step - 1e-9) * step; for (let v = Math.floor(lo / step + 1e-9) * step; v <= end + step * 1e-9; v += step) out.push(Math.round(v * 1e6) / 1e6);
   return out;
 }
+export function returnSvg(rows, {w = 960, h = 300, labels = {}} = {}) {
+  const pts = (rows || []).filter(x => x && (Number.isFinite(x.a) || Number.isFinite(x.b)));
+  if (pts.length < 2) return '<p class="empty-note">回测数据不足，暂时画不出收益率曲线。</p>';
+  const padL = 56, padR = 16, top = 14, bot = 28, H = h - top - bot, vals = pts.flatMap(x => [x.a, x.b]).filter(Number.isFinite);
+  const ticks = niceTicks(Math.min(0, ...vals), Math.max(0, ...vals)), lo = ticks[0], hi = ticks.at(-1) > ticks[0] ? ticks.at(-1) : ticks[0] + 1;
+  const X = i => padL + (w - padL - padR) * i / (pts.length - 1), Y = v => top + (hi - v) / (hi - lo) * H;
+  const line = k => pts.reduce((s, p, i) => Number.isFinite(p[k]) ? s + (s && Number.isFinite(pts[i - 1]?.[k]) ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p[k]).toFixed(1) : s, '');
+  const TX = (x, y, t, a = 'end', c = '#8a94ad', wt = 400) => `<text x="${x}" y="${y}" style="font-family:-apple-system,'PingFang SC',sans-serif;font-size:11px;font-weight:${wt};fill:${c};stroke:none;text-anchor:${a}">${t}</text>`;
+  const fmt = v => `${v > 0 ? '+' : ''}${Number.isInteger(v) ? v : v.toFixed(1)}%`;
+  let s = `<svg class="q-return-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escape(labels.title || '回测收益率')}" style="display:block;width:100%;height:auto;max-height:340px;fill:none;stroke:none;overflow:visible">`;
+  for (const v of ticks) {
+    const zero = Math.abs(v) < 1e-9;
+    s += `<line x1="${padL}" x2="${w - padR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:${zero ? '#94a3b8' : '#eef1f6'};stroke-width:${zero ? 1.2 : 1};${zero ? '' : 'stroke-dasharray:3 4'}"/>` + TX(padL - 8, Y(v) + 4, zero ? '0%' : fmt(v), 'end', zero ? '#475569' : '#8a94ad', zero ? 600 : 400);
+  }
+  const step = Math.max(1, Math.ceil(pts.length / 7));
+  for (let i = 0; i < pts.length; i += step) s += TX(X(i), h - 8, escape(String(pts[i].date).slice(0, 10)), 'middle');
+  s += `<path d="${line('b')}" style="fill:none;stroke:#94a3b8;stroke-width:1.6;stroke-linejoin:round"/><path d="${line('a')}" style="fill:none;stroke:#2f62f5;stroke-width:2;stroke-linejoin:round"/>`;
+  const cw = (w - padL - padR) / pts.length;
+  pts.forEach((p, i) => { s += `<rect x="${(X(i) - cw / 2).toFixed(1)}" y="${top}" width="${cw.toFixed(2)}" height="${H}" style="fill:#fff;fill-opacity:0;stroke:none"><title>${escape(String(p.date))} ${escape(labels.a || '策略')} ${pct(p.a)} ${escape(labels.b || '基准')} ${pct(p.b)}</title></rect>`; });
+  return s + '</svg>';
+}
+function returnBox(charts) {
+  const r = backtestReturns(charts?.curve);
+  if (!r.rows.length) return '';
+  const last = r.rows.at(-1), cls = v => (v || 0) >= 0 ? 'up' : 'down';
+  return `<section class="q-box q-return"><div class="q-return-head"><h3>${escape(r.labels.title)}</h3><span class="q-legend"><i class="a"></i>${escape(r.labels.a)} <b class="${cls(last.a)}">${pct(last.a)}</b><i class="b"></i>${escape(r.labels.b)} <b class="${cls(last.b)}">${pct(last.b)}</b></span></div>${returnSvg(r.rows, {labels: r.labels})}${r.ownCostB ? '' : '<p class="q-return-note">引擎未提供普通定投的累计投入，普通定投收益率按同期智能定投投入计算。</p>'}</section>`;
+}
 
+/** Dashboard objects for mountDashboard(). [v46] The price / score block was removed and the backtest curve is drawn
+ *  inline as a return-% SVG (returnBox), so nothing is mounted in a chart frame any more. Kept for callers. */
+export function quantDashboards(code, charts) {
+  return [];
+}
 export function quantAddForm() {
   return `<label>公司名称或股票代码<input name="code" required maxlength="40" placeholder="例如 宁德时代、茅台 或 600519"></label><p class="muted">输入公司名称会自动联网查找代码、名称和公司标志；也可以直接在对话里说「添加宁德时代」。</p>`;
 }
@@ -113,6 +149,12 @@ function alertsBox(q, {action, date}) {
 const n0 = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', {maximumFractionDigits: 0});
 const money = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const tone = v => (v || 0) >= 0 ? 'up' : 'down';
+/** [v46] Compact money for KPI cards: >= 10 万 shown in 万 / 亿 with 2 decimals so large amounts never overflow the card. */
+export function moneyShort(v, sign = false) {
+  if (v === null || v === undefined || !Number.isFinite(Number(v))) return '—';
+  const n = Number(v), a = Math.abs(n), sg = sign && n > 0 ? '+' : '';
+  return sg + (a >= 1e8 ? (n / 1e8).toFixed(2) + '亿' : a >= 1e5 ? (n / 1e4).toFixed(2) + '万' : money(n));
+}
 function holdingLine(h) {
   if (!h || !h.shares) return h && !h.error ? '<p class="q-hold">未持仓</p>' : '';
   return `<p class="q-hold">持仓 ${n0(h.shares)} 股 · 成本 ${f(h.cost)}${h.pnlPct != null ? ` · <span class="${tone(h.pnlPct)}">${pct(h.pnlPct)}</span>` : ''}</p>`;
@@ -136,7 +178,7 @@ function holdingDetail(h, code, q, {action}) {
   const btns = q?.features?.record ? action('记录买入', 'quantTrade', `${code}:buy`, 'primary') + action('记录卖出', 'quantTrade', `${code}:sell`) : '';
   const log = h.log?.length ? `<div class="table-scroll"><table class="q-table"><thead><tr><th>日期</th><th>方向</th><th>价格</th><th>股数</th><th>金额</th><th>备注</th></tr></thead><tbody>${h.log.map(e => `<tr><td>${escape(e.date)} <small>${escape(e.time)}</small></td><td class="${e.side === 'buy' ? 'up' : 'down'}">${e.side === 'buy' ? '买入' : '卖出'}</td><td>${f(e.price)}</td><td>${n0(e.shares)}</td><td>${money(e.amount)}</td><td>${escape(e.note)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="empty-note">还没有记录过成交。</p>';
   return `<section class="q-box q-holding"><div class="plaza-section-head"><h2>我的持仓</h2><small>${h.budget != null ? `单次计划 ${n0(h.budget)} 股 · ` : ''}已记录 ${n0(h.trades)} 笔成交</small><span class="q-head-tools">${btns}</span></div>
-<div class="q-kpis">${kpi('持仓股数', n0(h.shares))}${kpi('成本价', f(h.cost))}${kpi('市值', money(h.value))}${kpi('浮动盈亏', money(h.pnl) + (h.pnlPct != null ? `<em>${pct(h.pnlPct)}</em>` : ''), tone(h.pnl))}${kpi('可用资金', money(h.cash))}</div>${log}</section>`;
+<div class="q-kpis q-hold-kpis">${kpi('持仓股数', n0(h.shares))}${kpi('成本价', f(h.cost))}${kpi('市值', moneyShort(h.value))}${kpi('浮动盈亏', moneyShort(h.pnl, true) + (h.pnlPct != null ? `<em>${pct(h.pnlPct)}</em>` : ''), tone(h.pnl))}${kpi('可用资金', moneyShort(h.cash))}</div>${log}</section>`;
 }
 export function quantTradeForm(q, {code = '', side = 'buy', price = null, today = ''} = {}) {
   const lot = q?.features?.lot || 1;

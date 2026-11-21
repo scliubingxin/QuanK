@@ -63,6 +63,27 @@ const FONT = "font-family:-apple-system,'PingFang SC','Helvetica Neue',sans-seri
 const T = (x, y, s, {size = 11, color = '#8a94ad', anchor = 'start', weight = 400} = {}) => `<text x="${x}" y="${y}" style="${FONT};font-size:${size}px;font-weight:${weight};fill:${color};stroke:none;text-anchor:${anchor}">${s}</text>`;
 const GRID = (x1, x2, y) => `<line x1="${x1}" x2="${x2}" y1="${y}" y2="${y}" style="stroke:#e9edf5;stroke-width:1;stroke-dasharray:3 4"/>`;
 const fmtDate = s => String(s || '').slice(0, 10);
+/** [v46] Quote from the last two bars (used when the live quote is unavailable, e.g. after hours / throttled). */
+export function quoteFromBars(bars) {
+  const b = (bars || []).filter(x => fin(x?.close)), last = b.at(-1), prev = b.at(-2);
+  if (!last) return null;
+  const pre = prev ? Number(prev.close) : null, price = Number(last.close);
+  return {price, open: fin(last.open) ? Number(last.open) : null, high: fin(last.high) ? Number(last.high) : null, low: fin(last.low) ? Number(last.low) : null, preClose: pre,
+    change: pre != null ? Math.round((price - pre) * 1000) / 1000 : null, pct: fin(last.pct) ? Number(last.pct) : pre ? Math.round((price / pre - 1) * 1e4) / 100 : null,
+    amount: fin(last.amount) ? Number(last.amount) : null, volume: fin(last.volume) ? Number(last.volume) : null, turnover: fin(last.turnover) ? Number(last.turnover) : null, asOf: fmtDate(last.date), fromBars: true};
+}
+/** [v46] Backtest marks -> bar index in `bars` (oldest first): the first bar whose date >= the mark's date, so a daily
+ *  trade lands on its week / month / 60-minute bar. Marks after the last bar are dropped. Returns Map(index -> marks[]). */
+export function alignMarks(bars, marks) {
+  const d = (bars || []).map(b => fmtDate(b.date)), out = new Map();
+  for (const m of marks || []) {
+    const k = fmtDate(m?.date); if (!k || !d.length || k > d.at(-1)) continue;
+    let lo = 0, hi = d.length - 1; while (lo < hi) { const mid = (lo + hi) >> 1; if (d[mid] >= k) hi = mid; else lo = mid + 1; }
+    if (lo === 0 && k < d[0] && d.length > 1 && k < d[0]) { /* before the first bar: only accept if within one bar span */ const span = Date.parse(d[1]) - Date.parse(d[0]); if (!(Date.parse(d[0]) - Date.parse(k) < span)) continue; }
+    (out.get(lo) || out.set(lo, []).get(lo)).push(m);
+  }
+  return out;
+}
 export function klineSvg(all, {w = 960, h = 460, ma = [5, 10, 20, 60], sub = 'macd', marks = [], last = 120} = {}) {
   const bars = (all || []).filter(b => fin(b.open) && fin(b.close) && fin(b.high) && fin(b.low));
   if (bars.length < 2) return '<p class="mk-empty">暂无 K 线数据</p>';
@@ -89,11 +110,16 @@ export function klineSvg(all, {w = 960, h = 460, ma = [5, 10, 20, 60], sub = 'ma
     s += `<rect x="${(xx - bw / 2).toFixed(1)}" y="${(vTop + volH - vh).toFixed(1)}" width="${bw.toFixed(1)}" height="${vh.toFixed(1)}" rx="1" style="fill:${c};opacity:.45"/>`;
   });
   for (const n of ma) s += `<path d="${path(maAll[n].slice(start).map((v, i) => fin(v) ? [x(i), y(v)] : null))}" style="fill:none;stroke:${MA_COLORS[n] || '#64748b'};stroke-width:1.4;stroke-linejoin:round"/>`;
-  const idx = new Map(view.map((b, i) => [fmtDate(b.date), i]));
-  for (const m of marks || []) {
-    const i = idx.get(fmtDate(m.date)); if (i === undefined) continue;
-    const buy = m.type === 'buy', yy = buy ? y(view[i].low) + 13 : y(view[i].high) - 13, c = buy ? UP : DOWN;
-    s += `<g class="mk-mark ${buy ? 'buy' : 'sell'}"><circle cx="${x(i)}" cy="${yy}" r="8" style="fill:${c};stroke:#fff;stroke-width:1.5"/>${T(x(i), yy + 3.5, buy ? 'B' : 'S', {size: 9, color: '#fff', anchor: 'middle', weight: 700})}<title>${esc(m.text || (buy ? '买入信号' : '卖出信号'))} ${esc(m.date)}</title></g>`;
+  // [v46] backtest buy / sell marks: buy = red 'B' under the bar, sell = green 'S' above it; several on one bar stack
+  const markAt = new Map();
+  for (const [gi, list] of alignMarks(bars, marks)) {
+    const i = gi - start; if (i < 0 || i >= view.length) continue;
+    markAt.set(i, list);
+    let nb = 0, ns = 0;
+    for (const m of list) {
+      const buy = m.type === 'buy', yy = buy ? Math.min(top + mainH - 2, y(view[i].low) + 13 + 17 * nb++) : Math.max(top + 8, y(view[i].high) - 13 - 17 * ns++), c = buy ? UP : DOWN;
+      s += `<g class="mk-mark ${buy ? 'buy' : 'sell'}" data-date="${esc(fmtDate(m.date))}"><circle cx="${x(i)}" cy="${yy}" r="8" style="fill:${c};stroke:#fff;stroke-width:1.5"/>${T(x(i), yy + 3.5, buy ? 'B' : 'S', {size: 9, color: '#fff', anchor: 'middle', weight: 700})}<title>${esc(m.text || (buy ? '买入' : '卖出'))}</title></g>`;
+    }
   }
   const sTop = subTop0;
   if (sub === 'kdj') {
@@ -112,7 +138,7 @@ export function klineSvg(all, {w = 960, h = 460, ma = [5, 10, 20, 60], sub = 'ma
   s += T(padL, vTop - 8, `<tspan style="fill:#4c5a85;font-weight:600">成交量</tspan>  ${bigNum(view.at(-1).volume)}`, {size: 11.5});
   s += T(padL, 15, ma.map(n => `<tspan style="fill:${MA_COLORS[n] || '#64748b'}">MA${n} ${num(maAll[n].at(-1))}</tspan>`).join('   '), {size: 11.5});
   // hover columns (filled by mountKlineBoxes): transparent hit areas carrying the bar's numbers
-  view.forEach((b, i) => { s += `<rect class="mk-hit" data-i="${i}" data-t="${esc(`${fmtDate(b.date)}　开 ${num(b.open)}　收 ${num(b.close)}　高 ${num(b.high)}　低 ${num(b.low)}${fin(b.pct) ? '　' + pct(b.pct) : ''}　量 ${bigNum(b.volume)}`)}" x="${(padL + cw * i).toFixed(1)}" y="${top}" width="${cw.toFixed(2)}" height="${h - top - 20}" style="fill:transparent;stroke:none"/>`; });
+  view.forEach((b, i) => { const mk = (markAt.get(i) || []).map(m => (m.type === 'buy' ? '【买】' : '【卖】') + (m.text || '')).join('　'); s += `<rect class="mk-hit" data-i="${i}" data-t="${esc(`${fmtDate(b.date)}　开 ${num(b.open)}　收 ${num(b.close)}　高 ${num(b.high)}　低 ${num(b.low)}${fin(b.pct) ? '　' + pct(b.pct) : ''}　量 ${bigNum(b.volume)}${mk ? '　' + mk : ''}`)}" x="${(padL + cw * i).toFixed(1)}" y="${top}" width="${cw.toFixed(2)}" height="${h - top - 20}" style="fill:transparent;stroke:none"/>`; });
   s += `<line class="mk-cross" x1="0" x2="0" y1="${top}" y2="${h - 20}" style="stroke:#2f62f5;stroke-width:1;stroke-dasharray:3 3;opacity:0"/>`;
   return s + '</svg>';
 }
