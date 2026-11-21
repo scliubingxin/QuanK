@@ -127,10 +127,12 @@ test('service: notices, notice reading with and without a model, scan alerts onc
 test('service: report in Word (with chart images), PPT and HTML; archived in the library; degrades without the engine', async () => {
   const x = rig({rasterize: async (svg, o) => { assert.match(svg, /^<svg/); assert.ok(o.width > 0); return PNG; }});
   const r = await x.svc.handle({action: 'report', query: '通威股份', format: 'docx'});
+  assert.match(x.imported[0].bytes.toString('latin1'), /PK/); // [v47.1] report returns come from the engine summary below
   assert.deepEqual(r.document, {id: 'doc1', name: '通威股份（600438）个股研究报告 2026-11-18', format: 'docx'});
   const docx = x.imported[0].bytes;
   assert.equal(docx.subarray(0, 2).toString(), 'PK'); assert.ok(docx.includes(Buffer.from('word/media/willbuddy-image-2.png')), 'K-line and return charts embedded');
   assert.deepEqual(r.warnings, []); assert.ok(r.sections.includes('AI 研判'));
+  { const html = (await x.svc.handle({action: 'report', code: '600438', format: 'html', ai: false}), x.imported.at(-1).bytes.toString()); assert.match(html, /智能定投收益率 -13\.52%|收益率 -13\.52%/, 'summary smartPct, not the cash-less curve'); x.imported.pop(); x.store.data.documents.pop(); x.store.data.research.library.shift(); }
   const lib = x.svc.view().library; assert.equal(lib[0].kind, 'report'); assert.equal(lib[0].documentId, 'doc1'); assert.equal(lib[0].code, '600438');
   const h = await x.svc.handle({action: 'report', code: '600438', format: 'html', ai: false});
   const html = x.imported[1].bytes.toString(); assert.match(html, /<svg class="mk-kline"/); assert.match(html, /q-return-svg/); assert.ok(!h.sections.includes('AI 研判'));

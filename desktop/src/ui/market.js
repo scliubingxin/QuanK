@@ -87,7 +87,7 @@ export function mountKlineBoxes(root, call, {now = Date.now} = {}) {
       if (!d) {
         if (body) body.innerHTML = '<p class="mk-empty">正在加载…</p>';
         try { const out = await call({action: 'kline', code, period: p.period}); d = out?.result ?? out; kcache.set(key, {at: now(), data: d}); if (kcache.size > 60) kcache.delete(kcache.keys().next().value); }
-        catch (e) { if (body) body.innerHTML = `<p class="task-error">${escape(e?.message || e)}</p>`; return; }
+        catch (e) { if (body) body.innerHTML = `<p class="task-error mk-down">${escape(String(e?.message || e).replace(/^Error invoking remote method '[^']+':\s*/, '').replace(/^(Type)?Error:\s*/, '').replace(/^fetch failed$/, '行情接口暂时连不上，请检查网络后点周期按钮重试'))}</p>`; return; } // [v47.1]
       }
       if (!box.isConnected) return;
       const ql = box.querySelector('.mk-quote'); if (ql) ql.innerHTML = quoteLine(d);

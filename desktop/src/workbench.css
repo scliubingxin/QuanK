@@ -1347,3 +1347,6 @@ html,body,.main,.workspace{background:#f7f8fc}
 
 /* [F2] list rows sit flush with the box (q-box ul adds an indent) */
 .q-box ul.rs-list{padding-left:0;margin:0}
+
+/* [v47.1] return chart disagrees with the summary */
+.q-return-note.warn{color:#b45309;background:#fff8e7;border-left:3px solid #f59e0b;padding:6px 10px;border-radius:6px}

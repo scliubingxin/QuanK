@@ -92,7 +92,9 @@ export function chartGrids(adapter, raw = {}) {
   const chead = ['日期', clip(C.a?.label, 20) || '策略', clip(C.b?.label, 20) || '基准', clip(C.costLabel, 20) || '投入'];
   const bCost = b.some(x => num(at(x, C.cost, 'cost')) !== null); // [v46] the plain plan's own invested amount, when the engine reports it
   if (bCost) chead.push(clip(C.b?.label, 20) ? `${clip(C.b.label, 20)}投入` : '基准投入');
-  const curve = [chead, ...a.slice(-800).map(x => { const k = cd(x), y = bmap.get(k), row = [k, num(at(x, C.value, 'value')), num(y ? at(y, C.value, 'value') : null), num(at(x, C.cost, 'cost'))]; if (bCost) row.push(num(y ? at(y, C.cost, 'cost') : null)); return row; })];
+  const aCash = !!C.cash && a.some(x => num(at(x, C.cash)) !== null); // [v47.1] uninvested cash of the smart plan (reserve + T cash)
+  if (aCash) chead.push(clip(C.a?.label, 20) ? `${clip(C.a.label, 20).replace(/市值$/, '')}现金` : '策略现金');
+  const curve = [chead, ...a.slice(-800).map(x => { const k = cd(x), y = bmap.get(k), row = [k, num(at(x, C.value, 'value')), num(y ? at(y, C.value, 'value') : null), num(at(x, C.cost, 'cost'))]; if (bCost) row.push(num(y ? at(y, C.cost, 'cost') : null)); if (aCash) row.push(num(at(x, C.cash))); return row; })];
   const ops = arr(pick(raw, O.path)).slice(-60).reverse().map(o => ({date: clip(at(o, O.date, 'date'), 10), action: clip(at(o, O.action, 'action'), 12), price: num(at(o, O.price, 'price')),
     shares: num(at(o, O.shares, 'shares')), amount: num(at(o, O.amount, 'amount')), score: num(at(o, O.score, 'score')), reason: clip(at(o, O.reason, 'reason'), 120)}));
   const marks = sig.filter(s => /buy|sell|买|卖/i.test(String(at(s, S.type, 'type') || ''))).slice(-80).map(s => ({date: day(s), type: String(at(s, S.type, 'type')), price: num(at(s, S.price, 'price'))}));

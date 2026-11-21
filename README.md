@@ -4,7 +4,7 @@
   <p><b>量化工作，一键搞定</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.47.0-2F62F5" alt="version">
+    <img src="https://img.shields.io/badge/version-0.47.1-2F62F5" alt="version">
     <img src="https://img.shields.io/badge/macOS-12%2B%20·%20Apple%20芯片-0B2BA6" alt="platform">
     <img src="https://img.shields.io/badge/license-Apache--2.0-8C7CFF" alt="license">
   </p>
@@ -47,7 +47,7 @@
 
 ## 下载与安装
 
-**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.47.0-mac-arm64.dmg`**。
+**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.47.1-mac-arm64.dmg`**。
 
 1. 双击 DMG，把 **QuanK** 拖到 **应用程序**。
 2. 首次打开：在「应用程序」里右键 QuanK → 打开（只需一次）。
@@ -197,6 +197,7 @@ cd QuanK/desktop && npm install && npm start
 
 ## 更新记录
 
+- **v0.47.1** — K 线在东方财富接口受限时自动改用腾讯行情；回测收益率与策略收益统一口径（含储备金）。
 - **v0.47** — F2 投研文档：一句话个股研报（Word/PPT/网页）、公告分类解读与提醒、研究资料库、复盘与简报导出。下载 `QuanK-v0.47.0-mac-arm64.dmg`。
 - **v0.46** — F1 行情工作台：首页市场行情卡片与完整行情页（指数、涨跌家数、涨跌幅榜、板块热力图、价格提醒）；纯 SVG K 线（日 / 周 / 月 / 60 分 / 分时 + MA / MACD / KDJ / 成交量）；自选股实时价与涨跌停异动提醒；个股详情标出回测买卖点、回测收益率改为智能定投与普通定投对比；输入框 @ 与 / 菜单不再被首页卡片裁切。下载 `QuanK-v0.46.0-mac-arm64.dmg`。
 - **v0.45** — 更名 QuanK 独立发布；全新首页工作台与走势线；4 个金融智能体与 11 个投研技能；行情数据源支持浏览器登录与本机程序接入；持仓定投、盯盘提醒与收盘日报；DMG 一键安装（`QuanK-0.45.0-arm64.dmg`）。
