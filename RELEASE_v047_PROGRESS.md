@@ -164,3 +164,73 @@ sh scripts/make-dmg.sh /tmp/qk-pack-047-$TS/QuanK.app \
 | asar 内 F2 文件 | `services/research.mjs` ✓ / `src/shared/research.js` ✓ / `src/ui/research.js` ✓（asar 条目共 446） |
 | `hdiutil verify` | `checksum ... is VALID`（CRC32 $D75F546D） |
 | 挂载后内容 | `QuanK.app`、`应用程序` 链接、`首次打开.command`；app 版本 0.47.0；`Signature=adhoc`、`Identifier=com.quank.desktop`、arm64 thin |
+
+---
+
+## 阶段E — 发布
+
+### 提交与推送
+
+| 项 | SHA | 说明 |
+| --- | --- | --- |
+| feature commit | `05e94ae8956800f431a85cd1f43ea62547433e2d` | `feat: v0.47.0 F2 投研文档`（21 个文件，1193 插入 / 20 删除；已排除 `dist/`、`node_modules`、`tmp-*`） |
+| merge commit | `40c0e85d7ba593162bb2cbe986f21645a5a74972` | `merge: F2 投研文档`（`--no-ff`，`fef2925..40c0e85` 已推送 main） |
+| tag | `cb66cb3ec8077ecf62b518b8544362af5c29c7fa` | `v0.47.0` → 指向 merge commit `40c0e85`，已推送 |
+
+### Release
+
+- 链接：https://github.com/scliubingxin/QuanK/releases/tag/v0.47.0
+- 标题：`QuanK v0.47.0 · F2 投研文档`
+
+`gh release view v0.47.0 --json url,assets` 核对结果：
+
+| 资产 | 字节 | digest（远端） | 与本地比对 |
+| --- | --- | --- | --- |
+| `QuanK-v0.47.0-mac-arm64.dmg` | 457,635,234 | `sha256:57d9fa56ab6d2976fba64d4fa566df11a983e7dafef61edff5b07ce02511edd5` | 一致 ✓ |
+| `QuanK-v0.47.0-mac-arm64.zip` | 483,695,801 | `sha256:9ddf0bf60ac5f77bdd88365db792c8e3935814ed57cf9f6c7d474338af11498e` | 一致 ✓ |
+
+---
+
+## 最终汇报
+
+### 阶段A 测试对比
+
+| | tests | pass | fail | 新增失败 |
+| --- | --- | --- | --- | --- |
+| 基线 HEAD `fef2925` | 1267 | 1115 | 141 | — |
+| 阶段A（含要点过滤修复） | 1275 | 1123 | 141 | **0** |
+| 阶段C（版本号与日志后） | 1275 | 1122 | 142 | **0**（唯一差异为端口 11434 抢占偶发，单独复跑通过） |
+
+`node --check`：`desktop/` 下 608 个 `.js/.mjs/.cjs` 全部通过。
+
+### 新截图清单
+
+| 文件 | 说明 |
+| --- | --- |
+| `docs/images/app-research-detail.png` | 个股详情页「投研资料」（重截，含新要点过滤） |
+| `docs/images/app-research-library.png` | 量化页「投研资料库」（重截） |
+| `docs/images/app-research-report.png` | 个股研报网页版整页（行情接口不通，沿用现有图） |
+
+### 版本号改动的文件
+
+| 文件 | 处数 |
+| --- | --- |
+| `desktop/package.json` | 1 |
+| `desktop/package-lock.json` | 2（仅根包，未动依赖） |
+| `RELEASE_STATUS.json` | 1 |
+| `SOURCE_MANIFEST.json` | 2 |
+| `README.md` | 徽章 + 下载名 |
+| `ITERATION_LOG.md` | 新增 v0.47.0 条目 |
+
+`dist/` 与根 `package.json`（Web 框架包 0.2.0）未改动，打包后 `git diff --quiet HEAD -- package.json` 校验已还原。
+
+### 产物
+
+| 产物 | 字节 | sha256 |
+| --- | --- | --- |
+| `dist/QuanK-v0.47.0-mac-arm64.dmg` | 457,635,234 | `57d9fa56ab6d2976fba64d4fa566df11a983e7dafef61edff5b07ce02511edd5` |
+| `dist/QuanK-v0.47.0-mac-arm64.zip` | 483,695,801 | `9ddf0bf60ac5f77bdd88365db792c8e3935814ed57cf9f6c7d474338af11498e` |
+
+### 已知限制
+
+部分网络环境下东方财富行情接口可能限流（本次发布期间 `push2his` 与 `push2` 均不可用），研报会自动略过行情与 K 线部分并在风险提示中注明。
