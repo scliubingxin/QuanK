@@ -57,6 +57,49 @@ export function parseTrends(json) {
   }
   return {code: clip(d.code, 12), name: clip(d.name, 30), preClose: val(d.preClose), points};
 }
+// ---------- [v47.1] Tencent public quote host: fallback when Eastmoney's history host (push2his) refuses this machine ----------
+const TX = 'https://web.ifzq.gtimg.cn/appstock/app/', TXM = 'https://ifzq.gtimg.cn/appstock/app/';
+export const txSymbol = code => (/^(4|8|92)/.test(String(code)) ? 'bj' : /^(5|6|9)/.test(String(code)) ? 'sh' : 'sz') + String(code);
+/** Tencent "qt" array -> the parseQuote shape. 3 price 4 preClose 5 open 6 volume 31 change 32 pct 33 high 34 low 37 amount(万) 38 turnover. */
+export function parseTxQuote(a) {
+  if (!Array.isArray(a) || a.length < 39) return null;
+  const amt = val(a[37]);
+  return {code: clip(a[2], 12), name: clip(a[1], 30), price: val(a[3]), preClose: val(a[4]), open: val(a[5]), volume: val(a[6]), change: val(a[31]), pct: val(a[32]), high: val(a[33]), low: val(a[34]), amount: amt === null ? null : amt * 1e4, turnover: val(a[38]), source: 'tencent'};
+}
+const txDate = s => { s = String(s || ''); return /^\d{12}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)} ${s.slice(8, 10)}:${s.slice(10, 12)}` : s.slice(0, 10); };
+/** fqkline / mkline JSON -> {code, name, bars, quote}. Rows: [date, open, close, high, low, volume, ...]. */
+export function parseTxKline(json, code, period = 'day') {
+  const sym = txSymbol(code), d = json?.data?.[sym];
+  if (!json || json.code !== 0 || !d || typeof d !== 'object') throw new Error('没有取到 K 线数据');
+  const keys = {day: ['qfqday', 'day'], week: ['qfqweek', 'week'], month: ['qfqmonth', 'month'], m60: ['m60'], m30: ['m30']}[period] || ['qfqday', 'day'];
+  const rows = keys.map(k => d[k]).find(Array.isArray) || [];
+  const bars = [];
+  for (const r of rows) {
+    if (!Array.isArray(r) || r.length < 6) continue;
+    const b = {date: txDate(r[0]), open: val(r[1]), close: val(r[2]), high: val(r[3]), low: val(r[4]), volume: val(r[5]), amount: null};
+    if (b.open > 0 && b.close > 0 && b.high > 0 && b.low > 0) bars.push(b); // old forward-adjusted monthly rows can go negative
+  }
+  if (!bars.length) throw new Error('没有取到 K 线数据');
+  for (let i = 0; i < bars.length; i++) bars[i].pct = i ? r2((bars[i].close / bars[i - 1].close - 1) * 100) : null;
+  const quote = parseTxQuote(d.qt?.[sym]);
+  return {code: String(code), name: quote?.name || '', bars, quote};
+}
+/** minute/query JSON -> trends shape. Rows "HHMM price cumulativeVolume cumulativeAmount". */
+export function parseTxMinute(json, code) {
+  const sym = txSymbol(code), d = json?.data?.[sym];
+  const rows = d?.data?.data;
+  if (!json || json.code !== 0 || !Array.isArray(rows)) throw new Error('没有取到分时数据');
+  const quote = parseTxQuote(d.qt?.[sym]), points = [];
+  let pv = 0, pa = 0;
+  for (const r of rows) {
+    const [t, p, v, a] = String(r).trim().split(/\s+/), price = val(p), cv = val(v) ?? pv, ca = val(a) ?? pa;
+    if (price === null || !/^\d{4}$/.test(t || '')) continue;
+    points.push({time: `${t.slice(0, 2)}:${t.slice(2)}`, price, volume: Math.max(0, cv - pv), amount: Math.max(0, ca - pa), avg: cv > 0 ? r2(ca / (cv * 100)) : null});
+    pv = cv; pa = ca;
+  }
+  return {code: String(code), name: quote?.name || '', preClose: quote?.preClose ?? null, points, quote};
+}
+
 /** Limit-up / limit-down pools: total and the trading day the API actually answered for (it falls back on weekends). */
 export const parsePool = json => ({total: val(json?.data?.tc) ?? 0, date: String(json?.data?.qdate || '')});
 
@@ -167,13 +210,36 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
     return fb ? {...(q || {}), ...fb, code: q?.code || code} : q;
   }
   async function kline(code, period = 'day', count = 320) {
-    const id = secid(code), P = PERIODS[period] || PERIODS.day, q = await liveQuote(code);
+    const id = secid(code), P = PERIODS[period] || PERIODS.day, open = session(now()) === 'open', sym = txSymbol(code), n = Math.min(800, Math.max(30, count));
+    const live = (q, fb) => q && q.price !== null && q.price !== undefined ? q : fb || q || null;
     if (period === 'intraday') {
-      const t = parseTrends(await getJson(`${HIS}stock/trends2/get?secid=${id}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58&ndays=1&iscr=0`, session(now()) === 'open' ? 10e3 : 600e3));
-      return {code: t.code || code, name: t.name || q?.name || '', period, preClose: t.preClose ?? q?.preClose ?? null, points: t.points, quote: q};
+      try {
+        const q = await liveQuote(code);
+        const t = parseTrends(await getJson(`${HIS}stock/trends2/get?secid=${id}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58&ndays=1&iscr=0`, open ? 10e3 : 600e3));
+        return {code: t.code || code, name: t.name || q?.name || '', period, preClose: t.preClose ?? q?.preClose ?? null, points: t.points, quote: q};
+      } catch (e) { // [v47.1] Eastmoney refused: Tencent minute data
+        let t; try { t = parseTxMinute(await getJson(`${TX}minute/query?code=${sym}`, open ? 10e3 : 600e3), code); } catch (e2) { throw marketDown(/没有取到/.test(String(e2?.message)) ? e2 : e); }
+        return {code, name: t.name, period, preClose: t.preClose, points: t.points, quote: t.quote, source: 'tencent'};
+      }
     }
-    const k = parseKlines(await getJson(`${HIS}stock/kline/get?secid=${id}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${P[0]}&fqt=1&end=20500101&lmt=${Math.min(800, Math.max(30, count))}`, session(now()) === 'open' ? 30e3 : 600e3));
-    return {code: k.code || code, name: k.name || q?.name || '', period, bars: k.bars, quote: await quoteOrBars(q, code, period === 'day' ? k.bars : null)};
+    let q = null;
+    try {
+      q = await liveQuote(code);
+      const k = parseKlines(await getJson(`${HIS}stock/kline/get?secid=${id}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${P[0]}&fqt=1&end=20500101&lmt=${n}`, open ? 30e3 : 600e3));
+      return {code: k.code || code, name: k.name || q?.name || '', period, bars: k.bars, quote: await quoteOrBars(q, code, period === 'day' ? k.bars : null)};
+    } catch (e) { // [v47.1] Eastmoney refused (push2his resets connections for some networks): Tencent K lines + quote
+      let k;
+      try {
+        const url = /^m\d+$/.test(period) ? `${TXM}kline/mkline?param=${sym},${period},,${n}` : `${TX}fqkline/get?param=${sym},${period === 'week' || period === 'month' ? period : 'day'},,,${n},qfq`;
+        k = parseTxKline(await getJson(url, open ? 30e3 : 600e3), code, period);
+      } catch (e2) { throw marketDown(/没有取到/.test(String(e2?.message)) ? e2 : e); }
+      return {code, name: k.name || q?.name || '', period, bars: k.bars, quote: live(q, k.quote) || quoteFromBars(k.bars), source: 'tencent'};
+    }
+  }
+  /** One readable error when every quote host failed (instead of "TypeError: fetch failed"). */
+  function marketDown(e) {
+    const m = String(e?.message || e || '');
+    return new Error(/没有取到|股票代码/.test(m) ? m : '行情接口暂时连不上（东方财富与腾讯备用源都没有响应），请检查网络后点周期按钮重试');
   }
   /** Numbers the chat model can quote: last bar, moving averages, MACD, KDJ, range highs / lows, last bars. */
   function klineSummary(k) {

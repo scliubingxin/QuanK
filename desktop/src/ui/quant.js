@@ -62,7 +62,7 @@ function quantDetail(q, code, d, {action, date, research = null}) {
 <div class="q-kpis">${kpi('综合分', f(s.score, 1) + (s.scoreRaw != null && s.scoreRaw !== s.score ? `<em>调整前 ${f(s.scoreRaw, 1)}</em>` : ''))}${kpi('倍率', s.multiplier == null ? '—' : f(s.multiplier, 1) + '×')}${kpi('现价', f(s.price), up)}${kpi('涨跌', pct(s.changePct), up)}${kpi('模型概率', s.probPct == null ? '—' : f(s.probPct, 1) + '%')}</div></div>
 ${s.advice ? `<p class="q-sizing">${escape(s.advice)}</p>` : ''}${holdingDetail(d.holding, code, q, {action})}
 <div class="q-kpis q-bt">${kpi('策略收益', pct(bt.smartPct))}${kpi('基准收益', pct(bt.blindPct))}${kpi('超额', pct(bt.excess))}${kpi('胜率', bt.winRate == null ? '—' : f(bt.winRate, 0) + '%')}${kpi('交易次数', f(bt.trades, 0))}${kpi('最大回撤', pct(bt.maxDrawdown))}</div>
-${klineBox(code, {marks: opsMarks(d.charts?.ops)})}${returnBox(d.charts)}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
+${klineBox(code, {marks: opsMarks(d.charts?.ops)})}${returnBox(d.charts, bt)}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
 <div class="q-grid2">${list('信号理由', s.reasons)}${list('约束与风控', s.gates, 'q-gates')}</div>${factors}${inds}${ops}
 ${researchBox(code, research, {action, date})}
 <p class="auto-note">数据由本机私有引擎计算${s.plan ? `（${escape(s.plan)}）` : ''}${s.model ? `，模型 ${escape(s.model)}` : ''}。仅供研究，不构成投资建议。</p></div>`;
@@ -71,11 +71,14 @@ ${researchBox(code, research, {action, date})}
 /** [v46] Backtest curve grid -> return % per day for both plans: (value - invested) / invested. The plain plan uses its own
  *  invested column when the engine reports one, otherwise the smart plan's. Rows without a positive investment are skipped. */
 export function backtestReturns(curve) {
-  if (!Array.isArray(curve) || curve.length < 2) return {rows: [], labels: {}, ownCostB: false};
-  const [h, ...rows] = curve, ownCostB = h.length > 4, r = (v, k) => v === null || v === undefined || !(k > 0) ? null : Math.round((v - k) / k * 1e4) / 100;
+  if (!Array.isArray(curve) || curve.length < 2) return {rows: [], labels: {}, ownCostB: false, withCash: false};
+  const [h, ...rows] = curve, r = (v, k) => v === null || v === undefined || !(k > 0) ? null : Math.round((v - k) / k * 1e4) / 100;
+  // [v47.1] extra columns after 投入 are found by name: "...投入" = the plain plan's own investment, "...现金" = the smart plan's uninvested cash
+  const iCash = h.findIndex((x, i) => i > 3 && /现金$/.test(String(x))), iCostB = h.findIndex((x, i) => i > 3 && !/现金$/.test(String(x)));
+  const ownCostB = iCostB > 0, withCash = iCash > 0, plus = (v, c) => v === null || v === undefined ? v : v + (Number.isFinite(c) ? c : 0);
   const strip = s => String(s || '').replace(/市值$/, '');
-  return {ownCostB, labels: {a: `${strip(h[1]) || '策略'}收益率`, b: `${strip(h[2]) || '基准'}收益率`, title: `回测：${strip(h[1]) || '策略'} vs ${strip(h[2]) || '基准'}收益率`},
-    rows: rows.map(x => ({date: x[0], a: r(x[1], x[3]), b: r(x[2], ownCostB ? x[4] : x[3])})).filter(x => x.a !== null || x.b !== null)};
+  return {ownCostB, withCash, labels: {a: `${strip(h[1]) || '策略'}收益率`, b: `${strip(h[2]) || '基准'}收益率`, title: `回测：${strip(h[1]) || '策略'} vs ${strip(h[2]) || '基准'}收益率`},
+    rows: rows.map(x => ({date: x[0], a: r(withCash ? plus(x[1], x[iCash]) : x[1], x[3]), b: r(x[2], ownCostB ? x[iCostB] : x[3])})).filter(x => x.a !== null || x.b !== null)};
 }
 /** [v46] Pure-SVG return chart (no chart frame, no row-count header). Presentation is inline: the app-wide
  *  `svg{width:18px;stroke:currentColor}` icon rule must not shrink it or outline the hover columns. */
@@ -105,11 +108,14 @@ export function returnSvg(rows, {w = 960, h = 300, labels = {}} = {}) {
   pts.forEach((p, i) => { s += `<rect x="${(X(i) - cw / 2).toFixed(1)}" y="${top}" width="${cw.toFixed(2)}" height="${H}" style="fill:#fff;fill-opacity:0;stroke:none"><title>${escape(String(p.date))} ${escape(labels.a || '策略')} ${pct(p.a)} ${escape(labels.b || '基准')} ${pct(p.b)}</title></rect>`; });
   return s + '</svg>';
 }
-function returnBox(charts) {
+function returnBox(charts, bt = {}) {
   const r = backtestReturns(charts?.curve);
   if (!r.rows.length) return '';
   const last = r.rows.at(-1), cls = v => (v || 0) >= 0 ? 'up' : 'down';
-  return `<section class="q-box q-return"><div class="q-return-head"><h3>${escape(r.labels.title)}</h3><span class="q-legend"><i class="a"></i>${escape(r.labels.a)} <b class="${cls(last.a)}">${pct(last.a)}</b><i class="b"></i>${escape(r.labels.b)} <b class="${cls(last.b)}">${pct(last.b)}</b></span></div>${returnSvg(r.rows, {labels: r.labels})}${r.ownCostB ? '' : '<p class="q-return-note">引擎未提供普通定投的累计投入，普通定投收益率按同期智能定投投入计算。</p>'}</section>`;
+  // [v47.1] an engine curve without cash holds only the shares' market value: its last point then disagrees with the
+  // backtest summary (which counts the unspent reserve). Say so instead of showing a misleading number silently.
+  const off = !r.withCash && Number.isFinite(Number(bt?.smartPct)) && Number.isFinite(last.a) && Math.abs(last.a - Number(bt.smartPct)) > 1;
+  return `<section class="q-box q-return"><div class="q-return-head"><h3>${escape(r.labels.title)}</h3><span class="q-legend"><i class="a"></i>${escape(r.labels.a)} <b class="${cls(last.a)}">${pct(last.a)}</b><i class="b"></i>${escape(r.labels.b)} <b class="${cls(last.b)}">${pct(last.b)}</b></span></div>${returnSvg(r.rows, {labels: r.labels})}${off ? `<p class="q-return-note warn">引擎的回测曲线没有包含暂停定投期间留存的储备金，智能定投曲线只反映持仓市值；按期末总资产计算的策略收益是 ${pct(Number(bt.smartPct))}。在策略项目的回测曲线里输出 cash（未投出的现金）后，曲线会自动改为含现金口径。</p>` : ''}${r.ownCostB ? '' : '<p class="q-return-note">引擎未提供普通定投的累计投入，普通定投收益率按同期智能定投投入计算。</p>'}</section>`;
 }
 
 /** Dashboard objects for mountDashboard(). [v46] The price / score block was removed and the backtest curve is drawn

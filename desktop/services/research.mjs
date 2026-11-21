@@ -151,6 +151,13 @@ export function createResearchService({store, documents, market = null, quant = 
   }
   const settle = async f => { try { return await f(); } catch (e) { return {__error: clip(e?.message || e, 140)}; } };
   const ok = x => x && !x.__error ? x : null;
+  /** [v47.1] Last backtest return for the report. The engine's summary is authoritative: the curve may hold only the shares'
+   *  market value (no reserve cash), so the curve is used only when it carries cash or the summary has no number. */
+  function lastReturns(rt, bt = {}) {
+    if (!rt?.rows?.length) return null;
+    const l = rt.rows.at(-1), f = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
+    return {date: l.date, a: rt.withCash || f(bt?.smartPct) === null ? l.a : f(bt.smartPct), b: f(bt?.blindPct) ?? l.b};
+  }
   async function report(p = {}) {
     const {code, name: n0} = await resolve(p), format = REPORT_FORMATS.includes(p.format) ? p.format : 'docx';
     const [sig, k, ns] = await Promise.all([
@@ -165,7 +172,7 @@ export function createResearchService({store, documents, market = null, quant = 
     if (p.ai !== false && quant && signal) { const r = await settle(() => quant.handle({action: 'insight', code})); if (ok(r) && r.available !== false && r.text) insight = String(r.text); }
     const name = n0 || signal?.summary?.name || kl?.name || list[0]?.name || code;
     const rt = signal?.charts?.curve ? backtestReturns(signal.charts.curve) : null;
-    const spec = buildStockReport({code, name, date: today(now()), quote: kl?.quote || null, bars: kl?.bars || [], signal: signal?.summary || null, returns: rt?.rows?.at(-1) || null, holding: signal?.holding || null, notices: list, insight});
+    const spec = buildStockReport({code, name, date: today(now()), quote: kl?.quote || null, bars: kl?.bars || [], signal: signal?.summary || null, returns: lastReturns(rt, signal?.summary?.backtest), holding: signal?.holding || null, notices: list, insight});
     const svgs = {};
     if (kl?.bars?.length > 1) svgs.kline = klineSvg(kl.bars, {w: 960, h: 460, last: 120, marks: opsMarks(signal?.charts?.ops)});
     if (rt?.rows?.length > 1) svgs.returns = returnSvg(rt.rows, {labels: rt.labels, w: 960, h: 300});
