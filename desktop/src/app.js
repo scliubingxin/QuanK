@@ -36,6 +36,7 @@ import { infographicPage, infographicForm, infographicPayload, infographicEditFo
 import { renderInfographicSvg } from './shared/infographic.js';
 import { miniappPage, miniappForm, miniappPayload, miniappReviseForm, miniappRevisePayload, miniappVersionsView, mountMiniApp } from './ui/miniapp.js';
 import { quantPage, quantDashboards, quantAddForm, quantAddPayload, quantSettingsForm, quantSettingsPayload, quantWatchForm, quantWatchPayload, quantTradeForm, quantTradePayload, quantPlanForm, quantPlanPayload, quantReportDetail, quantReportAutoForm, quantReportAutoPayload } from './ui/quant.js';
+import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView } from './ui/market.js';
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
 import { feedUnread } from './shared/feed.js';
 function viewContext() { return { state, chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
@@ -61,13 +62,14 @@ let state = { chats: [], folders: [], memories: [], agents: [], tasks: [], artif
 let selections=[];
 let modelChoice='legacy',modelEffort='';
 let capabilityTab='agents';const busyMcp=new Set();
-const nav = [['home', 'chat', '工作台'], ['feed', 'activity', '动态'], ['library', 'grid', '成果中心'], ['studio', 'spark', '创作'], ['files', 'folder', '本地文件'], ['agents', 'agent', '智能体'], ['tools', 'activity', '浏览器与权限'], ['tasks', 'clock', '自动化'], ['quant', 'trend', '量化'], ['connectors', 'link', '连接'], ['graph', 'search', '知识图谱'], ['context', 'spark', '记忆库']];
+const nav = [['home', 'chat', '工作台'], ['feed', 'activity', '动态'], ['library', 'grid', '成果中心'], ['studio', 'spark', '创作'], ['files', 'folder', '本地文件'], ['agents', 'agent', '智能体'], ['tools', 'activity', '浏览器与权限'], ['tasks', 'clock', '自动化'], ['quant', 'trend', '量化'], ['market', 'trend', '行情'], ['connectors', 'link', '连接'], ['graph', 'search', '知识图谱'], ['context', 'spark', '记忆库']];
 let memoryFilter = 'all', memoryQuery = '', incognito = false, planMode = false, researchMode = false, feedFilter = 'all'; // [p1-m1][p1-m2][p1-m5][p1-m6][p2-m3]
 let graphQuery = '', graphType = 'all'; // [p3-m5]
 let graphMode = 'graph', graphFocus = '', graphSelected = '', graphMount = null; const graphCache = {}; // [ux4]
 let studioTab = 'dashboards', dashView = null; // [p4-m1]
 let miniappOpenId = '', miniappDispose = null, miniappVersionsFor = ''; // [p4-m4]
 let quantOpen = '', quantDetailData = null, quantDisposers = []; // [q1]
+let marketTab = 'industry', marketStockCode = '', marketPingAt = 0; // [F1]
 let taskTab = 'tasks', taskFilter = 'all', runStatus = 'all', runTaskFilter = 'all', runTrigger = 'all'; // [ux6]
 let sidebarCollapsed = false, sidePanel = false, sideTab = 'preview', previewId = '', previewTabs = [], previewSource = false, previewHtml = false, previewInteractive = false, previewZoom = 100, recentQuery = '', pickerKind = '', pickerItems = [], pickerIndex = 0, pickerSerial = 0;
 const openedDetails = new Set();
@@ -224,6 +226,7 @@ function render() {
             for (const dash of quantDashboards(qc.dataset.code, quantDetailData.charts)) { const box = document.createElement('div'); box.className = 'q-chart'; qc.append(box); quantDisposers.push(mountDashboard(box, dash)); }
         }
     }
+    mountKlineBoxes(document, p => invoke('market', p)); marketPing(); // [F1]
     { // [p4-m4] mini app viewer: code and data are fetched when the viewer appears; every data change goes to main
         const mh = $('#miniappHost');
         if (!mh && miniappDispose) { miniappDispose(); miniappDispose = null; }
@@ -364,6 +367,8 @@ function content() {
         return homeContent();
     if (page === 'chat')
         return conversationContent();
+    if (page === 'market') // [F1]
+        return marketPage(state, {action, date, tab: marketTab, stock: marketStockCode});
     if (page === 'quant') // [q1]
         return quantPage(state, {action, heading, empty, date, open: quantOpen, detail: quantDetailData});
     if (page === 'studio') // [p4-m1]
@@ -486,6 +491,31 @@ async function send() {
         render();
     }
 }
+// [F1] 行情 page actions, overview keep-alive and live refresh
+async function marketAction(actionId, id) {
+    const mcall = async p => { const out = await invoke('market', p); if (out?.state) applyState(out.state); return out?.result ?? {}; };
+    if (actionId === 'mkTab') { marketTab = id === 'concept' ? 'concept' : 'industry'; render(); return; }
+    if (actionId === 'mkStock') { if ($('#modal')?.open) $('#modal').close(); marketStockCode = String(id || ''); if (page === 'market') render(); else await navigate('market'); return; }
+    if (actionId === 'mkBack') { marketStockCode = ''; render(); return; }
+    if (actionId === 'mkRefresh') { toast('正在刷新行情…'); await mcall({ action: 'overview' }); render(); toast('行情已更新'); return; }
+    if (actionId === 'mkSector') { const r = await mcall({ action: 'sectorStocks', sector: id, limit: 30 }); modal(`${r.sector?.name || '板块'} · 成分股涨幅前 30`, sectorStocksView(r)); return; }
+    if (actionId === 'mkAddPool') { const out = await invoke('quant', { action: 'addStock', code: id }); if (out?.state) applyState(out.state); render(); toast('已加入股票池'); return; }
+    if (actionId === 'mkAlert') { modal('价格提醒', marketAlertForm(id || ''), '添加', async f => { const p = marketAlertPayload(f); const r = await mcall({ action: 'resolve', query: p.query }); const a = await mcall({ action: 'addAlert', code: r.code, name: r.name, kind: p.kind, value: p.value }); render(); toast('已添加提醒：' + a.text); }); return; }
+    if (actionId === 'mkAlertRemove') { await mcall({ action: 'removeAlert', id }); render(); toast('已删除提醒'); return; }
+}
+function marketRefreshView() {
+    const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+    if (page === 'home') { const n = $('#mkHome'); if (n) n.outerHTML = marketHomeCard(state, { date }); }
+    else if ((page === 'market' || (page === 'quant' && !quantOpen)) && !typing) render();
+}
+function marketPing() {
+    if (!api || (page !== 'home' && page !== 'market')) return;
+    const now = Date.now(), o = state.market?.overview;
+    if (now - marketPingAt < 15e3) return;
+    marketPingAt = now;
+    if (!o || now - (o.at || 0) > 600e3) Promise.resolve().then(() => invoke('market', { action: 'overview' })).then(out => { if (out?.state) { applyState(out.state); marketRefreshView(); } }).catch(() => {});
+    else Promise.resolve().then(() => invoke('market', { action: 'watch' })).catch(() => {});
+}
 async function navigate(next) {
     if (page === 'feed' && next !== 'feed') invoke('feed', { action: 'seen' }).then(s => { applyState(s); render(); }).catch(() => {}); // [p2-m3] leaving the feed marks it read
     page = next;
@@ -496,6 +526,7 @@ async function navigate(next) {
         render();
 }
 async function handle(actionId, id) {
+    if (typeof actionId === 'string' && actionId.startsWith('mk')) return marketAction(actionId, id); // [F1]
     if(actionId==='previewImageOcrEvidence'){
       const ref=JSON.parse(id);if(ref.chatId!==chatId)throw Error('任务已切换，请重新选择证据');
       const v=await invoke('previewImageOcrEvidence',ref);if(ref.chatId!==chatId)throw Error('任务已切换，未显示图片');
@@ -1454,7 +1485,7 @@ async function boot() {
     }
 }
 let runtimeTimer;
-api?.onOpenPage?.(p => { if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code)).catch(e => toast(e.message)); else { quantOpen = ''; navigate('quant'); } return; } if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context'].includes(p?.page)) navigate(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
+api?.onOpenPage?.(p => { if (p?.page === 'market') { marketStockCode = p.code ? String(p.code) : ''; navigate('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code)).catch(e => toast(e.message)); else { quantOpen = ''; navigate('quant'); } return; } if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context'].includes(p?.page)) navigate(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
 api?.onOpenChat?.(p => { if (p?.id && state.chats.some(c => c.id === p.id)) handle('openChat', p.id).catch(e => toast(e.message)); });
 api?.onRuntime?.(() => {
     clearTimeout(runtimeTimer);
@@ -1463,6 +1494,7 @@ api?.onRuntime?.(() => {
             applyState(await invoke('state'));
             if (!$('#modal').open && ['chat', 'tools', 'tasks'].includes(page))
                 render();
+            else if (!$('#modal').open) marketRefreshView(); // [F1]
         }
         catch (e) {
             toast(e.message);

@@ -33,6 +33,7 @@ import { createComparisonService } from './services/comparison.mjs';
 import { createInfographicService } from './services/infographic.mjs'; // [p4-m3]
 import { createMiniAppService } from './services/miniapps.mjs'; // [p4-m4]
 import { createStockLookup } from './services/stock-lookup.mjs'; // [v45q]
+import { createMarketService } from './services/market.mjs'; // [F1]
 import { createQuantEngine } from './services/quant-engine.mjs'; // [q1]
 import { normalizeWatch, actionLabel as quantActionLabel } from './src/shared/quant.js'; // [q3]
 import { createWebLookup } from './services/web-lookup.mjs'; // [ux9]
@@ -89,10 +90,10 @@ const notifyRuntime = () => {
         win.webContents.send('actwill:runtime');
 };
 const approve = createApprover({ dialog, getWindow: () => win, focus });
-let toolRuntime, genoffice, models, projects, libreoffice, officeWindows, connectors, graphService, dashboards, miniapps, quant; // [p3-m1][p3-m5][p4-m1][p4-m4][q1]
+let toolRuntime, genoffice, models, projects, libreoffice, officeWindows, connectors, graphService, dashboards, miniapps, quant, market; // [p3-m1][p3-m5][p4-m1][p4-m4][q1][F1]
 const pdfImports = createPdfImportControl({notify: notifyRuntime});
 const executeTool = (...args) => toolRuntime.execute(...args);
-const view = () => { const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,quant:_quant,...publicData}=store.data; return { ...publicData, pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
+const view = () => { const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,quant:_quant,...publicData}=store.data; return { ...publicData, pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
 function key() {
     if (sessionKey)
         return sessionKey;
@@ -195,7 +196,7 @@ else {
             openConnectorForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'connectors', connector: p }); }, web: createWebLookup(), // [ux9]
             openMcpForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'agents', mcp: p }); }, get capabilities() { return capabilityLibrary; }, // [mcp2]
             runTask: (id, o) => runTask(id, o), get workspace() { try { return workspace; } catch { return null; } },
-            get connectors() { return connectors; }, get dashboards() { return dashboards; }, get briefing() { return briefing; }, get miniapps() { return miniapps; }, get quant() { return quant; }, openQuant: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'quant', code }); } };
+            get connectors() { return connectors; }, get dashboards() { return dashboards; }, get briefing() { return briefing; }, get miniapps() { return miniapps; }, get quant() { return quant; }, get market() { return market; }, openMarket: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'market', code }); }, openQuant: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'quant', code }); } };
         conversations = createConversationService({ appTools: appDeps, approve, rules: approvalRules, models, secrets:mcpSecrets, images, queue:runs, store, active, key, view, executeTool, releaseToolGrants:id=>toolRuntime.releaseGrants(id), notify: notifyRuntime,notifyStream:event=>{if(win&&!win.isDestroyed())win.webContents.send('actwill:stream',event);},onCompleted:conversationFinished });
         if(runtimeRoot()){
             const kit=createOfficeWorkspace({documents:toolRuntime.documents,directory:path.join(store.dir,'office-kit'),runtime:officeRuntime,approve,notify:notifyRuntime,audit:async event=>{const prev=store.data.executions;store.data.executions=[event,...prev.filter(e=>e.id!==event.id)].slice(0,300);try{await store.save();}catch(e){store.data.executions=prev;throw e;}notifyRuntime();}});
@@ -254,6 +255,8 @@ else {
             aiGateway: () => { const r = models.resolve('legacy', '', { tools: false, vision: false }); const s = r?.settings || store.data.settings; if (!s?.model || !s?.baseUrl) return null; return { baseUrl: String(s.baseUrl).replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, ''), model: s.model, key: r ? r.key() : key() }; },
             chooseFolder: async current => { const r = await dialog.showOpenDialog(win, { title: '选择你的策略项目文件夹（根目录需有 wb-engine.json）', ...(current ? { defaultPath: current } : {}), properties: ['openDirectory'] }); return r.canceled ? null : r.filePaths[0]; } });
         register('quant', async p => { const result = await quant.handle(p); return { result, state: view() }; });
+        market = createMarketService({ store, lookup: createStockLookup(), notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'market', code: a.code }); }); n.show(); } catch {} } }); // [F1]
+        register('market', async p => { const result = await market.handle(p); return ['kline', 'quotes', 'sectors', 'sectorStocks', 'resolve', 'watch'].includes(p?.action) ? { result } : { result, state: view() }; });
         app.on('before-quit', () => { quant?.stop().catch(() => {}); });
         register('miniapp', async p => { const result = await miniapps.handle(p); return ['get', 'storage', 'versions', 'export'].includes(p?.action) ? { result } : { result, state: view() }; });
         await store.save();
@@ -422,6 +425,7 @@ else {
             void connectors?.tick().catch(() => {}); // [p3-m1]
             void graphService?.tick().catch(() => {}); // [p3-m5]
             void quant?.tick().catch(() => {}); // [q3] watch the pool in trading hours
+            void market?.tick().catch(() => {}); // [F1] watchlist quotes, alerts, overview keep-alive
             for (const t of store.data.tasks) {
                 if (t.enabled && t.nextRun && t.nextRun <= Date.now() && !['queued','running','cancelling'].includes(t.status))
                     runTask(t.id, {scheduledFor:t.nextRun}).catch(() => { });
