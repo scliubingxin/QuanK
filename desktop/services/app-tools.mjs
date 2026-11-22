@@ -136,7 +136,7 @@ export async function executeAppTool(name, args = {}, opts = {}) {
   if (deps.audit && WRITE_TOOL.test(String(name)) && !/^app_(sec|audit|egress|compliance)_/.test(name)) {
     const st = error ? `失败：${String(error?.message || error).slice(0, 60)}` : out?.status === 'denied' ? '用户未确认，未执行' : out?.status || 'succeeded';
     const a = typeof args === 'string' ? (() => { try { return JSON.parse(args); } catch { return {}; } })() : args || {};
-    try { await deps.audit.record({kind: /trade_record/.test(name) ? 'trade' : /rules/.test(name) ? 'rules' : /report|export|digest/.test(name) ? 'export' : 'chat', action: name, target: String(a.code || a.query || a.id || a.name || a.stock || '').slice(0, 40), detail: `对话指令 · ${st}`, via: chatId ? 'chat' : 'task'}); } catch {}
+    try { await deps.audit.record({kind: /trade_record/.test(name) ? 'trade' : /rules/.test(name) ? 'rules' : /report|export|digest/.test(name) ? 'export' : 'chat', action: name, target: String(a.code || a.query || a.id || a.name || a.stock || '').slice(0, 40), detail: `对话指令 · ${st}`, via: opts.via || (chatId ? 'chat' : 'task')}); } catch {}
   }
   if (error) throw error;
   if (out && typeof out === 'object' && shouldMask(name, deps.privacy?.())) { const m = maskAmounts(out); return {...m.result, privacy: `已按隐私设置隐藏 ${m.masked} 处金额（股数、成本、市值、盈亏、现金等）；回答时不要猜测或推算这些数字。`}; }

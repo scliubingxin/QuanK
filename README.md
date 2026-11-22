@@ -4,7 +4,7 @@
   <p><b>量化工作，一键搞定</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.50.0-2F62F5" alt="version">
+    <img src="https://img.shields.io/badge/version-0.51.0-2F62F5" alt="version">
     <img src="https://img.shields.io/badge/macOS-12%2B%20·%20Apple%20芯片-0B2BA6" alt="platform">
     <img src="https://img.shields.io/badge/license-Apache--2.0-8C7CFF" alt="license">
   </p>
@@ -47,7 +47,7 @@
 
 ## 下载与安装
 
-**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.50.0-mac-arm64.dmg`**。
+**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.51.0-mac-arm64.dmg`**。
 
 1. 双击 DMG，把 **QuanK** 拖到 **应用程序**。
 2. 首次打开：在「应用程序」里右键 QuanK → 打开（只需一次）。
@@ -146,6 +146,24 @@
 - **操作审计**：改风控规则、改持仓、记成交、确认框的选择、导出、调用大模型都会记一笔，每条带上一条的校验值，被改动或删除能查出来；可筛选、可导出 CSV
 - **合规审阅**：研报、组合报告、主题周报导出前自动补上统一的免责声明和风险提示，检查「保本」「稳赚」「目标价必达」「梭哈」等违规表述，缺少数据来源、日期和 AI 生成标注时给出提示；公众号文章也能贴进来检查，或者在对话里问「这篇能不能发」
 
+### 命令行 quank：终端、脚本和其他 AI 工具直接调用 QuanK
+
+在「安全与合规」里点「开启并安装 quank」，就能在终端里使用 QuanK。命令行和对话、界面用的是同一套功能：会修改数据的操作照样在 QuanK 里弹确认框，所有调用都记入操作审计，应用锁定时一律拒绝。
+
+```
+quank quote 通威,茅台          # 实时行情
+quank signal 通威              # 本机策略信号
+quank pf stress --market -10   # 大盘跌 10% 时组合会亏多少
+quank kb search 质押 --stock 通威
+quank ask "池子里谁是买点，按综合分排序"
+cat 草稿.md | quank check      # 发布前合规检查
+quank pf --json | jq .total    # 给脚本用
+```
+
+- **`quank mcp`**：作为本机 MCP 服务，Claude Desktop、Cursor、Quick 等可以直接调用 QuanK 的 74 个指令和 `quank_ask`；按「发给模型前隐藏金额」的设置打码
+- **`quank acp`**：作为 ACP 代理，加进编码代理面板，由别的智能体给 QuanK 派任务，同一个会话保持同一个 QuanK 对话
+- 只通过本机套接字连接（只有你的 macOS 账户能访问，不开放网络端口），默认关闭。详见 [命令行指南](docs/guides/CLI.md)
+
 ### 金融智能体与投研技能
 
 ![一句话个股研究](docs/images/app-chat-research.png)
@@ -238,6 +256,7 @@ cd QuanK/desktop && npm install && npm start
 
 ## 更新记录
 
+- **v0.51** — quank 命令行：终端子命令（行情、信号、组合、投研、提醒、审计）、`quank ask` 一句话让智能体做事、`quank mcp` 作为 MCP 服务、`quank acp` 作为编码代理接入。下载 `QuanK-v0.51.0-mac-arm64.dmg`。
 - **v0.50** — F5 合规安全：本机数据加密与应用锁、加密备份与恢复、密钥总览与模型密钥测试、外发记录与离线模式、发给模型前隐藏金额、不可篡改的操作审计、导出前合规审阅与统一免责声明。下载 `QuanK-v0.50.0-mac-arm64.dmg`。
 - **v0.49.1** — 修复：个股页「财务与关系」「投研资料」与量化页「投研资料库」「投研知识库」「组合与风控」提示「当前窗口缺少此功能接口」。下载 `QuanK-v0.49.1-mac-arm64.dmg`。
 - **v0.49** — F4 组合与风控：组合总览与行业分布、止损 / 止盈 / 回撤 / 仓位风控提醒、波动率 / 回撤 / Beta / VaR 风险指标、压力测试与调仓模拟（只提醒、只计算，不下单）。下载 `QuanK-v0.49.0-mac-arm64.dmg`。

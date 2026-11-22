@@ -1483,3 +1483,19 @@ svg.pf-svg text,svg.pf-svg tspan{stroke:none}
 .lock-card form button{height:42px;padding:0 18px;border-radius:12px}
 .lock-touch{margin-top:10px;width:100%;height:40px;border-radius:12px}
 .lock-card .task-error{margin:12px 0 0;white-space:normal}
+
+/* [v0.51] quank card */
+.sec-card code,.sec-body code,#modal code{padding:1px 6px;border-radius:6px;background:#f1f4fb;color:#24324f;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.sec-pre{margin:8px 0;padding:12px 14px;border-radius:12px;background:#0f172a;color:#e2e8f0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.6;overflow:auto;user-select:all}
+
+/* [v0.51] 投研知识库 search box: same input style as the rest of the workbench (no default black border) */
+.kn-search{display:flex;gap:8px;margin:0 0 14px;padding:6px;border:1px solid #dfe5f1;border-radius:14px;background:#fff;box-shadow:0 6px 18px -16px #1e3a8a;transition:border-color .15s,box-shadow .15s}
+.kn-search:focus-within{border-color:#2f62f5;box-shadow:0 0 0 3px #2f62f51a,0 10px 24px -18px #2f62f5}
+.kn-search input{flex:1;min-width:0;height:36px;padding:0 10px 0 34px;border:0!important;outline:0!important;box-shadow:none!important;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a94ad' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 10px center/16px;font:inherit;font-size:14px;color:#14213d;-webkit-appearance:none;appearance:none}
+.kn-search input::placeholder{color:#9aa3b8}
+.kn-search input::-webkit-search-cancel-button{-webkit-appearance:none}
+.kn-search button{height:36px;padding:0 20px;border-radius:10px;font-size:13px;white-space:nowrap}
+/* section titles never break onto two lines («组合与 / 风控») */
+.quant-page .plaza-section-head h2{white-space:nowrap;flex:none}
+.quant-page .plaza-section-head small{flex:1 1 240px;min-width:0}
+.quant-page .plaza-section-head .q-head-tools{flex:none;flex-wrap:wrap;justify-content:flex-end}

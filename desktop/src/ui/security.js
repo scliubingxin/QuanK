@@ -21,7 +21,7 @@ export function securityPage(state, {heading, action = btn} = {}) {
 
 // line icons (24×24, stroke) for the overview cards
 const ICONS = {lock: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3', archive: 'M4 5h16v4H4zM5 9v10h14V9M10 13h4', shield: 'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z', wifi: 'M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 4-2.4M19 12.5a10 10 0 0 0-3.2-2.2M12 20h.01',
-  eye: 'M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4.5 9.5 6a17 17 0 0 1-3 3.4M6.6 7.6A16 16 0 0 0 2.5 12c1 1.5 4.5 6 9.5 6a9.6 9.6 0 0 0 4.3-1M9.9 9.9a3 3 0 0 0 4.2 4.2', list: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01', check: 'M9 12l2 2 4-4M7 3h8l4 4v14H5V3z', key: 'M14 7a4 4 0 1 1-3.5 6L4 19.5V21h3v-2h2v-2h2l1.5-1.5'};
+  eye: 'M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4.5 9.5 6a17 17 0 0 1-3 3.4M6.6 7.6A16 16 0 0 0 2.5 12c1 1.5 4.5 6 9.5 6a9.6 9.6 0 0 0 4.3-1M9.9 9.9a3 3 0 0 0 4.2 4.2', list: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01', check: 'M9 12l2 2 4-4M7 3h8l4 4v14H5V3z', key: 'M14 7a4 4 0 1 1-3.5 6L4 19.5V21h3v-2h2v-2h2l1.5-1.5', term: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5'};
 const ico = n => `<span class="sec-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[n] || ICONS.shield}"/></svg></span>`;
 const card = (icon, title, status, tone, desc, acts) => `<div class="sec-card ${tone}"><div class="sec-card-head">${ico(icon)}<b>${escape(title)}</b><span class="sec-pill ${tone}">${escape(status)}</span></div><p>${desc}</p><div class="sec-acts">${acts}</div></div>`;
 export function overviewHtml(v) {
@@ -34,8 +34,28 @@ ${card('key', '应用锁', l.enabled ? '已开启' : '未开启', l.enabled ? 'o
 ${card('wifi', '离线模式', p.offline ? '已开启' : '未开启', p.offline ? 'ok' : 'neutral', p.offline ? '已阻止所有外部连接（行情、公告、大模型、联网搜索），本机策略引擎照常运行。' : '需要时可以一键断开所有外部连接，只用本机数据和本机策略。', btn(p.offline ? '恢复联网' : '开启离线模式', 'secPrivacy', p.offline ? 'offline:off' : 'offline:on'))}
 ${card('eye', '发给模型前隐藏金额', p.maskAmounts ? '已开启' : '未开启', p.maskAmounts ? 'ok' : 'neutral', p.maskAmounts ? '对话里查询持仓、组合时，股数、成本、市值、盈亏和现金会替换成 ***，模型只看到价格、涨跌幅和仓位比例。' : '对话里查询持仓、组合时，金额会原样发给大模型服务。', btn(p.maskAmounts ? '关闭' : '开启', 'secPrivacy', p.maskAmounts ? 'maskAmounts:off' : 'maskAmounts:on'))}
 ${card('list', '操作审计', a.broken ? '校验失败' : '记录中', a.broken ? 'bad' : 'ok', `已记录 ${escape(String(a.count || 0))} 条。${a.lastVerify ? `上次校验 ${escape(time(a.lastVerify.time))}：${a.lastVerify.ok ? '完整，未被改动' : escape(a.lastVerify.reason || '发现异常')}` : '还没有校验过。'}`, btn('校验完整性', 'secAuditVerify') + btn('查看记录', 'secTab', 'audit'))}
+${cliCard(v.cli)}
 ${card('check', '合规检查', c.enabled ? (c.block ? '检查并阻止' : '导出前检查') : '已关闭', c.enabled ? 'ok' : 'warn', c.enabled ? `研报、组合报告、主题周报导出前自动补上免责声明和风险提示，并检查违规用语${c.block ? '；有必须修改的问题时不允许导出' : '；问题会写在导出结果里，不阻止导出'}。` : '导出前不做合规检查，也不自动补免责声明。', btn('合规设置', 'secComplianceSettings') + btn('检查一段文字', 'secTab', 'compliance'))}
 </div>${plain}`;
+}
+
+/** [v0.51] quank command line: socket bridge on/off, the `quank` command, MCP configuration. */
+export function cliCard(c) {
+  if (!c) return '';
+  if (c.error) return card('term', '命令行 quank', '出错', 'bad', escape(c.error), '');
+  const status = c.enabled ? (c.running ? '已开启' : '开启中') : '未开启', tone = c.enabled && c.running ? 'ok' : 'neutral';
+  const desc = c.enabled
+    ? `终端、脚本和其他 AI 工具可以通过本机套接字调用 QuanK 的全部指令（只有你的 macOS 账户能连接，不开放网络端口）；会修改数据的操作照样弹确认框并记入操作审计。${c.installed ? `命令已安装：<code>${escape(c.bin)}</code>${c.inPath ? '' : '。终端里找不到 quank 时，在 ~/.zprofile 里加一行 <code>export PATH="$HOME/.local/bin:$PATH"</code>'}` : '还没有安装 quank 命令。'}${c.served ? ` 本次运行已处理 ${escape(String(c.served))} 个请求。` : ''}`
+    : '开启后可以在终端里用 quank 查行情、看信号、跑压力测试、让智能体回答问题，也可以作为 MCP 服务给 Claude、Cursor、Quick 调用。默认关闭。';
+  const acts = c.enabled
+    ? (c.installed ? btn('MCP 配置', 'secCliMcp') + btn('卸载命令', 'secCliUninstall') : btn('安装 quank 命令', 'secCliInstall', '', 'primary')) + btn('关闭命令行', 'secCliEnable', 'off')
+    : btn('开启并安装 quank', 'secCliInstall', '', 'primary');
+  return card('term', '命令行 quank', status, tone, desc, acts);
+}
+export function cliMcpHtml(c) {
+  const cfg = JSON.stringify(c?.mcp || {}, null, 2);
+  return `<p>在支持 MCP 的工具里添加一个本机（stdio）服务，命令填 <code>${escape(c?.bin || '~/.local/bin/quank')}</code>，参数填 <code>mcp</code>。Claude Desktop、Cursor 用下面这段配置：</p><pre class="sec-pre">${escape(cfg)}</pre>
+<p>作为编码代理添加时（ACP），命令同上，参数填 <code>acp</code>。</p><p class="hint">MCP 调用按「发给模型前隐藏金额」的设置打码；修改类操作会在 QuanK 里弹出确认框。</p>`;
 }
 
 export function keysHtml(k) {
@@ -141,4 +161,4 @@ export function mountSecurity(root, call) {
 }
 export const setSecurityTab = (root, tab, extra = {}) => { const c = caches.get(root); if (c) Object.assign(c, {tab}, extra); };
 
-export const securityUI = {securityPage, overviewHtml, keysHtml, testResultHtml, egressHtml, auditHtml, complianceHtml, findingsHtml, lockForm, lockPayload, backupForm, backupPayload, complianceForm, compliancePayload, lockScreen, mountSecurity, setSecurityTab};
+export const securityUI = {cliCard, cliMcpHtml, securityPage, overviewHtml, keysHtml, testResultHtml, egressHtml, auditHtml, complianceHtml, findingsHtml, lockForm, lockPayload, backupForm, backupPayload, complianceForm, compliancePayload, lockScreen, mountSecurity, setSecurityTab};

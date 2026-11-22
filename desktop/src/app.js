@@ -154,7 +154,7 @@ function toast(message) { $('#toast').textContent = message; $('#toast').style.d
 async function invoke(name, payload) {
     if (!api)
         throw new Error('当前为界面预览。请通过 npm start 启动桌面应用以使用此功能。');
-    try { if(typeof api?.[name] !== 'function')throw Error('当前窗口缺少此功能接口，请完全退出 QuanK 后重新打开；若仍失败请更新应用。'); return await api[name](payload); }
+    try { if(typeof api?.[name] !== 'function')throw Error(`当前安装的 QuanK 不支持这个功能（缺少「${name}」接口）。请安装最新版本，完全退出（⌘Q）后重新打开。`); return await api[name](payload); }
     catch(error) { throw new Error(String(error?.message||'操作失败，请重试').replace(/^Error invoking remote method ['"][^'"]+['"]:\s*(?:Error:\s*)?/,'').replace(/^Error:\s*/,'')); }
 }
 async function update(name, payload) { applyState(await invoke(name, payload)); render(); return state; }
@@ -1303,6 +1303,10 @@ async function handle(actionId, id) {
         if (actionId === 'secDeletePlain') { modal('删除未加密副本', '<p>删除开启加密前留下的未加密副本和恢复前的数据副本？删除后无法找回，请确认 QuanK 运行正常、并且已经导出过加密备份。</p>', '删除', async () => { const r = await call({ action: 'deletePlainBackups' }); repaint(); toast(`已删除 ${r.deleted} 个文件`); }); return; }
         if (actionId === 'secBackup') { modal('导出加密备份', S.backupForm(false), '选择保存位置', async f => { const r = await call(S.backupPayload(f, false)); if (!r.cancelled) { repaint(); toast(`已保存 ${r.saved}`); } }); return; }
         if (actionId === 'secRestore') { modal('从加密备份恢复', S.backupForm(true), '选择备份文件', async f => { const r = await call(S.backupPayload(f, true)); if (r.cancelled) return; const c = r.counts || {}; later('确认恢复', `<p>备份文件：${escape(r.file)}</p><p>备份时间：${escape(new Date(r.created).toLocaleString('zh-CN', { hour12: false }))}；对话 ${c.chats ?? '—'} 个，手动持仓 ${c.holdings ?? '—'} 条，资料 ${c.notes ?? '—'} 条。</p><p>恢复会<b>替换当前全部数据</b>（当前数据会另存一份），然后 QuanK 重新启动。已保存的密钥如果来自另一台 Mac，需要重新填写。</p>`, '恢复并重启', async () => { await call({ action: 'backupRestore' }); toast('正在恢复，QuanK 即将重新启动…'); }); }); return; }
+        if (actionId === 'secCliInstall') { const r = await call({ action: 'cliInstall' }); repaint(); toast(r.inPath === false ? `已安装 ${r.bin}。终端里找不到 quank 的话，把 ~/.local/bin 加进 PATH` : `已安装 quank 命令，在终端里运行 quank --help 试试`); return; }
+        if (actionId === 'secCliUninstall') { await call({ action: 'cliUninstall' }); repaint(); toast('已卸载 quank 命令'); return; }
+        if (actionId === 'secCliEnable') { await call({ action: 'cliEnable', enabled: id !== 'off' }); repaint(); toast(id === 'off' ? '已关闭命令行' : '已开启命令行'); return; }
+        if (actionId === 'secCliMcp') { const v = await call({ action: 'view' }); modal('MCP 与 ACP 配置', S.cliMcpHtml(v.cli)); return; }
         if (actionId === 'secComplianceSettings') { const v = await call({ action: 'view' }); modal('合规设置', S.complianceForm(v.compliance), '保存', async f => { await call(S.compliancePayload(f)); repaint(); toast('已保存'); }); return; }
         if (actionId === 'secReview') { const text = $('#secReviewText')?.value || ''; if (text.trim().length < 4) { toast('请先粘贴要检查的文字'); return; } const r = await call({ action: 'review', text, kind: $('#secReviewKind')?.value || 'article', aiUsed: !!$('#secReviewAi')?.checked }); const box = $('#secReviewResult'); if (box) box.innerHTML = S.findingsHtml(r); return; }
     }

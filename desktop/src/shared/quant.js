@@ -203,10 +203,24 @@ export function normalizeReports(list) {
     .slice(0, 10).map(r => ({id: r.id, title: clip(r.title, 30) || r.id, script: r.script, args: r.args || [], output: r.output, markdown: r.markdown, schedule: r.schedule === 'daily' ? 'daily' : 'manual', fields: r.fields && typeof r.fields === 'object' && !Array.isArray(r.fields) ? r.fields : {}}));
 }
 const fmtMetric = (v, f) => typeof v === 'number' && Number.isFinite(v) ? (f === 'pct' ? `${Math.round(v * 1000) / 10}%` : String(Math.round(v * 100) / 100)) : v == null || typeof v === 'object' ? null : clip(v, 30) || null;
+/** [v0.51] A report summary may be an object (e.g. {window_days, n_alerts_total, …} or {text, …}): never print "[object Object]". */
+const SUMMARY_TEXT_KEYS = ['text', 'summary', 'conclusion', 'headline', 'overall', 'verdict', 'message', 'note', 'desc', 'description'];
+export function summaryText(v, skip = []) {
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v !== 'object') return clip(v, 400);
+  if (Array.isArray(v)) return clip(v.map(x => summaryText(x, skip)).filter(Boolean).join('；'), 400);
+  for (const k of SUMMARY_TEXT_KEYS) if (typeof v[k] === 'string' && v[k].trim()) return clip(v[k], 400);
+  const parts = Object.entries(v).filter(([k, x]) => !skip.includes(k) && (typeof x === 'string' || typeof x === 'number' || typeof x === 'boolean')).slice(0, 6).map(([k, x]) => `${k}：${typeof x === 'number' && !Number.isInteger(x) ? Math.round(x * 1000) / 1000 : x}`);
+  return clip(parts.join(' · '), 400);
+}
 export function summarizeReport(def, raw = {}) {
-  const F = def?.fields || {}, I = F.items || {}, g = p => p ? pick(raw, p) : undefined;
+  const F = def?.fields || {}, I = F.items || {};
+  // metric paths may sit at the top level or inside an object summary
+  const sumObj = F.summary ? pick(raw, F.summary) : undefined;
+  const g = p => { if (!p) return undefined; const v = pick(raw, p); return v !== undefined || !sumObj || typeof sumObj !== 'object' ? v : pick(sumObj, p); };
+  const metricKeys = arr(F.metrics).map(m => String(m?.[1] || '').split('.').pop());
   return {
-    summary: clip(g(F.summary), 400),
+    summary: summaryText(sumObj, metricKeys),
     metrics: arr(F.metrics).slice(0, 12).map(m => ({label: clip(m?.[0], 20), value: fmtMetric(g(m?.[1]), m?.[2])})).filter(m => m.label && m.value !== null),
     warnings: arr(F.warnings).map(w => { const o = g(w?.path); return o == null || o === false ? '' : clip(typeof o === 'object' ? fill(w.text || '', o) : (w.text || String(o)), 240); }).filter(Boolean),
     items: arr(g(I.path)).slice(0, 10).map(x => ({title: clip(pick(x, I.title || 'title'), 160), detail: clip(pick(x, I.detail || 'detail'), 300), level: clip(pick(x, I.level || 'level'), 10)})).filter(x => x.title),

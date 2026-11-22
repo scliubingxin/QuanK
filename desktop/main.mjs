@@ -41,6 +41,8 @@ import { createAuditLog, auditOf } from './services/audit.mjs'; // [F5]
 import { createEgressMonitor } from './services/egress.mjs'; // [F5]
 import { createVault } from './services/vault.mjs'; // [F5]
 import { createSecurityService } from './services/security.mjs'; // [F5]
+import { createCliHandler, createCliServer, createCliInstaller, createAskRunner } from './services/cli-server.mjs'; // [v0.51 CLI]
+import { executeAppTool, appToolDefinitions } from './services/app-tools.mjs'; // [v0.51 CLI]
 import { modelEndpoint as qkModelEndpoint } from './core.mjs'; // [F1c]
 import { createQuantEngine } from './services/quant-engine.mjs'; // [q1]
 import { normalizeWatch, actionLabel as quantActionLabel } from './src/shared/quant.js'; // [q3]
@@ -81,6 +83,7 @@ protocol.registerSchemesAsPrivileged([previewScheme]);
 const here = path.dirname(fileURLToPath(import.meta.url));
 let win, store, sessionKey = '', runner, closing = false, tick, shortcutReady = false;
 let security = null, auditLog = null, vault = null; // [F5]
+let cliAsk = null; // [v0.51 CLI] follows `quank ask` turns
 // [F5 M2] every fetch from the main process is recorded (host / path / bytes, never bodies) and refused in offline mode
 const egress = createEgressMonitor({ privacy: () => store?.data?.security?.privacy, onRequest: e => { if (e.purpose === '大模型' && e.method === 'POST') auditLog?.record({ kind: 'model', action: '调用大模型', target: e.host, detail: `${e.path} · ${e.status === -1 ? '失败' : e.status}`, via: 'app' }).catch(() => {}); } });
 egress.install(globalThis);
@@ -247,7 +250,7 @@ else {
             openMcpForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'agents', mcp: p }); }, get capabilities() { return capabilityLibrary; }, // [mcp2]
             runTask: (id, o) => runTask(id, o), get workspace() { try { return workspace; } catch { return null; } },
             get connectors() { return connectors; }, get dashboards() { return dashboards; }, get briefing() { return briefing; }, get miniapps() { return miniapps; }, get quant() { return quant; }, get market() { return market; }, get research() { return research; }, get knowledge() { return knowledge; }, get portfolio() { return portfolio; }, get security() { return security; }, get audit() { return auditLog; }, privacy: () => store.data.security?.privacy, openDocument: id => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'library', document: id }); }, openMarket: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'market', code }); }, openQuant: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'quant', code }); } };
-        conversations = createConversationService({ appTools: appDeps, approve, rules: approvalRules, models, secrets:mcpSecrets, images, queue:runs, store, active, key, view, executeTool, releaseToolGrants:id=>toolRuntime.releaseGrants(id), notify: notifyRuntime,notifyStream:event=>{if(win&&!win.isDestroyed())win.webContents.send('actwill:stream',event);},onCompleted:conversationFinished });
+        conversations = createConversationService({ appTools: appDeps, approve, rules: approvalRules, models, secrets:mcpSecrets, images, queue:runs, store, active, key, view, executeTool, releaseToolGrants:id=>toolRuntime.releaseGrants(id), notify: notifyRuntime,notifyStream:event=>{if(win&&!win.isDestroyed())win.webContents.send('actwill:stream',event);cliAsk?.stream(event);},onCompleted:e=>{conversationFinished(e);cliAsk?.finished(e);} });
         if(runtimeRoot()){
             const kit=createOfficeWorkspace({documents:toolRuntime.documents,directory:path.join(store.dir,'office-kit'),runtime:officeRuntime,approve,notify:notifyRuntime,audit:async event=>{const prev=store.data.executions;store.data.executions=[event,...prev.filter(e=>e.id!==event.id)].slice(0,300);try{await store.save();}catch(e){store.data.executions=prev;throw e;}notifyRuntime();}});
             const officeChat=createOfficeChat({store,kit,models,key,approve,queue:runs,notify:notifyRuntime});
@@ -341,6 +344,28 @@ else {
                     if (r.ok) return { ok: true, host, status: r.status, model: ai.model, message: '密钥有效' };
                     return { ok: false, host, status: r.status, model: ai.model, message: r.status === 401 || r.status === 403 ? '密钥无效或已失效（服务返回 ' + r.status + '）。请在「模型设置」里更换 API Key，然后在量化页点「重启」让策略引擎用上新密钥' : r.status === 404 ? '服务不支持模型列表接口，无法判断密钥是否有效；可以直接发一条对话试试' : `服务返回 ${r.status}` };
                 } catch (e) { return { ok: false, host, message: e?.code === 'QK_OFFLINE' ? e.message : `连不上 ${host}：${String(e?.message || e).slice(0, 80)}` }; } } });
+        // [v0.51 CLI] quank: local socket bridge to the same app tools (off until the user turns it on)
+        {
+            const userDir = app.getPath('userData');
+            const toolList = () => appToolDefinitions().map(d => ({ name: d.function.name, description: d.function.description, parameters: d.function.parameters }));
+            cliAsk = createAskRunner({ conversations, store, isBusy: id => active.has(id) || !!runs.hasOwner?.('conversation', id) });
+            const handler = createCliHandler({
+                tools: { list: toolList, call: (name, args, { audience, via }) => executeAppTool(name, args, { store, deps: audience === 'model' ? appDeps : Object.assign(Object.create(appDeps), { privacy: () => ({}) }), ask: (t, d, s) => approve(t, d, s), via }) },
+                ask: o => cliAsk.ask(o), cancel: id => conversations.cancel(id), locked: () => !!security?.locked,
+                info: () => ({ version: app.getVersion(), tools: toolList().length }), audit: e => { auditLog?.record(e).catch(() => {}); } });
+            const cliServer = createCliServer({ dir: userDir, handler });
+            const cliInstaller = createCliInstaller({ dir: userDir, bundled: path.join(here, 'services', 'cli', 'quank.cjs'), electron: process.execPath, socket: cliServer.socket, tokenFile: cliServer.tokenFile });
+            const cliCtl = {
+                async view() { const s = cliServer.status(), installed = await cliInstaller.installed(); return { enabled: !!store.data.cli?.enabled, ...s, installed, bin: cliInstaller.bin, inPath: installed ? await cliInstaller.inPath() : false, mcp: cliInstaller.mcpConfig() }; },
+                async enable(on) { store.data.cli = { ...(store.data.cli || {}), enabled: !!on }; await store.save(); if (on) await cliServer.start(); else await cliServer.stop(); return cliCtl.view(); },
+                async install() { const r = await cliInstaller.install(); if (!store.data.cli?.enabled) await cliCtl.enable(true); return { ...r, view: await cliCtl.view() }; },
+                async uninstall() { await cliInstaller.uninstall(); return cliCtl.view(); },
+            };
+            security.attachCli(cliCtl);
+            if (store.data.cli?.enabled) cliServer.start().catch(e => console.error('quank 命令行启动失败', e));
+            cliInstaller.refresh().catch(() => {});
+            app.on('will-quit', () => { cliServer.stop().catch(() => {}); });
+        }
         register('security', async p => { const result = await security.handle(p); return ['view', 'egressList', 'auditList', 'auditVerify', 'review', 'secrets', 'testModel'].includes(p?.action) ? { result } : { result, state: view() }; });
         powerMonitor.on('lock-screen', () => security?.onSleep()); powerMonitor.on('suspend', () => security?.onSleep());
         register('portfolio', async p => { const result = await portfolio.handle(p); return ['view', 'overview', 'risk', 'stress', 'simulate'].includes(p?.action) ? { result } : { result, state: view() }; });
