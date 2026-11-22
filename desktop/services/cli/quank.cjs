@@ -9,7 +9,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const VERSION = '0.53.0';
+const VERSION = '0.54.0';
 const DEFAULT_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'QuanK');
 
 // ---------- connection ----------

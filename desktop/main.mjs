@@ -249,7 +249,7 @@ else {
         register('imagePreview',p=>images.preview(p.id));
         register('imageRemove',async p=>{await images.remove(p.id);return view();});
         // [ux5] services the chat app tools can drive; getters so later-created services are picked up
-        const appDeps = { notify: notifyRuntime, openPage: page => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page }); },
+        const appDeps = { notify: notifyRuntime, openPage: (page, extra = {}) => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { ...extra, page }); }, // [v0.53.1] page filters / tabs
             openConnectorForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'connectors', connector: p }); }, web: createWebLookup(), // [ux9]
             openMcpForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'agents', mcp: p }); }, get capabilities() { return capabilityLibrary; }, // [mcp2]
             runTask: (id, o) => runTask(id, o), get workspace() { try { return workspace; } catch { return null; } },

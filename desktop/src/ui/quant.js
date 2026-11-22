@@ -42,9 +42,9 @@ function researchLink(state, {action}) {
   const n = (state.research?.library || []).length, d = state.dataset?.stats?.total || 0;
   return `<section class="q-box q-research-link"><div class="plaza-section-head"><h2>投研资料</h2><small>研报、公告、笔记、日报复盘和训练数据已移到「资料库 → 投研资料」，按股票分类整理 · ${n} 份资料 · ${d} 条训练数据</small><span class="q-head-tools">${action('打开投研资料', 'rpOpen', '', 'primary')}</span></div></section>`;
 }
-export function quantPage(state, {action, heading, empty, date, open = '', detail = null}) {
+export function quantPage(state, {action, heading, empty, date, open = '', detail = null, panel = false}) {
   const q = state.quant || {status: 'stopped', pool: []};
-  if (open) return quantDetail(q, open, detail, {action, date, research: state.research});
+  if (open) return quantDetail(q, open, detail, {action, date, research: state.research, panel});
   const pool = q.pool || [], stats = [[pool.length, '只自选'], [pool.filter(p => ['BUY', 'STRONG_BUY'].includes(p.last?.action)).length, '个买点'], [pool.filter(p => ['SELL', 'STRONG_SELL'].includes(p.last?.action)).length, '个风控提示']];
   const head = heading('', '让策略在本机运行，信号一眼看清。', '档位、综合分与倍率来自你自己的私有策略，在本机计算；也可以直接在对话里问「600519 现在什么信号」「池子里谁是买点」。', action('＋ 添加股票', 'quantAdd', '', 'primary') + action('全部刷新', 'quantRefreshAll'), stats);
   const grid = pool.length ? `<div class="plaza-grid q-pool-grid">${pool.map(s => stockCard(s, {action, date, holding: q.holdings?.[s.code], logo: q.logos?.[s.code], live: state.market?.quotes?.[s.code]})).join('')}</div>`
@@ -52,9 +52,9 @@ export function quantPage(state, {action, heading, empty, date, open = '', detai
   return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${portfolioBox(state.portfolio, {action})}${researchLink(state, {action})}${alertsBox(q, {action, date})}</div>`;
 }
 
-function quantDetail(q, code, d, {action, date, research = null}) {
+function quantDetail(q, code, d, {action, date, research = null, panel = false}) {
   const name = (q.pool || []).find(p => p.code === code)?.name || code;
-  const bar = `<div class="miniapp-bar">${action('← 股票池', 'quantClose')}<h2>${escape(name)} <small>${escape(code)}</small></h2><span class="miniapp-tools">${action('重新计算', 'quantRefresh', code)}${action('AI 研判', 'quantInsight', code, 'primary')}</span></div>`;
+  const bar = `<div class="miniapp-bar">${panel ? '' : action('← 股票池', 'quantClose')}<h2>${escape(name)} <small>${escape(code)}</small></h2><span class="miniapp-tools">${action('重新计算', 'quantRefresh', code)}${action('AI 研判', 'quantInsight', code, 'primary')}</span></div>`;
   if (!d) return `<div class="page quant-page">${bar}<p class="empty-note" id="quantLoading">正在计算信号…（首次可能需要半分钟）</p></div>`;
   if (d.error) return `<div class="page quant-page">${bar}<p class="task-error">${escape(d.error)}</p></div>`;
   const s = d.summary, tone = actionTone(s.action), bt = s.backtest || {};

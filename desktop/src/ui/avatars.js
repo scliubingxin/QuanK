@@ -70,8 +70,9 @@ export function agentAvatar(a = {}, cls = 'pc-icon') {
   const b = BUILTIN[a.id];
   if (b) return wrap(cls + ' av-agent', b[1](), a.name || '智能体', 'a' + a.id.replace(/\W/g, ''), BG[b[0]]);
   const h = hash(a.id || a.name), styles = ['short', 'side', 'bun', 'long', 'curly'];
-  const look = {skin: SKIN[h % SKIN.length], hair: HAIR[(h >> 3) % HAIR.length], style: styles[(h >> 5) % styles.length], glasses: (h >> 8) % 3 === 0, shirt: ['#FFFFFF', '#EEF2FF', '#F5F3FF', '#E0F2FE'][(h >> 10) % 4], collar: BG[(h >> 12) % BG.length][0]};
-  return wrap(cls + ' av-agent', character(look), a.name || '智能体', 'u' + (h % 6), BG[(h >> 2) % BG.length]);
+  // [v0.53.1] unsigned shifts: a hash ≥ 2^31 made `h >> n` negative, the index undefined and the whole workspace fail to render
+  const look = {skin: SKIN[h % SKIN.length], hair: HAIR[(h >>> 3) % HAIR.length], style: styles[(h >>> 5) % styles.length], glasses: (h >>> 8) % 3 === 0, shirt: ['#FFFFFF', '#EEF2FF', '#F5F3FF', '#E0F2FE'][(h >>> 10) % 4], collar: BG[(h >>> 12) % BG.length][0]};
+  return wrap(cls + ' av-agent', character(look), a.name || '智能体', 'u' + (h % 6), BG[(h >>> 2) % BG.length]);
 }
 
 /* ---------- glyph tiles (skills, MCP, feed) ---------- */

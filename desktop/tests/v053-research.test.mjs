@@ -99,3 +99,23 @@ test('calibration selectors with ">" are kept; 半自动委托 is the first tab;
   assert.match(engine, /onSignal\?\.\(c, entry\.summary\)/); assert.match(engine, /await onReport\?\.\(out, md\)/);
   assert.match(trade, /const missing = what === 'orders'/);
 });
+
+test('[v0.53.1] custom agent avatars never crash, whatever the id hashes to', async () => {
+  const {agentAvatar} = await import('../src/ui/avatars.js');
+  for (const id of ['quant-analyst', 'risk-officer', 'custom', 'a', '量化策略师', 'x'.repeat(40)]) for (let i = 0; i < 50; i++) assert.match(agentAvatar({id: id + i, name: 'n'}), /<svg/);
+});
+
+test('[v0.53.1] chat can open every page (投研资料 with filters, 半自动委托 tab); popups do not wait for a re-render', async () => {
+  const {appToolDefinitions, executeAppTool, APP_INTENT} = await import('../services/app-tools.mjs');
+  const def = appToolDefinitions().find(d => d.function.name === 'app_open_page').function.parameters;
+  for (const p of ['research', 'security', 'quant', 'feed', 'tasks', 'graph', 'context', 'agents', 'connectors', 'market']) assert.ok(def.properties.page.enum.includes(p), p);
+  const opened = [];
+  const run = a => executeAppTool('app_open_page', a, {store: {data: {}}, deps: {openPage: (page, extra) => opened.push([page, extra])}});
+  await run({page: 'research', stock: '600438', kind: 'quant'}); await run({page: 'tasks', tab: 'trade'}); await run({page: 'research', stock: 'x', kind: 'bad'});
+  assert.deepEqual(opened, [['research', {stock: '600438', kind: 'quant'}], ['tasks', {tab: 'trade'}], ['research', {}]]);
+  for (const q of ['查看我的自选', '打开资料库', '看看我的委托单', '去动态看看', '查看知识图谱', '打开投研资料']) assert.ok(APP_INTENT.test(q), q);
+  const read = f => readFile(new URL(f, import.meta.url), 'utf8');
+  const [app, main] = await Promise.all(['../src/app.js', '../main.mjs'].map(read));
+  assert.match(app, /if \(p\?\.page === 'research'\) \{ rpStock = /); assert.match(app, /marketRefreshView\(\); signalPopups\(\); \}/);
+  assert.match(main, /openPage: \(page, extra = \{\}\) =>/);
+});

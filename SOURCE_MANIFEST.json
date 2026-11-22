@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
   "brand": "QuanK",
-  "version": "0.53.0",
+  "version": "0.54.0",
   "packaged_date": "2026-11-16",
   "provenance": "Complete validated source snapshot; Git commits and deployment are tracked separately",
   "base_source_commit_sha": "0ce607437ef2c7814b295b43ec7b4ccd3c0b4a42",
   "release_status": {
     "schema_version": 2,
     "brand": "QuanK",
-    "version": "0.53.0",
+    "version": "0.54.0",
     "checked_date": "2026-11-16",
     "source_status": "m4_development_checkpoint_not_a_release",
     "original_web_release_record": "docs/WEB_RELEASE_STATUS_ORIGINAL.json",
