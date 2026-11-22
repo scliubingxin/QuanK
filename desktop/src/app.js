@@ -1,5 +1,6 @@
 import {bindPresetFilters, plazaIcon} from './ui/preset-catalog.js'; // [ux11] plazaIcon
 import {agentAvatar} from './ui/avatars.js';
+import * as panelUI from './ui/page-panel.js'; // [v0.54] right-hand page tabs
 import {codeProjectsView} from './ui/code-projects.js';
 import {createComposerImages} from './ui/composer-images.js';
 import {compactComposer,createComposerMenus} from './ui/composer.js';
@@ -78,6 +79,11 @@ let graphMode = 'graph', graphFocus = '', graphSelected = '', graphMount = null;
 let studioTab = 'dashboards', dashView = null; // [p4-m1]
 let miniappOpenId = '', miniappDispose = null, miniappVersionsFor = ''; // [p4-m4]
 let quantOpen = '', quantDetailData = null, quantDisposers = []; // [q1]
+// [v0.54] right-hand page tabs: pages opened from the chat and every stock detail open beside the conversation.
+// quantOpen is the stock of the active stock tab; each stock's computed detail stays in quantCache until refreshed.
+let pageTabs = [], pageTabId = '', pageWide = false, pageWidth = 0, panelClickAt = 0, panelHeadHtml = '', panelBodyKey = '', renderingStock = '';
+const quantCache = new Map(), quantVer = new Map(), quantLoading = new Set();
+try { const r = panelUI.restoreTabs(localStorage.getItem('qk.pageTabs')); pageTabs = r.tabs; pageTabId = r.active; pageWide = r.wide; pageWidth = r.width; } catch {}
 let marketTab = 'industry', marketStockCode = '', marketPingAt = 0; // [F1]
 let rpStock = '', rpKind = '', rpQuery = ''; // [v0.53] 投研资料 filters
 let taskTab = '', taskFilter = 'all', runStatus = 'all', runTaskFilter = 'all', runTrigger = 'all'; // [ux6]
@@ -198,12 +204,13 @@ function render() {
     $('#app').className = sidebarCollapsed ? 'sidebar-collapsed' : '';
     const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(state)})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div><button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
     officeWorkspace.update(markup, `${page}:${chatId}`);
+    renderPanel(); // [v0.54]
     for (const el of [document.scrollingElement, document.getElementById('app'), document.querySelector('.main'), document.querySelector('.workbench')]) if (el && el.scrollLeft) el.scrollLeft = 0; // [resp] never leave the shell scrolled sideways
     if(previousComposer&&$('#prompt'))$('#prompt').replaceWith(previousComposer);
     composerMenus.afterRender(`${page}:${chatId}`);
     composerImages.update();
     bindPresetFilters($('#app'));
-    $('#sendImages')?.addEventListener('change',e=>sendImages=e.target.checked);
+    bindOnce($('#sendImages'), 'change',e=>sendImages=e.target.checked);
     const composer = $('#prompt');
     if(composer&&composer.value!==draft)composer.value=draft;
     if (composer&&!boundComposers.has(composer)) {
@@ -232,14 +239,14 @@ function render() {
             }
         });
     }
-    $('#recentQuery')?.addEventListener('input', e => { recentQuery = e.target.value; $('#recentList').innerHTML = recentRows(); });
-    $('#memoryQuery')?.addEventListener('change', e => { memoryQuery = e.target.value; render(); });
+    bindOnce($('#recentQuery'), 'input', e => { recentQuery = e.target.value; $('#recentList').innerHTML = recentRows(); });
+    bindOnce($('#memoryQuery'), 'change', e => { memoryQuery = e.target.value; render(); });
     { // [q1] quant detail charts: one isolated chart frame per dashboard, rebuilt when the detail changes
         const qc = $('#quantCharts');
         if (!qc) { quantDisposers.forEach(d => d?.dispose?.()); quantDisposers = []; }
-        else if (!qc.dataset.mounted && quantDetailData?.charts) {
+        else if (!qc.dataset.mounted && quantCache.get(qc.dataset.code)?.charts) {
             qc.dataset.mounted = '1'; quantDisposers.forEach(d => d?.dispose?.()); quantDisposers = [];
-            for (const dash of quantDashboards(qc.dataset.code, quantDetailData.charts)) { const box = document.createElement('div'); box.className = 'q-chart'; qc.append(box); quantDisposers.push(mountDashboard(box, dash)); }
+            for (const dash of quantDashboards(qc.dataset.code, quantCache.get(qc.dataset.code).charts)) { const box = document.createElement('div'); box.className = 'q-chart'; qc.append(box); quantDisposers.push(mountDashboard(box, dash)); }
         }
     }
     mountKlineBoxes(document, p => invoke('market', p)); marketPing(); signalPopups(); // [F1] [F1c]
@@ -261,25 +268,25 @@ function render() {
     }
     mountInfographics(document, state.brand); // [p4-m3] also mounts images that arrive while a reply streams
     if (typeof MutationObserver === 'function' && !window.__wbIgObserver) { window.__wbIgObserver = new MutationObserver(() => mountInfographics(document, state.brand)); window.__wbIgObserver.observe(document.body, { childList: true, subtree: true }); }
-    $('#graphQuery')?.addEventListener('change', e => { graphQuery = e.target.value; render(); }); // [p3-m5]
-    $('#runStatus')?.addEventListener('change', e => { runStatus = e.target.value; render(); }); // [ux6]
-    $('#runTrigger')?.addEventListener('change', e => { runTrigger = e.target.value; render(); });
-    $('#runTask')?.addEventListener('change', e => { runTaskFilter = e.target.value; render(); });
+    bindOnce($('#graphQuery'), 'change', e => { graphQuery = e.target.value; render(); }); // [p3-m5]
+    bindOnce($('#runStatus'), 'change', e => { runStatus = e.target.value; render(); }); // [ux6]
+    bindOnce($('#runTrigger'), 'change', e => { runTrigger = e.target.value; render(); });
+    bindOnce($('#runTask'), 'change', e => { runTaskFilter = e.target.value; render(); });
     // [ux4] knowledge-graph canvas: positions and zoom persist in graphCache across re-renders
     graphMount?.dispose(); graphMount = null;
     if ($('#graphCanvas')) graphMount = mountGraphCanvas($('#graphCanvas'), graphData(state.graph, { type: graphType, query: graphQuery, focus: graphFocus }), { cache: graphCache, selected: graphSelected,
         onSelect: sel => { graphSelected = sel; const side = $('#graphSide'); if (side) { side.innerHTML = sel ? graphSidePanel(state, sel, { action, date }) : ''; side.hidden = !sel; } },
         onFocus: f => { graphFocus = f; if (f) graphSelected = f; render(); } });
     for (const d of document.querySelectorAll('#recentList details[data-section]')) d.addEventListener('toggle', () => { d.open ? recentOpen.add(d.dataset.section) : recentOpen.delete(d.dataset.section); });
-    $('#toolMode')?.addEventListener('change', e => { toolsEnabled = e.target.checked; });
+    bindOnce($('#toolMode'), 'change', e => { toolsEnabled = e.target.checked; });
     for (const name of ['url', 'executable', 'args', 'folderId', 'relative'])
-        $('#tool-' + name)?.addEventListener('input', e => { toolDraft[name] = e.target.value; });
-    $('#modelChoice')?.addEventListener('change',e=>{modelChoice=e.target.value;modelEffort='';render();});
-    $('#modelEffort')?.addEventListener('change',e=>{modelEffort=e.target.value;render();});
-    $('#agent')?.addEventListener('change', e => { agentId = e.target.value; render(); }); // [F1f] refresh the avatar
-    $('#folderSelect')?.addEventListener('change', e => { folderId = e.target.value; loadFiles(); });
-    $('#rpQuery')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle('rpSearch').catch(err => toast(err.message)); } }); // [v0.53]
-    $('#fileQuery')?.addEventListener('keydown', e => {
+        bindOnce($('#tool-' + name), 'input', e => { toolDraft[name] = e.target.value; });
+    bindOnce($('#modelChoice'), 'change',e=>{modelChoice=e.target.value;modelEffort='';render();});
+    bindOnce($('#modelEffort'), 'change',e=>{modelEffort=e.target.value;render();});
+    bindOnce($('#agent'), 'change', e => { agentId = e.target.value; render(); }); // [F1f] refresh the avatar
+    bindOnce($('#folderSelect'), 'change', e => { folderId = e.target.value; loadFiles(); });
+    bindOnce($('#rpQuery'), 'keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle('rpSearch').catch(err => toast(err.message)); } }); // [v0.53]
+    bindOnce($('#fileQuery'), 'keydown', e => {
         if (e.key === 'Enter') {
             searchTerm = e.target.value;
             loadFiles();
@@ -413,7 +420,7 @@ function content() {
     if (page === 'market') // [F1]
         return marketPage(state, {action, date, tab: marketTab, stock: marketStockCode});
     if (page === 'quant') // [q1]
-        return quantPage(state, {action, heading, empty, date, open: quantOpen, detail: quantDetailData});
+        return quantPage(state, {action, heading, empty, date, open: renderingStock, detail: renderingStock ? quantCache.get(renderingStock) ?? null : null, panel: !!renderingStock}); // [v0.54] stock details live in panel tabs
     if (page === 'studio') // [p4-m1]
         return studioTab === 'infographics' ? infographicPage(state, {action, heading, empty, date, tab: studioTab}) : studioTab === 'miniapps' ? miniappPage(state, {action, heading, empty, date, tab: studioTab, open: miniappOpenId}) : studioPage(state, {action, heading, empty, date, tab: studioTab}); // [p4-m3][p4-m4]
     if (page === 'graph') // [p3-m5][ux4] 我的上下文 · 知识图谱
@@ -553,13 +560,13 @@ async function marketAction(actionId, id) {
 function marketRefreshView() {
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
     if (page === 'home') { const n = $('#mkHome'); if (n) n.outerHTML = marketHomeCard(state, { date }); }
-    else if ((page === 'market' || (page === 'quant' && !quantOpen)) && !typing) render();
+    else if ((page === 'market' || page === 'quant' || panelShows('market') || panelShows('quant')) && !typing) render(); // [v0.54] main 量化 is always the pool
 }
 // [v0.52.1] per-second prices: while trading (incl. the call auction) and the page shows quotes, ask main for live
 // quotes every second and patch the numbers in place.
 let liveBusy = false;
 async function liveTick() {
-    if (!api || liveBusy || document.hidden || !['home', 'market', 'quant'].includes(page)) return;
+    if (!api || liveBusy || document.hidden || !(['home', 'market', 'quant'].includes(page) || panelShows('market') || panelShows('quant') || panelTab()?.kind === 'stock')) return;
     if (!['open', 'pre'].includes(marketSession(Date.now()))) return;
     const codes = [...new Set([...document.querySelectorAll('[data-live-price]')].map(e => e.dataset.livePrice))];
     if (!codes.length && !document.querySelector('[data-live-idx]')) return;
@@ -598,7 +605,8 @@ function signalPopups() {
     signalSeenAt = Math.max(...fresh.map(x => x.time)); try { localStorage.setItem('qk.signalSeenAt', String(signalSeenAt)); } catch {}
     modal(fresh.length > 1 ? `${fresh.length} 条交易提醒` : fresh[0].title, `<div class="sig-pop">${fresh.map(x => `<div class="sig-item ${x.tone}"><span class="sig-badge">${x.tone === 'buy' ? (x.quant ? '买' : '涨') : (x.quant ? '卖' : '跌')}</span><div><b>${escape(x.title)}</b><p>${escape(x.text)}</p><small>${escape(date(x.time))}</small></div>${x.code ? `<button type="button" data-action="mkSignal" data-id="${escape((x.quant ? 'quant:' : 'market:') + x.code)}">查看详情</button>` : ''}</div>`).join('')}<p class="muted">信号来自你本机的策略与公开行情，仅供研究，不构成投资建议；QuanK 不会替你下单。</p></div>`);
 }
-async function navigate(next) {
+async function navigate(next, main = false) {
+    if (!main && !panelUI.MAIN_ONLY.has(next) && Date.now() - panelClickAt < 1500) return openPageTab(next); // [v0.54] links inside a panel tab open another tab
     if (page === 'feed' && next !== 'feed') invoke('feed', { action: 'seen' }).then(s => { applyState(s); render(); }).catch(() => {}); // [p2-m3] leaving the feed marks it read
     page = next;
     if (next === 'files') {
@@ -608,6 +616,11 @@ async function navigate(next) {
         render();
 }
 async function handle(actionId, id) {
+    if (actionId === 'ppSelect') { setPanelActive(id); savePanel(); render(); return; } // [v0.54]
+    if (actionId === 'ppClose') { closePanelTab(id); return; }
+    if (actionId === 'ppCloseAll') { pageTabs = []; setPanelActive(''); savePanel(); render(); return; }
+    if (actionId === 'ppWide') { pageWide = !pageWide; savePanel(); render(); return; }
+    if (actionId === 'ppMain') { const t = panelTab(); if (!t) return; if (t.kind === 'stock') { pageWide = true; savePanel(); render(); return; } const r = panelUI.closeTab(pageTabs, t.id, pageTabId); pageTabs = r.tabs; setPanelActive(r.active); savePanel(); return navigate(t.page, true); }
     if (typeof actionId === 'string' && actionId.startsWith('mk')) return marketAction(actionId, id); // [F1]
     if(actionId==='previewImageOcrEvidence'){
       const ref=JSON.parse(id);if(ref.chatId!==chatId)throw Error('任务已切换，请重新选择证据');
@@ -1414,10 +1427,17 @@ async function handle(actionId, id) {
     }
     if (/^quant/.test(actionId)) { // [q1] local quant engine
         const call = async p => { const out = await invoke('quant', p); if (out?.state) applyState(out.state); return out?.result || {}; };
-        const loadDetail = async (code, fresh = false) => {
-            quantOpen = code; quantDetailData = null; page = 'quant'; render();
-            try { quantDetailData = await call({ action: 'signal', code, fresh }); } catch (e) { quantDetailData = { error: e.message }; }
-            if (quantOpen === code) render();
+        const loadDetail = async (code, fresh = false) => { // [v0.54] each stock opens in its own panel tab; its result is kept
+            openPanelTab(panelUI.stockTab(code, stockName(code)));
+            const have = quantCache.get(code);
+            if (!fresh && have && !have.error) { quantDetailData = have; render(); return; }
+            if (quantLoading.has(code)) { render(); return; }
+            quantLoading.add(code); quantCache.delete(code); quantVer.set(code, (quantVer.get(code) || 0) + 1); if (quantOpen === code) quantDetailData = null; render();
+            let d; try { d = await call({ action: 'signal', code, fresh }); } catch (e) { d = { error: e.message }; }
+            quantLoading.delete(code); quantCache.set(code, d); quantVer.set(code, (quantVer.get(code) || 0) + 1);
+            while (quantCache.size > 16) quantCache.delete(quantCache.keys().next().value);
+            if (quantOpen === code) quantDetailData = d;
+            render();
         };
         if (actionId === 'quantStart' || actionId === 'quantRestart') { toast('正在启动量化引擎…'); render(); await call({ action: actionId === 'quantStart' ? 'start' : 'restart' }); render(); toast('量化引擎已启动'); call({ action: 'pool' }).then(render).catch(() => {}); return; }
         if (actionId === 'quantSyncRestart') { toast('正在同步策略代码并重启引擎…'); const r = await call({ action: 'syncRestart' }); render(); toast(`已同步 ${r.files ?? ''} 个文件，引擎已重启`); call({ action: 'pool' }).then(render).catch(() => {}); return; } // [v0.52.1]
@@ -1454,13 +1474,13 @@ async function handle(actionId, id) {
         if (actionId === 'quantContact') { modal('获取量化策略', `<div class="q-contact"><img src="assets/wechat-qr.jpg" alt="微信二维码"><p>微信扫一扫，添加 <b>findingnoone</b></p><p class="muted">获取量化策略、接入指导和使用支持。拿到策略项目后，在「量化」页点「导入策略项目」即可。</p><button type="button" data-action="quantCopyWx">复制微信号</button></div>`);
             $('#modal').addEventListener('close', () => { quantOpen = ''; quantDetailData = null; navigate('quant'); }, {once: true}); return; } // [v45e][v45m] closing the dialog opens the 量化 page
         if (actionId === 'quantCopyWx') { try { await navigator.clipboard.writeText('findingnoone'); toast('已复制微信号 findingnoone'); } catch { toast('微信号：findingnoone'); } return; }
-        if (actionId === 'quantHome') { quantOpen = ''; quantDetailData = null; await navigate('quant'); return; }
+        if (actionId === 'quantHome') { await navigate('quant'); return; }
         if (actionId === 'quantLog') { const r = await call({ action: 'log' }); modal('量化引擎日志', `<pre class="q-log">${escape(r.text || '（暂无日志）')}</pre>`); return; }
         if (actionId === 'quantAdd') { modal('添加股票', quantAddForm(), '添加', async f => { await call(quantAddPayload(f)); render(); toast('已加入股票池'); }); return; }
-        if (actionId === 'quantRemove') { const s = (state.quant?.pool || []).find(x => x.code === id); modal('移出股票池', `<p>把「${escape(s?.name || id)}」移出股票池？</p>`, '移出', async () => { await call({ action: 'removeStock', code: id }); if (quantOpen === id) quantOpen = ''; render(); toast('已移出'); }); return; }
+        if (actionId === 'quantRemove') { const s = (state.quant?.pool || []).find(x => x.code === id); modal('移出股票池', `<p>把「${escape(s?.name || id)}」移出股票池？</p>`, '移出', async () => { await call({ action: 'removeStock', code: id }); quantCache.delete(id); if (pageTabs.some(t => t.id === 'stock:' + id)) { const r = panelUI.closeTab(pageTabs, 'stock:' + id, pageTabId); pageTabs = r.tabs; setPanelActive(r.active); savePanel(); } render(); toast('已移出'); }); return; }
         if (actionId === 'quantOpen') return loadDetail(id);
-        if (actionId === 'quantClose') { quantOpen = ''; quantDetailData = null; render(); return; }
-        if (actionId === 'quantRefresh') { if (quantOpen === id) return loadDetail(id, true); toast('正在重新计算…'); await call({ action: 'signal', code: id, fresh: true }); render(); toast('已更新'); return; }
+        if (actionId === 'quantClose') { const t = panelTab(); if (t?.kind === 'stock') closePanelTab(t.id); else { quantOpen = ''; quantDetailData = null; render(); } return; }
+        if (actionId === 'quantRefresh') { if (quantOpen === id) return loadDetail(id, true); quantCache.delete(id); toast('正在重新计算…'); await call({ action: 'signal', code: id, fresh: true }); render(); toast('已更新'); return; }
         if (actionId === 'quantRefreshAll') { toast('正在逐只计算，可能需要几分钟…'); const r = await call({ action: 'refreshAll' }); render(); const bad = (r.results || []).filter(x => x.error).length; toast(bad ? `完成，${bad} 只失败` : '全部已更新'); return; }
         if (actionId === 'quantInsight') { toast('正在生成 AI 研判…'); const r = await call({ action: 'insight', code: id }); modal('AI 研判', `${r.available ? '' : `<p class="hint">${escape(r.reason || 'AI 大模型研判暂不可用，以下为算法结论')}</p>`}${insightHtml(r.text || '', {name: r.name || '', code: id})}`); return; } // [F1e]
     }
@@ -1680,6 +1700,57 @@ document.addEventListener('keydown', e => {
         handle('new').catch(e => toast(e.message));
     }
 });
+// [v0.54] ---- right-hand page tabs ----
+const PAGE_TITLES = { market: '行情', quant: '量化', graph: '知识图谱', context: '我的上下文', connectors: '连接', memory: '记忆', research: '投研资料', portfolio: '组合与风控' };
+function bindOnce(el, type, fn) { if (!el) return; const k = type + ':' + fn.toString(); el.__qkBound ||= new Set(); if (el.__qkBound.has(k)) return; el.__qkBound.add(k); el.addEventListener(type, fn); } // the panel DOM persists across renders
+function savePanel() { try { localStorage.setItem('qk.pageTabs', JSON.stringify({ tabs: pageTabs.map(({ scroll, ...t }) => t), active: pageTabId, wide: pageWide, width: pageWidth })); } catch {} }
+function panelTab() { return panelUI.activeTab(pageTabs, pageTabId); }
+function panelShows(p) { const t = !state.locked && panelTab(); return !!t && t.kind === 'page' && t.page === p && t.page !== page; }
+function stockName(code) { return (state.quant?.pool || []).find(p => p.code === code)?.name || code; }
+function keepPanelScroll() { const el = document.querySelector('#pagePanel .pp-body'), t = panelTab(); if (el && t) t.scroll = el.scrollTop; }
+function setPanelActive(id) { keepPanelScroll(); pageTabId = id || ''; const t = panelTab(); quantOpen = t?.kind === 'stock' ? t.code : ''; quantDetailData = quantOpen ? quantCache.get(quantOpen) ?? null : null; }
+function openPanelTab(tab) { keepPanelScroll(); pageTabs = panelUI.openTab(pageTabs, tab).tabs; setPanelActive(tab.id); savePanel(); }
+function closePanelTab(id) { const r = panelUI.closeTab(pageTabs, id, pageTabId); pageTabs = r.tabs; setPanelActive(r.active); savePanel(); render(); }
+async function openPageTab(p) {
+    if (panelUI.MAIN_ONLY.has(p)) return navigate(p, true);
+    openPanelTab(panelUI.pageTab(p, nav.find(n => n[0] === p)?.[2] || PAGE_TITLES[p] || p));
+    if (p === 'files') await loadFiles(); else render();
+}
+function bindPanelResize(host) {
+    host.querySelector('.pp-resize').addEventListener('mousedown', e => {
+        e.preventDefault(); document.body.classList.add('pp-resizing');
+        const move = ev => { pageWidth = panelUI.clampWidth(innerWidth - ev.clientX, innerWidth); host.style.setProperty('--pp-w', pageWidth + 'px'); };
+        const up = () => { removeEventListener('mousemove', move); removeEventListener('mouseup', up); document.body.classList.remove('pp-resizing'); savePanel(); };
+        addEventListener('mousemove', move); addEventListener('mouseup', up);
+    });
+}
+function renderPanel() {
+    let host = document.getElementById('pagePanel');
+    const tab = !state.locked && panelTab();
+    if (!tab) { host?.remove(); document.body.classList.remove('pp-on', 'pp-wide'); panelHeadHtml = panelBodyKey = ''; return; }
+    if (!host) {
+        host = document.createElement('aside'); host.id = 'pagePanel'; host.className = 'page-panel'; host.setAttribute('aria-label', '页面页签');
+        host.innerHTML = '<div class="pp-resize" title="拖动调整宽度"></div><header class="pp-head"></header><div class="pp-body"></div>';
+        document.body.insertBefore(host, document.getElementById('modal')); bindPanelResize(host);
+    }
+    if (pageTabId !== tab.id) setPanelActive(tab.id);
+    document.body.classList.add('pp-on'); document.body.classList.toggle('pp-wide', pageWide);
+    host.style.setProperty('--pp-w', panelUI.clampWidth(pageWidth, innerWidth) + 'px');
+    const head = panelUI.panelHead({ tabs: pageTabs, active: tab.id, wide: pageWide, icon });
+    if (head !== panelHeadHtml) { host.querySelector('.pp-head').innerHTML = head; panelHeadHtml = head; }
+    let body, key;
+    if (tab.kind === 'page' && tab.page === page) { body = panelUI.panelBusy(tab); key = 'busy:' + tab.id; }
+    else {
+        const saved = page; page = tab.page; renderingStock = tab.kind === 'stock' ? tab.code : '';
+        try { body = content(); } catch (e) { body = `<div class="pp-same"><p>页面加载失败：${escape(e.message)}</p></div>`; } finally { page = saved; renderingStock = ''; }
+        key = tab.kind === 'stock' ? `${tab.id}\n#${quantVer.get(tab.code) || 0}` : `${tab.id}\n${body}`; // a stock detail only changes when it is (re)computed
+    }
+    const el = host.querySelector('.pp-body');
+    if (key !== panelBodyKey) { const same = panelBodyKey.split('\n')[0] === key.split('\n')[0]; el.innerHTML = body; panelBodyKey = key; if (!same) el.scrollTop = tab.scroll || 0; }
+    if (tab.kind === 'stock' && !quantCache.has(tab.code) && !quantLoading.has(tab.code)) setTimeout(() => handle('quantOpen', tab.code).catch(err => toast(err.message)), 0);
+}
+document.addEventListener('click', e => { if (e.target.closest?.('#pagePanel')) panelClickAt = Date.now(); }, true);
+addEventListener('resize', () => { const h = document.getElementById('pagePanel'); if (h) h.style.setProperty('--pp-w', panelUI.clampWidth(pageWidth, innerWidth) + 'px'); });
 async function boot() {
     try {
         if (api) {
@@ -1692,7 +1763,7 @@ async function boot() {
     }
 }
 let runtimeTimer;
-api?.onOpenPage?.(p => { if (p?.page === 'library' && p.document) { navigate('library'); Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { marketStockCode = p.code ? String(p.code) : ''; navigate('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code)).catch(e => toast(e.message)); else { quantOpen = ''; navigate('quant'); } return; } if (p?.page === 'tasks' && p.tab) { taskTab = p.tab === 'trade' ? 'trade' : 'tasks'; navigate('tasks'); return; } /* [v0.52.2] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context'].includes(p?.page)) navigate(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
+api?.onOpenPage?.(p => { if (p?.page === 'library' && p.document) { openPageTab('library'); Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { marketStockCode = p.code ? String(p.code) : ''; openPageTab('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code)).catch(e => toast(e.message)); else openPageTab('quant'); return; } if (p?.page === 'tasks' && p.tab) { taskTab = ['trade', 'runs'].includes(p.tab) ? p.tab : 'tasks'; openPageTab('tasks'); return; } /* [v0.52.2] */ if (p?.page === 'research') { rpStock = /^\d{6}$/.test(String(p.stock || '')) ? String(p.stock) : ''; rpKind = typeof p.kind === 'string' ? p.kind : ''; rpQuery = ''; openPageTab('research'); return; } /* [v0.53.1] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context', 'security'].includes(p?.page)) openPageTab(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
 api?.onOpenChat?.(p => { if (p?.id && state.chats.some(c => c.id === p.id)) handle('openChat', p.id).catch(e => toast(e.message)); });
 api?.onRuntime?.(() => {
     clearTimeout(runtimeTimer);
@@ -1701,9 +1772,9 @@ api?.onRuntime?.(() => {
             const wasLocked = !!state.locked, next = await invoke('state');
             applyState(next);
             if (wasLocked !== !!state.locked || state.locked) render(); // [F5] lock / unlock
-            else if (!$('#modal').open && ['chat', 'tools', 'tasks', 'security'].includes(page))
+            else if (!$('#modal').open && (['chat', 'tools', 'tasks', 'security'].includes(page) || ['tools', 'tasks', 'security', 'feed'].some(panelShows)))
                 render();
-            else if (!$('#modal').open) marketRefreshView(); // [F1]
+            else if (!$('#modal').open) { marketRefreshView(); signalPopups(); } // [F1] [v0.53.1] buy / sell popups also on pages that do not re-render (工作台, 资料库 …)
         }
         catch (e) {
             toast(e.message);
