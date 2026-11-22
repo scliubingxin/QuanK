@@ -32,7 +32,7 @@ export const stockLogo = (src, name) => LOGO_OK.test(src || '') ? `<span class="
 function stockCard(s, {action, date, holding, logo = '', live = null}) {
   const l = s.last || {}, tone = actionTone(l.action);
   return `<div class="card plaza-card quant-stock q-${tone}" data-quant="${escape(s.code)}"><div class="pc-head">${stockLogo(logo, s.name || s.code)}<div class="pc-title"><h3>${escape(s.name || s.code)}</h3><small>${escape(s.code)}${l.date ? ' · ' + escape(l.date) : ''}</small></div>${l.action ? `<span class="q-action q-${tone}">${escape(actionLabel(l.action, l.actionText))}</span>` : ''}</div>
-<div class="q-nums"><span><b>${f(l.score, 1)}</b>综合分</span><span><b>${l.multiplier == null ? '—' : f(l.multiplier, 1) + '×'}</b>倍率</span><span><b>${f(live?.price ?? l.price)}</b>现价${live ? '<em class="q-live">实时</em>' : ''}</span><span class="${((live?.pct ?? l.changePct) || 0) >= 0 ? 'up' : 'down'}"><b>${pct(live?.pct ?? l.changePct)}</b>涨跌</span></div>
+<div class="q-nums"><span><b>${f(l.score, 1)}</b>综合分</span><span><b>${l.multiplier == null ? '—' : f(l.multiplier, 1) + '×'}</b>倍率</span><span><b data-live-price="${escape(s.code)}">${f(live?.price ?? l.price)}</b>现价${live ? '<em class="q-live">实时</em>' : ''}</span><span data-live-tone class="${((live?.pct ?? l.changePct) || 0) >= 0 ? 'up' : 'down'}"><b data-live-pct="${escape(s.code)}">${pct(live?.pct ?? l.changePct)}</b>涨跌</span></div>
 ${sparkSvg(s.spark, {w: 260, h: 42, cls: 'q-spark', id: s.code})}${holdingLine(holding)}
 <div class="pc-actions">${action('详情', 'quantOpen', s.code, 'primary')}${action('刷新', 'quantRefresh', s.code)}${action('AI 研判', 'quantInsight', s.code)}${action('移出', 'quantRemove', s.code)}</div>
 <small class="q-when">${l.at ? '更新于 ' + escape(date(l.at)) : '尚未计算'}</small></div>`;
@@ -62,10 +62,10 @@ function quantDetail(q, code, d, {action, date, research = null}) {
   const up = (s.changePct || 0) >= 0 ? 'up' : 'down';
   return `<div class="page quant-page">${bar}
 <div class="q-hero q-${tone}"><div><span class="q-action q-${tone}">${escape(actionLabel(s.action, s.actionText))}</span><p>${escape(s.detail)}</p></div>
-<div class="q-kpis">${kpi('综合分', f(s.score, 1) + (s.scoreRaw != null && s.scoreRaw !== s.score ? `<em>调整前 ${f(s.scoreRaw, 1)}</em>` : ''))}${kpi('倍率', s.multiplier == null ? '—' : f(s.multiplier, 1) + '×')}${kpi('现价', f(s.price), up)}${kpi('涨跌', pct(s.changePct), up)}${kpi('模型概率', s.probPct == null ? '—' : f(s.probPct, 1) + '%')}</div></div>
+<div class="q-kpis">${kpi('综合分', f(s.score, 1) + (s.scoreRaw != null && s.scoreRaw !== s.score ? `<em>调整前 ${f(s.scoreRaw, 1)}</em>` : ''))}${kpi('倍率', s.multiplier == null ? '—' : f(s.multiplier, 1) + '×')}${kpi('现价', `<span data-live-price="${escape(code)}">${f(s.price)}</span>`, up)}${kpi('涨跌', `<span data-live-pct="${escape(code)}">${pct(s.changePct)}</span>`, up)}${kpi('模型概率', s.probPct == null ? '—' : f(s.probPct, 1) + '%')}</div></div>
 ${s.advice ? `<p class="q-sizing">${escape(s.advice)}</p>` : ''}${holdingDetail(d.holding, code, q, {action})}
 <div class="q-kpis q-bt">${kpi('策略收益', pct(bt.smartPct))}${kpi('基准收益', pct(bt.blindPct))}${kpi('超额', pct(bt.excess))}${kpi('胜率', bt.winRate == null ? '—' : f(bt.winRate, 0) + '%')}${kpi('交易次数', f(bt.trades, 0))}${kpi('最大回撤', pct(bt.maxDrawdown))}</div>
-${klineBox(code, {marks: opsMarks(d.charts?.ops)})}${returnBox(d.charts, bt)}${knowledgeBox(code)}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
+${klineBox(code, {marks: opsMarks(d.charts?.ops)})}${returnBox(d.charts, bt, s.plan ? `定投频率：${s.plan}` : '')}${knowledgeBox(code)}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
 <div class="q-grid2">${list('信号理由', s.reasons)}${list('约束与风控', s.gates, 'q-gates')}</div>${factors}${inds}${ops}
 ${researchBox(code, research, {action, date})}
 <p class="auto-note">数据由本机私有引擎计算${s.plan ? `（${escape(s.plan)}）` : ''}${s.model ? `，模型 ${escape(s.model)}` : ''}。仅供研究，不构成投资建议。</p></div>`;
@@ -111,14 +111,14 @@ export function returnSvg(rows, {w = 960, h = 300, labels = {}} = {}) {
   pts.forEach((p, i) => { s += `<rect x="${(X(i) - cw / 2).toFixed(1)}" y="${top}" width="${cw.toFixed(2)}" height="${H}" style="fill:#fff;fill-opacity:0;stroke:none"><title>${escape(String(p.date))} ${escape(labels.a || '策略')} ${pct(p.a)} ${escape(labels.b || '基准')} ${pct(p.b)}</title></rect>`; });
   return s + '</svg>';
 }
-function returnBox(charts, bt = {}) {
+function returnBox(charts, bt = {}, plan = '') {
   const r = backtestReturns(charts?.curve);
   if (!r.rows.length) return '';
   const last = r.rows.at(-1), cls = v => (v || 0) >= 0 ? 'up' : 'down';
   // [v47.1] an engine curve without cash holds only the shares' market value: its last point then disagrees with the
   // backtest summary (which counts the unspent reserve). Say so instead of showing a misleading number silently.
   const off = !r.withCash && Number.isFinite(Number(bt?.smartPct)) && Number.isFinite(last.a) && Math.abs(last.a - Number(bt.smartPct)) > 1;
-  return `<section class="q-box q-return"><div class="q-return-head"><h3>${escape(r.labels.title)}</h3><span class="q-legend"><i class="a"></i>${escape(r.labels.a)} <b class="${cls(last.a)}">${pct(last.a)}</b><i class="b"></i>${escape(r.labels.b)} <b class="${cls(last.b)}">${pct(last.b)}</b></span></div>${returnSvg(r.rows, {labels: r.labels})}${off ? `<p class="q-return-note warn">引擎的回测曲线没有包含暂停定投期间留存的储备金，智能定投曲线只反映持仓市值；按期末总资产计算的策略收益是 ${pct(Number(bt.smartPct))}。在策略项目的回测曲线里输出 cash（未投出的现金）后，曲线会自动改为含现金口径。</p>` : ''}${r.ownCostB ? '' : '<p class="q-return-note">引擎未提供普通定投的累计投入，普通定投收益率按同期智能定投投入计算。</p>'}</section>`;
+  return `<section class="q-box q-return"><div class="q-return-head"><h3>${escape(r.labels.title)}</h3>${plan ? `<small class="q-return-plan">${escape(plan)}</small>` : ''}<span class="q-legend"><i class="a"></i>${escape(r.labels.a)} <b class="${cls(off ? Number(bt.smartPct) : last.a)}">${pct(off ? Number(bt.smartPct) : last.a)}</b><i class="b"></i>${escape(r.labels.b)} <b class="${cls(last.b)}">${pct(last.b)}</b></span></div>${returnSvg(r.rows, {labels: r.labels})}${off ? `<p class="q-return-note warn">正在运行的引擎是旧版策略代码，回测曲线没有包含未投出的现金，只反映持仓市值（曲线终点 ${pct(last.a)}）；上方收益率已按期末总资产计算（${pct(Number(bt.smartPct))}）。<button type="button" class="link" data-action="quantSyncRestart">同步策略代码并重启引擎</button>后曲线会改为含现金口径。</p>` : ''}${r.ownCostB ? '' : '<p class="q-return-note">引擎未提供普通定投的累计投入，普通定投收益率按同期智能定投投入计算。</p>'}</section>`;
 }
 
 /** Dashboard objects for mountDashboard(). [v46] The price / score block was removed and the backtest curve is drawn
@@ -143,11 +143,11 @@ export const quantSettingsPayload = fm => ({action: 'settings', python: val(fm, 
 export function quantWatchForm(q) {
   const w = normalizeWatch(q?.watch);
   return `<label class="check"><input type="checkbox" name="enabled" ${w.enabled ? 'checked' : ''}> 开启盯盘：交易时段按频率重新计算股票池，档位变化写入「动态」</label>
-<label>检查频率<select name="interval">${WATCH_INTERVALS.map(n => `<option value="${n}" ${n === w.interval ? 'selected' : ''}>每 ${n} 分钟</option>`).join('')}</select></label>
+<label>检查频率<select name="interval">${WATCH_INTERVALS.map(n => `<option value="${n}" ${n === w.interval ? 'selected' : ''}>每 ${n} 分钟重算信号</option>`).join('')}</select></label>
 <label class="check"><input type="checkbox" name="premarket" ${w.premarket ? 'checked' : ''}> 工作日开盘前生成一份盘前量化简报</label>
 <label>盘前简报时间<input type="time" name="premarketTime" min="06:00" max="09:29" value="${escape(w.premarketTime)}"></label>
 <label class="check"><input type="checkbox" name="notify" ${w.notify ? 'checked' : ''}> 信号变化和盘前简报发系统通知</label>
-<p class="hint">交易时段指工作日 09:30–11:30、13:00–15:00（不识别法定节假日，休市日行情不变不会产生提醒）。需要 QuanK 保持运行；每次检查会逐只计算，股票越多耗时越长。</p>`;
+<p class="hint">交易时段指工作日 09:30–11:30、13:00–15:00（不识别法定节假日，休市日行情不变不会产生提醒）。需要 QuanK 保持运行。<b>价格是实时的</b>：交易时段行情页、股票池和个股详情每秒刷新价格，价格提醒每 3 秒检查一次。策略信号要跑完整的模型（每只股票几秒到几十秒，引擎还会缓存 2 分钟），所以最快每 1 分钟重算一次；股票越多耗时越长。</p>`;
 }
 export const quantWatchPayload = fm => ({action: 'watch', enabled: on(fm, 'enabled'), interval: Number(val(fm, 'interval')) || 15, premarket: on(fm, 'premarket'), premarketTime: val(fm, 'premarketTime') || '09:15', notify: on(fm, 'notify')});
 function alertsBox(q, {action, date}) {

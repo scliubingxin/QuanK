@@ -109,7 +109,7 @@ export function isTradingTime(ms = Date.now()) {
 
 /** Requests that need the quant tools even with the composer's tool switch off (only when an engine is configured). */
 // [q3] Watching the pool: settings, the CST clock and a one-line description. Pure.
-export const WATCH_INTERVALS = [5, 10, 15, 30, 60];
+export const WATCH_INTERVALS = [1, 2, 5, 10, 15, 30, 60];
 const HM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const OPEN = 570; // 09:30
 export function normalizeWatch(w) {

@@ -47,7 +47,9 @@ test('feed aggregates tasks, approvals, research, plans, background chats and th
 
 test('unread, filters and dismiss/seen/restore state', () => {
   const s = demo();
-  assert.equal(feedUnread(s), 7, 'logs never count as unread');
+  assert.equal(feedUnread(s), 4, '[v0.52.1] only approvals and scheduled-task runs count; plans, research, chats and logs do not');
+  assert.deepEqual(visibleFeed(s, 'important').map(x => x.id), ['task:t1:r2', 'approval:a1', 'task:t2:last', 'task:t1:r1']);
+  assert.equal(visibleFeed(s, 'all').length, 7, '「全部」 still lists everything except the log');
   s.feed = applyFeedAction(s, {action: 'seen'}, 1000);
   assert.deepEqual(visibleFeed(s, 'unread').map(x => x.id), ['task:t1:r2', 'approval:a1'], 'items that need action stay unread');
   assert.deepEqual(visibleFeed(s, 'action').map(x => x.id), ['task:t1:r2', 'approval:a1']);
@@ -79,12 +81,14 @@ test('feed page markup', () => {
   const action = (l, a, id = '', k = '') => `<button data-action="${a}" data-id="${id}" class="${k}">${l}</button>`;
   const ctx = {action, date: () => 'D', heading: (a, b, c, d) => `<h1>${b}</h1><p>${c}</p>${d}`, empty: (a, b) => `<div class="empty">${a}${b}</div>`};
   const s = demo();
-  const html = feedPage(s, {...ctx});
+  const html = feedPage(s, {...ctx, filter: 'all'});
   assert.match(html, /当前有 2 项需要处理/); assert.match(html, /需要处理 <small>2/);
   assert.match(html, /class="feed-row fk-task fs-failed unread"/); // [ux9] prefixed classes assert.match(html, /data-action="runTask" data-id="t1"/);
   assert.match(html, /data-action="feedDismiss" data-id="plan:p-r"/); assert.doesNotMatch(html, /feedDismiss" data-id="approval/);
   s.feed = {seenAt: 0, dismissed: ['plan:p-r']};
   assert.match(feedPage(s, ctx), /恢复已移除（1）/);
+  assert.doesNotMatch(feedPage(s, ctx), /data-feed="chat:c-bg/, '[v0.52.1] the default view hides finished conversations');
+  assert.match(feedPage(s, ctx), /aria-selected="true" class="chosen" data-action="feedFilter" data-id="important">需要关注/);
   assert.match(feedPage(s, {...ctx, filter: 'research'}), /计划未完成/);
   assert.match(feedPage(initialState(), ctx), /工作空间已准备好/);
 });

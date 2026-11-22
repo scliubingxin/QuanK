@@ -73,6 +73,16 @@ export function createQuantEngine({dir, store, seal = s => s, unseal = s => s, a
     return s.python || [...(adapter?.engine?.python || []).map(home), ...PYTHON_CANDIDATES].find(p => exists(p)) || '';
   }
 
+  /** [v0.52.1] The strategy project changed after the last sync (entry file or adapter newer than lastSync). */
+  async function sourceChanged() {
+    const s = st();
+    if (!s.source || !s.lastSync) return false;
+    try {
+      let entry = ''; try { entry = JSON.parse(await readFile(path.join(s.source, ADAPTER_FILE), 'utf8'))?.engine?.entry || ''; } catch {}
+      for (const f of [typeof entry === 'string' && !entry.includes('..') ? entry : '', ADAPTER_FILE]) { if (!f) continue; const t = await stat(path.join(s.source, f)); if (t.mtimeMs > s.lastSync + 1000) return true; }
+    } catch { return false; }
+    return false;
+  }
   async function sync({source} = {}) {
     const s = st(), src = source || s.source;
     if (!src) throw new Error('请先选择你的策略项目文件夹');
@@ -112,6 +122,7 @@ export function createQuantEngine({dir, store, seal = s => s, unseal = s => s, a
     starting = (async () => {
       const s = st();
       if (!exists(path.join(engineDir, ADAPTER_FILE))) { if (!s.source) { set('error', '请先导入策略项目'); throw new Error(error); } await sync({}); }
+      else if (await sourceChanged()) { try { const r = await sync({}); store.log?.('策略代码已自动同步', `策略项目有更新，启动前已同步 ${r.files} 个文件`); } catch {} } // [v0.52.1]
       const ad = await ensureAdapter();
       const py = python(), check = probe(py, ad.engine.requires || []);
       if (!check.ok) { set('error', check.error || `Python 缺少：${check.missing.join('、')}。请在量化设置里选择装好引擎依赖的 Python`); throw new Error(error); }
@@ -317,12 +328,13 @@ export function createQuantEngine({dir, store, seal = s => s, unseal = s => s, a
   }
 
   return {
-    view, start, stop, sync, call, signal, pool, tail, engineDir, tick, scanAll,
+    view, start, stop, sync, sourceChanged, call, signal, pool, tail, engineDir, tick, scanAll,
     async handle(p = {}) {
       const a = p.action;
       if (a === 'start') return start();
       if (a === 'stop') return stop();
       if (a === 'restart') { await stop(); return start(); }
+      if (a === 'syncRestart') { const r = await sync({}); const v = await start(); return {...v, files: r.files}; } // [v0.52.1]
       if (a === 'sync') { const r = await sync({source: p.source}); return {...r, view: view()}; }
       if (a === 'chooseSource') { if (!chooseFolder) throw new Error('当前环境不能选择文件夹'); const f = await chooseFolder(st().source || ''); if (!f) return {cancelled: true}; return {...(await sync({source: f})), view: view()}; }
       if (a === 'settings') {

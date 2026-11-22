@@ -1530,3 +1530,9 @@ svg.pf-svg text,svg.pf-svg tspan{stroke:none}
 
 /* [v0.52] version badge next to the brand */
 .brand .brand-ver{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:600;line-height:16px;vertical-align:2px;color:#2F62F5;background:linear-gradient(90deg,#eef3ff,#f3eeff);border:1px solid #dfe6fb;letter-spacing:.2px}
+
+/* [v0.52.1] backtest plan label, per-second price flash */
+.q-return-head .q-return-plan{margin-left:10px;margin-right:auto;padding:2px 9px;border-radius:999px;font-size:12px;color:#4c5a85;background:#f1f4fc}
+.q-return-note .link{border:0;background:none;padding:0 2px;color:#2F62F5;font-weight:600;text-decoration:underline;cursor:pointer;font-size:inherit}
+@keyframes qkLiveFlash{0%{background:rgba(47,98,245,.18)}100%{background:transparent}}
+.live-flash{animation:qkLiveFlash .8s ease-out;border-radius:4px}

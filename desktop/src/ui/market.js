@@ -7,8 +7,24 @@ const when = (date, t) => t ? date(t) : '';
 const quoteCells = q => `<b class="mk-${tone(q.pct)}">${num(q.price)}</b><span class="mk-${tone(q.pct)}">${pct(q.pct)}</span>`;
 const stockBtn = (q, extra = '') => `<button class="mk-row" data-action="mkStock" data-id="${escape(q.code)}"><span class="mk-name"><b>${escape(q.name || q.code)}</b><small>${escape(q.code)}</small></span>${extra}${quoteCells(q)}</button>`;
 
+const idxChange = x => `${x.change != null ? (x.change > 0 ? '+' : '') + num(x.change) : ''} ${pct(x.pct)}`;
+/** [v0.52.1] Patch the visible numbers in place from a market 'live' reply (no re-render, so scrolling, open menus and
+ *  typing are not disturbed). Index tiles carry data-live-idx; prices data-live-price / data-live-pct with the code. */
+export function patchLive(root, r = {}) {
+  let n = 0;
+  for (const x of r.indices || []) for (const el of root.querySelectorAll(`[data-live-idx="${x.secid}"]`)) {
+    const b = el.querySelector('b'), s = el.querySelector('span');
+    if (b) b.textContent = num(x.price); if (s) s.textContent = idxChange(x);
+    el.classList.remove('mk-up', 'mk-down', 'mk-flat'); el.classList.add(`mk-${tone(x.pct)}`); n++;
+  }
+  for (const [code, q] of Object.entries(r.quotes || {})) {
+    for (const el of root.querySelectorAll(`[data-live-price="${code}"]`)) { const t = num(q.price); if (el.textContent !== t) { el.textContent = t; el.classList.remove('live-flash'); void el.offsetWidth; el.classList.add('live-flash'); } n++; }
+    for (const el of root.querySelectorAll(`[data-live-pct="${code}"]`)) { el.textContent = pct(q.pct); const box = el.closest('[data-live-tone]') || el; box.classList.toggle('up', (q.pct || 0) >= 0); box.classList.toggle('down', (q.pct || 0) < 0); n++; }
+  }
+  return n;
+}
 function indexTile(x, {big = false} = {}) {
-  return `<button class="mk-idx mk-${tone(x.pct)}${big ? ' big' : ''}" data-page="market"><small>${escape(x.name)}</small><b>${num(x.price)}</b><span>${x.change != null ? (x.change > 0 ? '+' : '') + num(x.change) : ''} ${pct(x.pct)}</span>${miniLine(x.mini, {w: big ? 160 : 110, h: big ? 40 : 30})}</button>`;
+  return `<button class="mk-idx mk-${tone(x.pct)}${big ? ' big' : ''}" data-page="market" data-live-idx="${escape(x.secid || '')}"><small>${escape(x.name)}</small><b>${num(x.price)}</b><span>${idxChange(x)}</span>${miniLine(x.mini, {w: big ? 160 : 110, h: big ? 40 : 30})}</button>`;
 }
 function breadthBar(b) {
   if (!b || (b.up == null && b.down == null)) return '';
@@ -39,7 +55,7 @@ export function marketPage(state, {action, date = t => String(t), tab = 'industr
   const o = state?.market?.overview;
   const tools = `${action('刷新', 'mkRefresh')}${action('＋ 价格提醒', 'mkAlert', '', 'primary')}`;
   if (!o) return `<div class="page market-page"><section class="fd-hero mk-hero"><div class="fd-hero-text"><span class="qk-pill">行情 · 实时公开行情</span><h1>市场行情</h1><p class="subtitle">正在获取指数、涨跌幅榜和板块数据…</p><div class="fd-tools">${tools}</div></div></section></div>`;
-  const hero = `<section class="fd-hero mk-hero"><div class="fd-hero-text"><span class="qk-pill">行情 · ${escape(o.date || '')} ${SESSION_LABEL[o.session] || ''}</span><h1>今天的市场</h1><p class="subtitle">两市成交 ${bigNum(o.amount)}，${o.breadth?.up ?? '—'} 家上涨、${o.breadth?.down ?? '—'} 家下跌。交易时段每 10 秒自动刷新；也可以直接在对话里问「今天哪个板块最强」「宁德时代周 K 线」。</p><div class="fd-tools">${tools}<small class="mk-at">更新于 ${escape(when(date, o.at))}</small></div></div></section>`;
+  const hero = `<section class="fd-hero mk-hero"><div class="fd-hero-text"><span class="qk-pill">行情 · ${escape(o.date || '')} ${SESSION_LABEL[o.session] || ''}</span><h1>今天的市场</h1><p class="subtitle">两市成交 ${bigNum(o.amount)}，${o.breadth?.up ?? '—'} 家上涨、${o.breadth?.down ?? '—'} 家下跌。交易时段指数和价格每秒刷新；也可以直接在对话里问「今天哪个板块最强」「宁德时代周 K 线」。</p><div class="fd-tools">${tools}<small class="mk-at">更新于 ${escape(when(date, o.at))}</small></div></div></section>`;
   const idx = `<section class="qk-card"><div class="mk-idx-row big">${(o.indices || []).map(x => indexTile(x, {big: true})).join('')}</div>${breadthBar(o.breadth)}</section>`;
   const movers = (title, list) => `<section class="qk-card mk-movers"><div class="qk-card-head"><h2>${title}</h2></div>${(list || []).map(q => stockBtn(q, `<small class="mk-amt">${bigNum(q.amount)}</small>`)).join('') || '<p class="qk-empty">暂无数据</p>'}</section>`;
   const tabs = `<div class="qk-card-tools mk-tabs">${[['industry', '行业'], ['concept', '概念']].map(([id, l]) => `<button type="button" class="${tab === id ? 'chosen' : ''}" data-action="mkTab" data-id="${id}">${l}</button>`).join('')}</div>`;
