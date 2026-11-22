@@ -259,7 +259,8 @@ export function createTradeService({store, quant = null, market = null, portfoli
         if (what === 'orders') B.orders = r.fields.orders; else B[what] = {...B[what], ...r.fields};
         if (what !== 'orders' && p.saveUrl !== false) { const url = broker.status?.().url; if (url && /^https:/.test(url)) B[what === 'buy' ? 'buyUrl' : 'sellUrl'] = url; }
         t.broker = normalizeBroker(B); await save();
-        return {broker: t.broker, fields: r.fields};
+        const missing = what === 'orders' ? (t.broker.orders ? [] : ['orders']) : Object.keys(BROKER_FIELDS).filter(k => !t.broker[what][k]); // [v0.53] tell the user what did not stick
+        return {broker: {...t.broker, ready: {buy: brokerReady(t.broker, 'buy'), sell: brokerReady(t.broker, 'sell')}}, fields: r.fields, missing};
       }
       throw new Error('未知的委托操作');
     },

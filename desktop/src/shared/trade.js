@@ -163,7 +163,7 @@ export function paperSummary(paper, quotes = {}) {
 // ---------- broker page profile ----------
 export const BROKER_PRESETS = [{id: 'cmschina', name: '招商证券（网页版）', url: 'https://t.cmschina.com/pch5/trade/ssologin/#/?t=jykstd'}];
 export const BROKER_FIELDS = {code: '股票代码输入框', price: '委托价格输入框', shares: '委托数量输入框', submit: '「买入 / 卖出」提交按钮（只用来高亮，QuanK 不会点它）'};
-const SEL_OK = s => typeof s === 'string' && s.length > 0 && s.length <= 400 && !/[<>{};]|javascript:/i.test(s);
+const SEL_OK = s => typeof s === 'string' && s.length > 0 && s.length <= 600 && !/[<{};]|javascript:|url\(/i.test(s); // [v0.53] '>' is the child combinator of the fallback path selectors
 export function normalizeBroker(b) {
   const o = b && typeof b === 'object' ? b : {};
   let url = '';

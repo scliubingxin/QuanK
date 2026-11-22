@@ -118,15 +118,15 @@ export function createResearchService({store, documents, market = null, quant = 
   // ---------- M3: library ----------
   function addItem(x) {
     const r = st(), it = {id: 'rs-' + now().toString(36) + Math.random().toString(36).slice(2, 6), time: now(), kind: x.kind, code: isCode(x.code) ? x.code : '', name: clip(x.name, 20), title: clip(x.title, 120), summary: clip(x.summary, 300),
-      ...(x.documentId ? {documentId: String(x.documentId), format: x.format} : {}), ...(x.noticeId ? {noticeId: x.noticeId, date: x.date || ''} : {}), ...(x.text ? {text: x.text} : {}), tags: (x.tags || []).map(t => clip(t, 20)).filter(Boolean).slice(0, 6)};
-    r.library = [it, ...r.library.filter(y => !(x.noticeId && y.noticeId === x.noticeId) && !(x.documentId && y.documentId === x.documentId && y.code === it.code))].slice(0, LIBRARY_LIMIT);
+      ...(x.documentId ? {documentId: String(x.documentId), format: x.format} : {}), ...(x.noticeId ? {noticeId: x.noticeId, date: x.date || ''} : {}), ...(x.text ? {text: x.text} : {}), ...(x.reportKey ? {reportKey: x.reportKey, metrics: x.metrics || []} : {}), tags: (x.tags || []).map(t => clip(t, 20)).filter(Boolean).slice(0, 6)};
+    r.library = [it, ...r.library.filter(y => !(x.reportKey && y.reportKey === x.reportKey) && !(x.noticeId && y.noticeId === x.noticeId) && !(x.documentId && y.documentId === x.documentId && y.code === it.code))].slice(0, LIBRARY_LIMIT);
     return it;
   }
   const findItem = id => { const it = st().library.find(x => x.id === id); if (!it) throw new Error('资料不存在，请先查看资料库列表'); return it; };
   const docRecord = id => (store.data.documents || []).find(d => d.id === id);
   async function read(id) {
     const it = findItem(String(id || ''));
-    if (it.kind === 'note') return {...it};
+    if (it.kind === 'note' || it.kind === 'quant') return {...it};
     if (it.kind === 'notice') { const n = await notice(it.noticeId, {ai: false}); return {...it, text: n.text.slice(0, 12000), points: n.points, summary: n.summary || it.summary, pdf: n.pdf}; }
     const d = it.documentId && docRecord(it.documentId);
     if (!d) return {...it, missing: true, text: '', note: '对应的文档已从成果中心删除'};
@@ -272,6 +272,17 @@ export function createResearchService({store, documents, market = null, quant = 
         const it = findItem(String(p.id || '')), r = st();
         r.library = r.library.filter(x => x.id !== it.id);
         await store.save?.(); notify(); return {removed: it.id};
+      }
+      if (a === 'archive' && p.kind === 'quant') { // [v0.53] engine 日报与复盘: one entry per report and date, the markdown kept for search and memory
+        const it = addItem({kind: 'quant', code: p.code, name: p.name, title: p.title, summary: p.summary, text: clip(p.text, 8000), reportKey: `${clip(p.reportId, 40)}:${clip(p.date, 10)}`, metrics: (p.metrics || []).slice(0, 12), tags: p.tags || ['量化日报']});
+        await store.save?.(); notify(); return {item: it};
+      }
+      if (a === 'noteUpdate') { // [v0.53] edit a note in the library
+        const it = findItem(String(p.id || ''));
+        if (it.kind !== 'note') throw new Error('只有笔记可以编辑');
+        const note = normalizeNote({title: p.title, text: p.text});
+        Object.assign(it, {title: note.title, text: note.text, summary: clip(note.text, 300), tags: (Array.isArray(p.tags) ? p.tags : String(p.tags || '').split(/\s+/)).map(t => clip(t, 20)).filter(Boolean).slice(0, 6), edited: now()});
+        await store.save?.(); notify(); return {item: it};
       }
       if (a === 'archive') { // [F3] other services file their documents (topic digests …) into the library
         const it = addItem({kind: ['report', 'export', 'doc'].includes(p.kind) ? p.kind : 'export', code: p.code, name: p.name, title: p.title, summary: p.summary, documentId: p.documentId, format: p.format, tags: p.tags || []});

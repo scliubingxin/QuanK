@@ -276,7 +276,7 @@ export function engineReport(r) {
 }
 
 // ---------- M3: research library ----------
-export const LIBRARY_KINDS = {report: '研报', notice: '公告', note: '笔记', doc: '文档', export: '导出'};
+export const LIBRARY_KINDS = {report: '研报', notice: '公告', note: '笔记', doc: '文档', export: '导出', quant: '量化日报'}; // [v0.53] quant: engine 日报与复盘 archived per run
 export const LIBRARY_LIMIT = 500;
 export function normalizeNote({title = '', text = ''} = {}) {
   const t = String(text || '').trim();

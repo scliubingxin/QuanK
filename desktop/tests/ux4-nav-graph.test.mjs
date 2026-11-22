@@ -9,7 +9,7 @@ const icon = n => `<svg data-i="${n}"></svg>`;
 
 test('sidebar: four top-level entries and three grouped flyouts cover every page exactly once', () => {
   const pages = navPages();
-  assert.deepEqual([...pages].sort(), ['agents', 'connectors', 'context', 'feed', 'files', 'graph', 'home', 'library', 'security', 'studio', 'tasks', 'tools'].sort()); // [fin1] 量化 moved onto the 工作台; [F5] 安全与合规
+  assert.deepEqual([...pages].sort(), ['agents', 'connectors', 'context', 'feed', 'files', 'graph', 'home', 'library', 'research', 'security', 'studio', 'tasks', 'tools'].sort()); // [v0.53] 投研资料 [fin1] 量化 moved onto the 工作台; [F5] 安全与合规
   assert.equal(new Set(pages).size, pages.length);
   assert.equal(NAV_LAYOUT.filter(n => !n.items).length, 3); // [ux8] 仪表盘 moved into 资料库; [fin1] 量化 on the 工作台
   assert.equal(groupOf('connectors').title, '智能体·连接·工具');

@@ -205,5 +205,6 @@ test('wiring: main, app, quant page, test loader', async () => {
   const main = await readFile(new URL('../main.mjs', import.meta.url), 'utf8'), app = await readFile(new URL('../src/app.js', import.meta.url), 'utf8'), quant = await readFile(new URL('../src/ui/quant.js', import.meta.url), 'utf8');
   for (const s of ["createKnowledgeService({ store, research, market, web: appDeps.web", "register('knowledge'", 'knowledge?.tick()', 'get knowledge() { return knowledge; }', 'knowledge:_knowledge,portfolio:_portfolio,security:_security,quant:_quant,...publicData', 'knowledge.forReport(code)']) assert.ok(main.includes(s), s);
   for (const s of ["/^kn[A-Z]/.test(actionId)", "knowledgeUI.mountKnowledge(document"]) assert.ok(app.includes(s), s);
-  for (const s of ['${knowledgeBox(code)}', 'knowledgeLibraryBox(state.knowledge']) assert.ok(quant.includes(s), s);
+  assert.ok(quant.includes('${knowledgeBox(code)}'));
+  const rp = await readFile(new URL('../src/ui/research-page.js', import.meta.url), 'utf8'); assert.ok(rp.includes('knowledgeLibraryBox(state.knowledge'), '[v0.53] the library box lives on 资料库 → 投研资料');
 });
