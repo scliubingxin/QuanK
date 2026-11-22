@@ -42,6 +42,7 @@ import { researchUI } from './ui/research.js'; // [F2]
 import { knowledgeUI } from './ui/knowledge.js'; // [F3]
 import { portfolioUI } from './ui/portfolio.js'; // [F4]
 import { securityUI } from './ui/security.js'; // [F5]
+import { tradeUI } from './ui/trade.js'; // [v0.52]
 import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView } from './ui/market.js';
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
 import { feedUnread } from './shared/feed.js';
@@ -192,7 +193,7 @@ function render() {
     const active = nav.find(n => n[0] === page);
     const name = state.settings.name || '我的工作空间';
     $('#app').className = sidebarCollapsed ? 'sidebar-collapsed' : '';
-    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(state)})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div><button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
+    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(state)})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div><button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
     officeWorkspace.update(markup, `${page}:${chatId}`);
     for (const el of [document.scrollingElement, document.getElementById('app'), document.querySelector('.main'), document.querySelector('.workbench')]) if (el && el.scrollLeft) el.scrollLeft = 0; // [resp] never leave the shell scrolled sideways
     if(previousComposer&&$('#prompt'))$('#prompt').replaceWith(previousComposer);
@@ -1281,6 +1282,41 @@ async function handle(actionId, id) {
         if (actionId === 'knTopicCollect') { const t = topic(); toast('正在汇集公告、资讯和资料…'); const r = await call({ action: 'topicCollect', id }); modal(`主题动态 · ${t?.name || ''}`, K.topicItemsHtml(r), '生成周报', async () => handle('knTopicDigest', id)); return; }
         if (actionId === 'knTopicDigest') { toast('正在生成主题周报…'); const r = await call({ action: 'topicDigest', id, format: 'docx' }); render(); toast(`主题周报已生成（${r.count} 条动态）`); if (r.document?.id) await handle('documentView', r.document.id); return; }
     }
+    if (/^td[A-Z]/.test(actionId)) { // [v0.52] 半自动委托
+        const T = tradeUI, tv = state.trade || {}, call = async p => { const out = await invoke('trade', p); if (out?.state) applyState(out.state); return out?.result || {}; };
+        const order = oid => [...(tv.orders || []), ...(tv.history || [])].find(o => o.id === oid);
+        const later = (title, html, submit, fn) => setTimeout(() => modal(title, html, submit, fn), 0);
+        const line = o => `${o.side === 'buy' ? '买入' : '卖出'} <b>${escape(o.name)}</b>（${escape(o.code)}）${escape(String(o.shares))} 股，限价 ${escape(String(o.price))}，约 ${escape(String(Math.round(o.amount)))} 元`;
+        if (actionId === 'tdConfirm' || actionId === 'tdConfirmAgain') {
+            const o = order(id); if (!o) return;
+            const real = tv.settings?.mode === 'real';
+            modal(real ? '下单：在券商页面填好委托' : '模拟下单', `<p>${line(o)}</p>${real ? '<p>QuanK 会打开券商网页版并填好代码、价格和数量，用红框标出提交按钮。<b>请核对后由你自己点击提交</b>，QuanK 不会替你提交。</p>' : '<p>按模拟盘撮合：现价到达委托价时成交，记入模拟账户。</p>'}${(o.notes || []).length ? `<p class="hint">${escape(o.notes.join('；'))}</p>` : ''}`, real ? '打开券商并填单' : '模拟下单', async () => { const r = await call({ action: 'confirm', id }); render(); toast(r.note || '已处理'); });
+            return;
+        }
+        if (actionId === 'tdCancel') { const o = order(id); modal('撤销委托单', `<p>撤销：${o ? line(o) : ''}？</p>`, '撤销', async () => { const r = await call({ action: 'cancel', id }); render(); toast(r.note || '已撤销'); }); return; }
+        if (actionId === 'tdReport') { const [oid, st] = String(id).split(':'); const r = await call({ action: 'report', id: oid, status: st }); render(); toast(st === 'submitted' ? '已记下：等待成交后点「回填成交」' : st === 'cancelled' ? '已标记为撤单' : '已更新'); void r; return; }
+        if (actionId === 'tdRead') { const r = await call({ action: 'readBack', id }); modal('券商页面上的委托记录', r.rows?.length ? `<div class="td-rows">${r.rows.map(x => `<code>${escape(x)}</code>`).join('')}</div>` : '<p class="empty-note">委托列表里没有找到这只股票。请在券商页面打开「当日委托」后再试。</p>'); return; }
+        if (actionId === 'tdFill') {
+            const o = order(id); if (!o) return;
+            let hints = []; if (tv.broker?.open && tv.broker?.orders) { try { hints = (await call({ action: 'readBack', id })).hints || []; } catch {} }
+            modal('回填成交', T.fillForm(o, hints), '确认成交', async f => { const r = await call(T.fillPayload(f, id)); render(); toast(r.recorded === 'engine' ? '已记入引擎持仓' : r.recorded === 'manual' ? '已更新手动持仓' : '已记录'); });
+            return;
+        }
+        if (actionId === 'tdCreate') { modal('手动委托', T.createForm(), '生成委托单', async f => { await call(T.createPayload(f)); render(); toast('已生成委托单，确认后才会下单'); }); return; }
+        if (actionId === 'tdPause') { await call({ action: 'settings', settings: { paused: id === 'pause' } }); render(); toast(id === 'pause' ? '已暂停：不再生成新的委托单，也不能下单' : '已恢复'); return; }
+        if (actionId === 'tdSettings') {
+            modal('委托设置', T.settingsForm(tv.settings || {}), '保存', async f => {
+                const p = T.settingsPayload(f);
+                if (p.settings.mode === 'real' && tv.settings?.mode !== 'real') { const rest = { ...p.settings }; delete rest.mode; await call({ action: 'settings', settings: rest }); later('切换到真实下单', T.REAL_RISK_HTML, '我已了解风险，切换', async () => { await call({ action: 'settings', settings: { mode: 'real', confirmReal: true } }); render(); toast('已切换到真实下单'); }); render(); return; }
+                const r = await call(p); render(); toast(r.text || '已保存');
+            });
+            return;
+        }
+        if (actionId === 'tdBroker') { modal('券商页面', T.brokerPanel(tv.broker || {}, tv.presets || []), '保存', async f => { await call(T.brokerPayload(f)); render(); toast('已保存'); }); return; }
+        if (actionId === 'tdBrokerOpen') { const u = $('#modal [name="url"]')?.value; if (u !== undefined && u !== (tv.broker?.url || '')) await call({ action: 'broker', url: u.trim() }); await call({ action: 'brokerOpen' }); toast('已打开券商页面，请在新窗口里登录'); return; }
+        if (actionId === 'tdCalibrate') { toast('请切换到券商窗口，按顶部提示依次点击'); const r = await call({ action: 'calibrate', target: id }); if (r.cancelled) { toast('已取消标注'); return; } applyState(await invoke('state')); if ($('#modal')?.open) modal('券商页面', T.brokerPanel(state.trade?.broker || {}, state.trade?.presets || []), '保存', async f => { await call(T.brokerPayload(f)); render(); }); toast('标注已保存'); return; }
+        if (actionId === 'tdBrokerLogout') { await call({ action: 'brokerLogout' }); toast('已退出券商登录并关闭窗口'); return; }
+    }
     if (/^sec[A-Z]/.test(actionId)) { // [F5] 安全与合规
         const S = securityUI, call = async p => { const out = await invoke('security', p); if (out?.state) applyState(out.state); return out?.result || {}; };
         const repaint = (tab = null) => { if (tab) S.setSecurityTab(document, tab); render(); };
@@ -1643,7 +1679,9 @@ api?.onRuntime?.(() => {
 });
 const streamUpdates = new Map();
 const liveStreams = new Map();
+let appVersion = ''; // [v0.52] shown next to the brand
 function applyState(next) {
+    if (next?.appVersion) appVersion = String(next.appVersion);
     if (next?.locked) { state = { locked: true, lock: next.lock || {}, chats: [], folders: [], memories: [], agents: [], tasks: [], artifacts: [], activity: [], settings: { name: '' } }; return; } // [F5]
     if (state.locked) { state = { ...next }; state.tasks ??= []; return; }
     for (let i=0;i<(next.runJobs || []).length;i++) {

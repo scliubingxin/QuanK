@@ -287,3 +287,13 @@ test('missing-interface message names the channel and asks to update', async () 
   const app = await readFile(new URL('../src/app.js', import.meta.url), 'utf8');
   assert.match(app, /当前安装的 QuanK 不支持这个功能（缺少「\$\{name\}」接口）/);
 });
+
+test('[v0.52] quank order maps to the trade tools', () => {
+  const p = (...a) => { const r = Q.plan(a); return {tool: r.tool, args: r.args}; };
+  assert.deepEqual(p('order'), {tool: 'app_trade_orders', args: {}});
+  assert.deepEqual(p('order', 'buy', '通威股份', '--shares', '300'), {tool: 'app_trade_order_create', args: {query: '通威股份', side: 'buy', shares: 300}});
+  assert.deepEqual(p('order', 'confirm', 'od-1'), {tool: 'app_trade_order_confirm', args: {id: 'od-1'}});
+  assert.deepEqual(p('order', 'fill', 'od-1', '--status', 'partial', '--shares', '200'), {tool: 'app_trade_order_fill', args: {id: 'od-1', status: 'partial', shares: 200}});
+  assert.deepEqual(p('order', 'settings', '--pause'), {tool: 'app_trade_settings', args: {paused: true}});
+  assert.throws(() => Q.plan(['order', 'submit', 'od-1']), /用法：quank order/);
+});

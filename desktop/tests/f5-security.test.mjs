@@ -294,7 +294,7 @@ test('wiring: main, preload, renderer', async () => {
   assert.match(main, /register\('security'/); assert.match(main, /security\?\.tick\(\)/); assert.match(main, /powerMonitor\.on\('lock-screen'/);
   assert.match(main, /compliance: \{ settings: \(\) => security\?\.compliance\(\)/);
   assert.match(main, /security:_security,quant:_quant/);
-  assert.match(preload, /'security'\]/);
+  assert.match(preload, /'security'(,'trade')?\]/);
   assert.match(app, /if \(state\.locked\) \{ \/\/ \[F5 M1\]/); assert.match(app, /\/\^sec\[A-Z\]\/\.test\(actionId\)/);
   for (const a of ['secUnlock', 'secUnlockTouch', 'secLock', 'secPrivacy', 'secAuditVerify', 'secAuditExport', 'secTestModel', 'secLockSettings', 'secEncrypt', 'secDeletePlain', 'secBackup', 'secRestore', 'secComplianceSettings', 'secReview']) assert.ok(app.includes(`'${a}'`), a);
   assert.match(core, /this\.codec \? this\.codec\.decode\(raw\)/);
