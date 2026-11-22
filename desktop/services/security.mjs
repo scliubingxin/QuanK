@@ -22,7 +22,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
     s.reviews ??= [];
     return s;
   };
-  let locked = normalizeLock(store.data.security?.lock).enabled, failures = 0, lockedUntil = 0;
+  let locked = normalizeLock(store.data.security?.lock).enabled, failures = 0, lockedUntil = 0, cli = null;
   const log = (kind, action, target = '', detail = '') => audit?.record({kind, action, target, detail, via: 'app'}).catch(() => {});
   async function plainBackups() {
     if (!dir) return [];
@@ -34,7 +34,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
     return {locked, privacy: s.privacy, lock: {enabled: s.lock.enabled, idleMinutes: s.lock.idleMinutes, touchId: s.lock.touchId, onSleep: s.lock.onSleep, touchIdAvailable: !!touchId.can()},
       encryption: {enabled: !!vault?.encrypted, available: !!vault, plainBackups: await plainBackups(), lastBackup: s.lastBackup || null},
       compliance: s.compliance, reviews: s.reviews.slice(0, 20), audit: {count: audit?.count || 0, broken: audit?.broken || null, lastVerify: s.lastVerify || null},
-      egress: egress ? {hosts: egress.summary().slice(0, 30), size: egress.size} : null};
+      egress: egress ? {hosts: egress.summary().slice(0, 30), size: egress.size} : null, cli: cli ? await cli.view().catch(e => ({error: String(e?.message || e)})) : null};
   }
   function lock(reason = '手动锁定') { const s = st(); if (!s.lock.enabled || locked) return false; locked = true; log('security', '锁定 QuanK', '', reason); notify(); return true; }
   async function unlock(how, password) {
@@ -97,6 +97,8 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
 
   return {
     view, lock, unlock, get locked() { return locked; },
+    /** [v0.51] the quank command-line controller from main */
+    attachCli(c) { cli = c; },
     /** Synchronous bits for the app state (banners, the security page header). */
     summary() { const s = st(); return {privacy: s.privacy, lockEnabled: s.lock.enabled, encrypted: !!vault?.encrypted, complianceEnabled: s.compliance.enabled, block: s.compliance.block}; },
     /** What the lock screen may show. */
@@ -154,6 +156,12 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
       if (a === 'backupRestore') return restoreBackup();
       if (a === 'compliance') { s.compliance = parseComplianceSettings(p.settings || {}, s.compliance); await store.save(); notify(); log('security', '修改合规设置', '', `${s.compliance.enabled ? '导出前检查' : '不检查'}${s.compliance.block ? '，有必须修改项时阻止导出' : ''}`); return {compliance: s.compliance}; }
       if (a === 'review') { const r = reviewText(p.text, {kind: ['report', 'article', 'text'].includes(p.kind) ? p.kind : 'article', aiUsed: p.aiUsed === true, settings: s.compliance}); if (p.record !== false) await noteReview(r, {title: p.title || clip(p.text, 30), kind: p.kind || 'article'}); notify(); return r; }
+      if (a === 'cliEnable' || a === 'cliInstall' || a === 'cliUninstall') {
+        if (!cli) throw new Error('当前环境不支持命令行');
+        const r = a === 'cliEnable' ? await cli.enable(p.enabled === true) : a === 'cliInstall' ? await cli.install() : await cli.uninstall();
+        log('security', a === 'cliEnable' ? (p.enabled ? '开启 quank 命令行' : '关闭 quank 命令行') : a === 'cliInstall' ? '安装 quank 命令' : '卸载 quank 命令', '', a === 'cliInstall' ? String(r.bin || '') : '');
+        notify(); return r;
+      }
       if (a === 'secrets') return secretsView();
       if (a === 'testModel') { if (!testModel) throw new Error('当前环境不能测试模型'); const r = await testModel(); log('model', '测试默认模型密钥', r.host || '', r.ok ? '可用' : `失败：${r.status || ''} ${r.message || ''}`); return r; }
       throw new Error('未知的安全操作');

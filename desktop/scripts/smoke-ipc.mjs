@@ -16,7 +16,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 /** Resolve with p, or reject after ms. The timer keeps the event loop alive, so a reply that never comes cannot end the
  *  process early (exit 13, "unsettled top-level await") before the report is written. */
 const within = (p, ms, what) => { let t; return Promise.race([p, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(`${what} 超时（${ms / 1000} 秒）`)), ms); })]).finally(() => clearTimeout(t)); };
-const BAD = /缺少此功能接口|拒绝不可信页面|No handler registered|is not a function/;
+const BAD = /缺少此功能接口|不支持这个功能（缺少|拒绝不可信页面|No handler registered|is not a function/;
 
 // read-only calls: [channel, payload, needsNetwork]
 const CALLS = [['state', undefined, false], ['security', {action: 'view'}, false], ['security', {action: 'secrets'}, false], ['security', {action: 'egressList'}, false],
@@ -80,9 +80,22 @@ try {
     report.calls.push(row);
   }
   for (const p of PAGES) {
-    await c.evaluate(`(document.querySelector('[data-page="${p}"]') || {click(){}}).click(), true`);
+    // 量化 has no sidebar entry: it opens from the 工作台 (home) card
+    if (p === 'quant') {
+      await c.evaluate(`(document.querySelector('[data-page="home"]') || {click(){}}).click(), true`); await sleep(1500);
+      await c.evaluate(`(document.querySelector('.hq-tools [data-action="quantHome"]') || document.querySelector('[data-action="quantHome"]') || {click(){}}).click(), true`); await sleep(2500);
+      // a stock detail may be open (e.g. restored or opened by a notification): go back to the 股票池 overview
+      for (let i = 0; i < 3; i++) {
+        const where = await c.evaluate(`document.querySelector('#portfolioBox') ? 'overview' : document.querySelector('[data-action="quantClose"]') ? 'detail' : 'other'`);
+        report.quantNav = [...(report.quantNav || []), where];
+        if (where === 'overview') break;
+        await c.evaluate(`(document.querySelector('[data-action="quantClose"]') || document.querySelector('[data-action="quantHome"]') || {click(){}}).click(), true`); await sleep(2000);
+      }
+    }
+    else await c.evaluate(`(document.querySelector('[data-page="${p}"]') || {click(){}}).click(), true`);
     await sleep(p === 'quant' ? 6000 : 2500);
-    const info = await c.evaluate(`(() => { const t = document.body.innerText; const errs = [...document.querySelectorAll('.task-error')].map(e => e.textContent.trim()).filter(Boolean); return {title: document.querySelector('.plaza-hero h1, h1')?.textContent?.trim() || '', errors: errs.slice(0, 8), bad: /缺少此功能接口|拒绝不可信页面/.test(t), boxes: ['#securityBox', '#portfolioBox', '#knowledgeBox'].filter(s => document.querySelector(s))}; })()`);
+    const info = await c.evaluate(`(() => { const t = document.body.innerText; const errs = [...document.querySelectorAll('.task-error')].map(e => e.textContent.trim()).filter(Boolean); return {title: document.querySelector('.plaza-hero h1, h1')?.textContent?.trim() || '', errors: errs.slice(0, 8), bad: /缺少此功能接口|不支持这个功能（缺少|拒绝不可信页面/.test(t), boxes: ['#securityBox', '#portfolioBox', '#knowledgeBox'].filter(s => document.querySelector(s))}; })()`);
+    if (p === 'quant' && !info.boxes.includes('#portfolioBox')) report.problems.push('量化页没有出现「组合与风控」（从工作台没有打开量化页）');
     const shot = await c.send('Page.captureScreenshot', {format: 'png'});
     const file = path.join(out, `smoke-${p}.png`); await writeFile(file, Buffer.from(shot.data, 'base64'));
     report.pages.push({page: p, ...info, screenshot: file});
