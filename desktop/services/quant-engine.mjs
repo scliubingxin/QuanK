@@ -49,7 +49,7 @@ export function runPythonScript({python, cwd, script, args = [], timeoutMs = 600
   });
 }
 
-export function createQuantEngine({dir, store, seal = s => s, unseal = s => s, aiGateway = () => null, notify = () => {}, onAlert = () => {}, now = Date.now,
+export function createQuantEngine({onSignal = null, onReport = null, dir, store, seal = s => s, unseal = s => s, aiGateway = () => null, notify = () => {}, onAlert = () => {}, now = Date.now,
   spawn = nodeSpawn, fetcher = globalThis.fetch, probe = probePython, exists = existsSync, port: pickPort = freePort, chooseFolder = null, runScript = null, lookup = null}) {
   const engineDir = path.join(dir, 'engine'), logPath = path.join(dir, 'engine.log');
   const st = () => (store.data.quant ??= {source: '', python: '', autoStart: true, ai: 'willbuddy', pool: []});
@@ -193,6 +193,7 @@ export function createQuantEngine({dir, store, seal = s => s, unseal = s => s, a
     const [raw, quote] = await Promise.all([ep('signal', {code: c}, {timeoutMs: 180000, signal: abort}), ad.endpoints.quote ? ep('quote', {code: c}, {signal: abort}).catch(() => null) : null]);
     const entry = {at: now(), raw, quote, summary: summarize(ad, c, raw, quote)};
     cache.set(c, entry);
+    try { onSignal?.(c, entry.summary); } catch {} // [v0.53] training data
     const p = st().pool.find(x => x.code === c);
     if (p) { p.name = entry.summary.name || p.name; p.spark = sparkSeries(ad, raw); if (!p.spark.length) delete p.spark; p.last = {at: entry.at, action: entry.summary.action, actionText: entry.summary.actionText, score: entry.summary.score, multiplier: entry.summary.multiplier, price: entry.summary.price, changePct: entry.summary.changePct, date: entry.summary.date}; await store.save?.(); notify(); }
     return entry;
@@ -289,9 +290,11 @@ export function createQuantEngine({dir, store, seal = s => s, unseal = s => s, a
       let raw;
       try { raw = JSON.parse(await readFile(inside(fill(def.output, vars)), 'utf8')); } catch { throw new Error('分析脚本没有生成可读的结果文件'); }
       Object.assign(out, summarizeReport(def, raw), {ok: true, ms: now() - started});
-      if (def.markdown) { try { const md = (await readFile(inside(fill(def.markdown, vars)), 'utf8')).slice(0, 60000); await mkdir(reportDir, {recursive: true}); await writeFile(path.join(reportDir, id + '.md'), md); out.hasMarkdown = true; } catch {} }
+      if (def.markdown) { try { const md = (await readFile(inside(fill(def.markdown, vars)), 'utf8')).slice(0, 60000); await mkdir(reportDir, {recursive: true}); await writeFile(path.join(reportDir, id + '.md'), md); out.hasMarkdown = true; out._md = md; } catch {} }
     } catch (e) { out.error = clip(e.message, 300); }
+    const md = out._md || ''; delete out._md;
     s.reports = {...(s.reports || {}), [id]: out};
+    if (out.ok) { try { await onReport?.(out, md); } catch {} } // [v0.53] archive into 资料库
     if (!out.hasMarkdown) { try { await rm(path.join(reportDir, id + '.md'), {force: true}); } catch {} }
     pushAlert({id: `report-${id}-${started}`, kind: 'report', time: started, reportId: id, title: def.title, ok: out.ok, summary: out.ok ? out.summary : out.error, warnings: out.warnings || []});
     store.log?.(out.ok ? `已生成${def.title}` : `${def.title}生成失败`, out.ok ? clip(out.summary, 120) : out.error);

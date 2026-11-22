@@ -6,7 +6,7 @@ import { LIBRARY_KINDS } from '../shared/research.js';
 const val = (fm, n) => String((typeof fm?.get === 'function' ? fm.get(n) : fm?.querySelector?.(`[name="${n}"]`)?.value ?? fm?.elements?.[n]?.value) ?? '');
 const on = (fm, n) => typeof fm?.get === 'function' ? fm.get(n) !== null : !!(fm?.querySelector?.(`[name="${n}"]`)?.checked ?? fm?.elements?.[n]?.checked);
 const tag = (label, cls = 'low') => `<span class="rs-tag rs-${escape(cls)}">${escape(label)}</span>`;
-const KIND_CLS = {report: 'kind-report', notice: 'kind-notice', note: 'kind-note', doc: 'kind-doc', export: 'kind-export'};
+const KIND_CLS = {report: 'kind-report', notice: 'kind-notice', note: 'kind-note', doc: 'kind-doc', export: 'kind-export', quant: 'kind-quant'};
 const FMT = {docx: 'Word', pptx: 'PPT', html: '网页'};
 
 function libraryRows(items, {action, date, withStock = false}) {

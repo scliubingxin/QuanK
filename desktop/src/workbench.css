@@ -1536,3 +1536,14 @@ svg.pf-svg text,svg.pf-svg tspan{stroke:none}
 .q-return-note .link{border:0;background:none;padding:0 2px;color:#2F62F5;font-weight:600;text-decoration:underline;cursor:pointer;font-size:inherit}
 @keyframes qkLiveFlash{0%{background:rgba(47,98,245,.18)}100%{background:transparent}}
 .live-flash{animation:qkLiveFlash .8s ease-out;border-radius:4px}
+
+/* [v0.53] 投研资料 page */
+.research-page .q-box{margin:0 0 18px;padding:18px 20px;border:1px solid #e6ecf6;border-radius:18px;background:linear-gradient(180deg,#eef3ff 0,#fff 76px);box-shadow:0 10px 30px -24px #1e3a8a55}
+.research-page .plaza-section-head{flex-wrap:wrap;align-items:center}
+.rp-stocks,.rp-kinds{margin:10px 0 0;flex-wrap:wrap}
+.rp-search{margin:12px 0}
+.rp-search input{flex:1}
+.rs-title .rs-sum{display:block;margin-top:2px;font-size:11.5px;color:#8a94ad;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:760px}
+.rs-tag.rs-kind-quant{background:#eef3ff;color:#2F62F5}
+.ds-by{flex-wrap:wrap;gap:10px}
+.q-research-link .plaza-section-head{margin:0}

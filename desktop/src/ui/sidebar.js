@@ -5,6 +5,7 @@ export const NAV_LAYOUT = [
   {id: 'feed', icon: 'activity', title: '动态', badge: true},
   {id: 'tasks', icon: 'clock', title: '自动化'},
   {group: 'library', icon: 'folder', title: '资料库', items: [
+    ['research', 'file', '投研资料', '按股票整理的研报、公告、笔记、日报复盘与训练数据'], // [v0.53]
     ['library', 'file', '成果中心', '对话产出的文档与成果'],
     ['files', 'folder', '本地文件', '授权给 QuanK 的文件夹'],
     ['studio', 'grid', '创作', '仪表盘、信息图、小应用']]},

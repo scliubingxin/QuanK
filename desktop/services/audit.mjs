@@ -89,7 +89,7 @@ const READS = new Set(['view', 'overview', 'risk', 'stress', 'simulate', 'search
 /** channel -> kind, for channels whose writes are audited. Returns null when the call is a read. */
 export const AUDIT_CHANNELS = {portfolio: 'data', quant: 'data', research: 'data', knowledge: 'data', market: 'data', settings: 'security', modelProfile: 'security', connector: 'data',
   mcpConnection: 'security', mcpSignIn: 'security', mcpSignOut: 'security', approvalRule: 'approval', revokeBrowserApprovals: 'approval', cancelApprovals: 'approval', documentDelete: 'data',
-  documentExport: 'export', documentExportPdf: 'export', exportText: 'export', skillImport: 'security', projectRun: 'system', trade: 'trade', task: 'data', runTask: 'system', clearKnowledgeIndex: 'data'};
+  documentExport: 'export', documentExportPdf: 'export', exportText: 'export', skillImport: 'security', projectRun: 'system', trade: 'trade', dataset: 'export', task: 'data', runTask: 'system', clearKnowledgeIndex: 'data'};
 const ACTION_KIND = {confirm: 'trade', report: 'trade', cancel: 'trade', create: 'trade', settings: 'rules', calibrate: 'security', brokerOpen: 'security', brokerLogout: 'security', record: 'trade', rules: 'rules', holdingSave: 'data', holdingRemove: 'data', cash: 'data', report: 'export', export: 'export', topicDigest: 'export', backupExport: 'export'};
 export function auditOf(channel, p = {}) {
   const base = AUDIT_CHANNELS[channel];

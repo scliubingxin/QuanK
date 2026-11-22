@@ -1,7 +1,7 @@
 // [q1] 量化 page: engine status, stock pool cards, stock detail. Field names are generic; the private engine's
 // wb-engine.json maps its own response onto them (see src/shared/quant.js).
 import { escape } from './markdown.js';
-import { actionLabel, actionTone, normalizeWatch, describeWatch, WATCH_INTERVALS, normalizeReportAuto, describeReportAuto } from '../shared/quant.js';
+import { actionLabel, actionTone, normalizeWatch, describeWatch, WATCH_INTERVALS, normalizeReportAuto, describeReportAuto, summaryText } from '../shared/quant.js';
 import { plazaIcon } from './preset-catalog.js';
 import { sparkSvg } from './spark.js'; // [fin2]
 import { klineBox, opsMarks } from './market.js'; // [F1]
@@ -37,6 +37,11 @@ ${sparkSvg(s.spark, {w: 260, h: 42, cls: 'q-spark', id: s.code})}${holdingLine(h
 <small class="q-when">${l.at ? '更新于 ' + escape(date(l.at)) : '尚未计算'}</small></div>`;
 }
 
+// [v0.53] 投研资料库、投研知识库、日报与复盘 moved to 资料库 → 投研资料
+function researchLink(state, {action}) {
+  const n = (state.research?.library || []).length, d = state.dataset?.stats?.total || 0;
+  return `<section class="q-box q-research-link"><div class="plaza-section-head"><h2>投研资料</h2><small>研报、公告、笔记、日报复盘和训练数据已移到「资料库 → 投研资料」，按股票分类整理 · ${n} 份资料 · ${d} 条训练数据</small><span class="q-head-tools">${action('打开投研资料', 'rpOpen', '', 'primary')}</span></div></section>`;
+}
 export function quantPage(state, {action, heading, empty, date, open = '', detail = null}) {
   const q = state.quant || {status: 'stopped', pool: []};
   if (open) return quantDetail(q, open, detail, {action, date, research: state.research});
@@ -44,7 +49,7 @@ export function quantPage(state, {action, heading, empty, date, open = '', detai
   const head = heading('', '让策略在本机运行，信号一眼看清。', '档位、综合分与倍率来自你自己的私有策略，在本机计算；也可以直接在对话里问「600519 现在什么信号」「池子里谁是买点」。', action('＋ 添加股票', 'quantAdd', '', 'primary') + action('全部刷新', 'quantRefreshAll'), stats);
   const grid = pool.length ? `<div class="plaza-grid q-pool-grid">${pool.map(s => stockCard(s, {action, date, holding: q.holdings?.[s.code], logo: q.logos?.[s.code], live: state.market?.quotes?.[s.code]})).join('')}</div>`
     : q.status === 'running' ? empty('股票池是空的', '点「添加股票」输入 6 位代码。') : '<p class="empty-note">启动引擎后显示股票池。</p>';
-  return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${portfolioBox(state.portfolio, {action})}${researchLibraryBox(state.research, {action, date})}${knowledgeLibraryBox(state.knowledge, {action, date})}${reportsBox(q, {action, date})}${alertsBox(q, {action, date})}</div>`;
+  return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${portfolioBox(state.portfolio, {action})}${researchLink(state, {action})}${alertsBox(q, {action, date})}</div>`;
 }
 
 function quantDetail(q, code, d, {action, date, research = null}) {
@@ -208,7 +213,7 @@ export function quantPlanForm(q) {
 export const quantPlanPayload = fm => ({action: 'planSet', type: val(fm, 'type'), times: Number(val(fm, 'times'))});
 
 // [q5] 日报与复盘
-function reportsBox(q, {action, date}) {
+export function reportsBox(q, {action, date}) {
   const defs = q.reportDefs || [];
   if (!defs.length) return '';
   const cards = defs.map(d => {
@@ -216,7 +221,7 @@ function reportsBox(q, {action, date}) {
     const tag = r ? `<span class="pc-tag ${r.ok ? (warn ? 't-orange' : 't-green') : 't-red'}">${r.ok ? (warn ? '有告警' : '已生成') : '失败'}</span>` : '';
     return `<div class="card plaza-card q-report"><div class="pc-head">${plazaIcon(d.title)}<div class="pc-title"><h3>${escape(d.title)}</h3><small>${r ? `${escape(date(r.at))}${r.date ? ' · ' + escape(r.date) : ''}` : '尚未生成'}${d.schedule === 'daily' ? ' · 每日' : ' · 手动'}</small></div>${tag}</div>
 ${r?.metrics?.length ? `<div class="q-metrics">${r.metrics.map(m => `<span><b>${escape(m.value)}</b>${escape(m.label)}</span>`).join('')}</div>` : ''}
-<p class="pc-desc">${escape(r ? (r.ok ? r.summary || '已生成' : r.error || '生成失败') : '点「生成」在本机运行引擎自带的分析脚本。')}</p>
+<p class="pc-desc">${escape(r ? (r.ok ? summaryText(r.summary) || '已生成' : r.error || '生成失败') : '点「生成」在本机运行引擎自带的分析脚本。')}</p>
 ${(r?.warnings || []).map(w => `<p class="task-error">${escape(w)}</p>`).join('')}
 <div class="pc-actions">${action(r ? '重新生成' : '生成', 'quantReportRun', d.id, 'primary')}${r?.ok ? action('查看', 'quantReport', d.id) : ''}</div></div>`;
   }).join('');
@@ -228,7 +233,7 @@ export function quantReportDetail(r) {
   const LV = {high: 't-red', medium: 't-orange', low: 't-blue'};
   return `<p class="hint">${escape(r.title || '')}${r.date ? ' · ' + escape(r.date) : ''} · 生成用时 ${r.ms ? Math.round(r.ms / 1000) + ' 秒' : '—'}</p>
 ${r.metrics?.length ? `<div class="q-metrics">${r.metrics.map(m => `<span><b>${escape(m.value)}</b>${escape(m.label)}</span>`).join('')}</div>` : ''}
-${r.summary ? `<p class="q-report-summary">${escape(r.summary)}</p>` : ''}${(r.warnings || []).map(w => `<p class="task-error">${escape(w)}</p>`).join('')}
+${r.summary ? `<p class="q-report-summary">${escape(summaryText(r.summary))}</p>` : ''}${(r.warnings || []).map(w => `<p class="task-error">${escape(w)}</p>`).join('')}
 ${r.items?.length ? `<ul class="q-report-items">${r.items.map(x => `<li><span class="pc-tag ${LV[x.level] || ''}">${escape(x.level || '建议')}</span><b>${escape(x.title)}</b>${x.detail ? `<small>${escape(x.detail)}</small>` : ''}</li>`).join('')}</ul>` : ''}`;
 }
 export function quantReportAutoForm(q) {

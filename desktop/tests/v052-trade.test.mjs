@@ -291,7 +291,7 @@ test('UI, feed, audit and wiring', async () => {
   const [main, preload, app, quant, broker] = await Promise.all(['../main.mjs', '../preload.cjs', '../src/app.js', '../src/ui/quant.js', '../services/broker.mjs'].map(read));
   assert.match(main, /createTradeService\(\{ store, quant, market, portfolio, broker: createBrokerBrowser\(\{ BrowserWindow \}\)/); assert.match(main, /register\('trade'/); assert.match(main, /trade\?\.tick\(\)/);
   assert.match(main, /miniapps:_miniapps,trade:_trade,research:_research/);
-  assert.match(preload, /'security','trade'\]/);
+  assert.match(preload, /'security','trade'(,'dataset')?\]/);
   for (const a of ['tdConfirm', 'tdCancel', 'tdReport', 'tdFill', 'tdRead', 'tdCreate', 'tdPause', 'tdSettings', 'tdBroker', 'tdBrokerOpen', 'tdCalibrate', 'tdBrokerLogout']) assert.ok(app.includes(`'${a}'`), a);
   assert.match(app, /confirmReal: true/);
   assert.doesNotMatch(quant, /tradeBox\(/, '[v0.52.2] moved off the quant page');

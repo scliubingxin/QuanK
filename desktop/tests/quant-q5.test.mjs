@@ -8,7 +8,7 @@ import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { normalizeReports, summarizeReport, reportDefsView, normalizeReportAuto, parseReportAuto, describeReportAuto, ADAPTER_FILE } from '../src/shared/quant.js';
 import { createQuantEngine, runPythonScript } from '../services/quant-engine.mjs';
-import { quantPage, quantReportDetail, quantReportAutoForm, quantReportAutoPayload } from '../src/ui/quant.js';
+import { quantPage, reportsBox, quantReportDetail, quantReportAutoForm, quantReportAutoPayload } from '../src/ui/quant.js';
 import { buildFeed } from '../src/shared/feed.js';
 import { buildBriefing } from '../src/shared/briefing.js';
 import { executeAppTool, appToolDefinitions } from '../services/app-tools.mjs';
@@ -134,12 +134,13 @@ test('feed, briefing, page and viewer', () => {
   const heading = (k, t) => `<h1>${t}</h1>`, empty = t => t, date = () => '今天';
   const st = {status: 'running', installed: true, source: '/s', pool: [], features: {}, reportDefs: reportDefsView(ADAPTER), reportAuto: {enabled: true, time: '17:30'},
     reports: {day: {ok: true, at: T, date: '2026-11-20', summary: '<i>共 5 条</i>', metrics: [{label: '条数', value: '5'}], warnings: ['链路中断']}}};
-  const doc = new JSDOM(quantPage({quant: st}, {action, heading, empty, date})).window.document;
+  const doc = new JSDOM(reportsBox(st, {action, date})).window.document; // [v0.53] 日报与复盘 moved to 资料库 → 投研资料
   const cards = doc.querySelectorAll('.q-reports .q-report');
   assert.equal(cards.length, 2); assert.match(cards[0].textContent, /示例日报.*有告警.*5条数.*<i>共 5 条<\/i>.*链路中断.*重新生成.*查看/s); assert.match(cards[1].textContent, /尚未生成.*生成/s);
   assert.equal(cards[1].querySelector('[data-action="quantReport"]'), null);
   assert.match(doc.querySelector('.q-reports small').textContent, /工作日 17:30 自动生成/);
-  assert.equal(new JSDOM(quantPage({quant: {...st, reportDefs: []}}, {action, heading, empty, date})).window.document.querySelector('.q-reports'), null);
+  assert.equal(reportsBox({...st, reportDefs: []}, {action, date}), '');
+  assert.equal(new JSDOM(quantPage({quant: st}, {action, heading, empty, date})).window.document.querySelector('.q-reports'), null, 'not on the quant page any more');
   const det = new JSDOM(quantReportDetail({title: '示例日报', date: '2026-11-20', ms: 4200, summary: 's', metrics: [{label: 'a', value: '1'}], warnings: ['w'], items: [{title: '<b>t</b>', detail: 'd', level: 'high'}]})).window.document;
   assert.match(det.body.textContent, /4 秒/); assert.equal(det.querySelector('.q-report-items .t-red').textContent, 'high'); assert.equal(det.querySelector('.q-report-items b').textContent, '<b>t</b>');
   const form = new JSDOM(`<form>${quantReportAutoForm(st)}</form>`).window.document.querySelector('form');

@@ -43,6 +43,7 @@ import { knowledgeUI } from './ui/knowledge.js'; // [F3]
 import { portfolioUI } from './ui/portfolio.js'; // [F4]
 import { securityUI } from './ui/security.js'; // [F5]
 import { tradeUI } from './ui/trade.js'; // [v0.52]
+import { researchPage, noteEditForm } from './ui/research-page.js'; // [v0.53]
 import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView, patchLive } from './ui/market.js';
 import { session as marketSession } from './shared/market.js'; // [v0.52.1]
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
@@ -70,7 +71,7 @@ let state = { chats: [], folders: [], memories: [], agents: [], tasks: [], artif
 let selections=[];
 let modelChoice='legacy',modelEffort='';
 let capabilityTab='agents';const busyMcp=new Set();
-const nav = [['home', 'chat', '工作台'], ['feed', 'activity', '动态'], ['library', 'grid', '成果中心'], ['studio', 'spark', '创作'], ['files', 'folder', '本地文件'], ['agents', 'agent', '智能体'], ['tools', 'activity', '浏览器与权限'], ['security', 'shield', '安全与合规'], ['tasks', 'clock', '自动化'], ['quant', 'trend', '量化'], ['market', 'trend', '行情'], ['connectors', 'link', '连接'], ['graph', 'search', '知识图谱'], ['context', 'spark', '记忆库']];
+const nav = [['home', 'chat', '工作台'], ['feed', 'activity', '动态'], ['research', 'file', '投研资料'], ['library', 'grid', '成果中心'], ['studio', 'spark', '创作'], ['files', 'folder', '本地文件'], ['agents', 'agent', '智能体'], ['tools', 'activity', '浏览器与权限'], ['security', 'shield', '安全与合规'], ['tasks', 'clock', '自动化'], ['quant', 'trend', '量化'], ['market', 'trend', '行情'], ['connectors', 'link', '连接'], ['graph', 'search', '知识图谱'], ['context', 'spark', '记忆库']];
 let memoryFilter = 'all', memoryQuery = '', incognito = false, planMode = false, researchMode = false, feedFilter = 'important'; // [p1-m1][p1-m2][p1-m5][p1-m6][p2-m3]
 let graphQuery = '', graphType = 'all'; // [p3-m5]
 let graphMode = 'graph', graphFocus = '', graphSelected = '', graphMount = null; const graphCache = {}; // [ux4]
@@ -78,7 +79,8 @@ let studioTab = 'dashboards', dashView = null; // [p4-m1]
 let miniappOpenId = '', miniappDispose = null, miniappVersionsFor = ''; // [p4-m4]
 let quantOpen = '', quantDetailData = null, quantDisposers = []; // [q1]
 let marketTab = 'industry', marketStockCode = '', marketPingAt = 0; // [F1]
-let taskTab = 'tasks', taskFilter = 'all', runStatus = 'all', runTaskFilter = 'all', runTrigger = 'all'; // [ux6]
+let rpStock = '', rpKind = '', rpQuery = ''; // [v0.53] 投研资料 filters
+let taskTab = '', taskFilter = 'all', runStatus = 'all', runTaskFilter = 'all', runTrigger = 'all'; // [ux6]
 let sidebarCollapsed = false, sidePanel = false, sideTab = 'preview', previewId = '', previewTabs = [], previewSource = false, previewHtml = false, previewInteractive = false, previewZoom = 100, recentQuery = '', pickerKind = '', pickerItems = [], pickerIndex = 0, pickerSerial = 0;
 const openedDetails = new Set();
 // [p1-m2] leaving an incognito chat discards it
@@ -276,6 +278,7 @@ function render() {
     $('#modelEffort')?.addEventListener('change',e=>{modelEffort=e.target.value;render();});
     $('#agent')?.addEventListener('change', e => { agentId = e.target.value; render(); }); // [F1f] refresh the avatar
     $('#folderSelect')?.addEventListener('change', e => { folderId = e.target.value; loadFiles(); });
+    $('#rpQuery')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle('rpSearch').catch(err => toast(err.message)); } }); // [v0.53]
     $('#fileQuery')?.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
             searchTerm = e.target.value;
@@ -437,8 +440,9 @@ function content() {
 <div class="plaza-section-head"><h2>我的智能体</h2><small>「开始对话」用它处理任务；「编辑」可绑定知识、Skills、MCP 和工具。</small></div><div class="plaza-grid">${cards}</div></div>`;
     }
     if (page === 'tasks') // [ux6] 定时任务 / 运行记录
-        return automationPage(state, {action, empty, tab: taskTab, filter: taskFilter, runStatus, runTask: runTaskFilter, runTrigger, banner: pendingBanner(state, action),
+        return automationPage(state, {action, empty, tab: taskTab || (state.trade ? 'trade' : 'tasks'), filter: taskFilter, runStatus, runTask: runTaskFilter, runTrigger, banner: pendingBanner(state, action),
             extra: taskTab === 'runs' && (state.runJobs || []).some(j => ['queued', 'running', 'cancelling'].includes(j.status)) ? views.runQueue({state, action, date, statusNames}) : ''}); // [ux8] only while something is queued
+    if (page === 'research') return researchPage(state, {action, date, stock: rpStock, kind: rpKind, query: rpQuery}); // [v0.53]
     if (page === 'library')
         return `<div class="page">${heading('', '成果中心', '对话与自动化生成的文档和成果都在这里，可预览、继续编辑和导出。', '', [[(state.documents || []).length, '份文档'], [state.artifacts.length, '份保存的成果']])}${documentLibrary({state,action,date})}${state.artifacts.length ? `<div class="cards">${state.artifacts.map(a => `<div class="card"><span class="tile-icon amber">${icon('file')}</span><h3>${escape(a.name)}</h3><p>${escape(a.text.slice(0, 110))}…</p><div class="meta">${date(a.time)}</div><div class="actions">${action('查看', 'viewArtifact', a.id)}${action('导出', 'exportArtifact', a.id)}${action('删除', 'deleteArtifact', a.id)}</div></div>`).join('')}</div>` : empty('还没有保存的成果', '在助手回复下点击“保存到成果中心”，或完成一个自动化任务。')}</div>`;
     if (page === 'context') // [ux4] 我的上下文 · 记忆
@@ -1333,7 +1337,7 @@ async function handle(actionId, id) {
         }
         if (actionId === 'tdBroker') { modal('券商页面', T.brokerPanel(tv.broker || {}, tv.presets || []), '保存', async f => { await call(T.brokerPayload(f)); render(); toast('已保存'); }); return; }
         if (actionId === 'tdBrokerOpen') { const u = $('#modal [name="url"]')?.value; if (u !== undefined && u !== (tv.broker?.url || '')) await call({ action: 'broker', url: u.trim() }); await call({ action: 'brokerOpen' }); toast('已打开券商页面，请在新窗口里登录'); return; }
-        if (actionId === 'tdCalibrate') { toast('请切换到券商窗口，按顶部提示依次点击'); const r = await call({ action: 'calibrate', target: id }); if (r.cancelled) { toast('已取消标注'); return; } applyState(await invoke('state')); if ($('#modal')?.open) modal('券商页面', T.brokerPanel(state.trade?.broker || {}, state.trade?.presets || []), '保存', async f => { await call(T.brokerPayload(f)); render(); }); toast('标注已保存'); return; }
+        if (actionId === 'tdCalibrate') { toast('请切换到券商窗口，按顶部提示依次点击'); const r = await call({ action: 'calibrate', target: id }); if (r.cancelled) { toast('已取消标注'); return; } applyState(await invoke('state')); if ($('#modal')?.open) modal('券商页面', T.brokerPanel(state.trade?.broker || {}, state.trade?.presets || []), '保存', async f => { await call(T.brokerPayload(f)); render(); }); const NAMES = { code: '代码输入框', price: '价格输入框', shares: '数量输入框', submit: '提交按钮', orders: '委托列表' }; toast(r.missing?.length ? `有 ${r.missing.length} 项没有记下：${r.missing.map(k => NAMES[k] || k).join('、')}。请确认点在输入框本身上，再标注一次` : '标注已保存'); return; } // [v0.53] report what did not stick
         if (actionId === 'tdBrokerLogout') { await call({ action: 'brokerLogout' }); toast('已退出券商登录并关闭窗口'); return; }
     }
     if (/^sec[A-Z]/.test(actionId)) { // [F5] 安全与合规
@@ -1390,8 +1394,9 @@ async function handle(actionId, id) {
         const call = async p => { const out = await invoke('research', p); if (out?.state) applyState(out.state); return out?.result || {}; };
         const R = researchUI, rs = state.research || {}, nameOf = c => (state.quant?.pool || []).find(p => p.code === c)?.name || c;
         const openDoc = async docId => { render(); if (docId) await handle('documentView', docId); };
+        if (actionId === 'researchEdit') { const r = await call({ action: 'read', id }); modal('编辑笔记', noteEditForm(r), '保存', async f => { const g = n => String(f.get?.(n) ?? f.querySelector?.(`[name="${n}"]`)?.value ?? ''); await call({ action: 'noteUpdate', id, title: g('title').trim(), text: g('text').trim(), tags: g('tags').trim() }); render(); toast('笔记已更新'); }); return; } // [v0.53]
         if (actionId === 'researchReport') { modal(`生成研报 · ${nameOf(id)}`, R.reportForm(), '生成', async f => { const p = R.reportPayload(f, id); toast('正在汇总信号、行情和公告并生成研报，大约需要 10–60 秒…'); const r = await call(p); toast(r.warnings?.length ? `研报已生成（部分内容缺失：${r.warnings.join('；')}）` : '研报已生成，已保存到成果中心和资料库'); await openDoc(r.document?.id); }); return; }
-        if (actionId === 'researchNotices') { toast('正在获取公告…'); const r = await call({ action: 'notices', code: id, fresh: true }); if (quantOpen !== id) { await handle('quantOpen', id); } else render(); toast(`已获取 ${r.notices?.length || 0} 条公告`); return; }
+        if (actionId === 'researchNotices') { toast('正在获取公告…'); const r = await call({ action: 'notices', code: id, fresh: true }); if (page === 'research') { render(); toast(`已获取 ${r.notices?.length || 0} 条公告，重要公告可在详情里收藏到资料库`); return; } if (quantOpen !== id) { await handle('quantOpen', id); } else render(); toast(`已获取 ${r.notices?.length || 0} 条公告`); return; }
         if (actionId === 'researchNotice') { toast('正在读取公告…'); const r = await call({ action: 'notice', id }); render(); modal(r.title || '公告解读', R.noticeDetail(r)); return; }
         if (actionId === 'researchSaveNotice') { await call({ action: 'saveNotice', id }); render(); toast('已收入资料库'); return; }
         if (actionId === 'researchNote') { modal(`记笔记${id ? ' · ' + nameOf(id) : ''}`, R.noteForm(), '保存', async f => { await call(R.notePayload(f, id)); render(); toast('笔记已保存到资料库'); }); return; }
@@ -1536,6 +1541,13 @@ async function handle(actionId, id) {
     // [p2-m4] briefing
     if (actionId === 'briefingGenerate') { toast('正在生成简报…'); await update('briefingGenerate'); toast('简报已生成'); return; }
     if (actionId === 'briefingSettings') { modal('简报设置', briefingForm(state), '保存', async f => update('briefingSettings', briefingPayload(f))); return; }
+    if (actionId === 'rpOpen') { await navigate('research'); return; } // [v0.53] 投研资料
+    if (actionId === 'rpStock') { rpStock = id || ''; render(); return; }
+    if (actionId === 'rpKind') { rpKind = id || ''; render(); return; }
+    if (actionId === 'rpSearch') { rpQuery = ($('#rpQuery')?.value || '').trim(); render(); return; }
+    if (actionId === 'rpQuery') { rpQuery = ''; render(); return; }
+    if (actionId === 'datasetLabel') { toast('正在用日 K 线标注之后的涨跌…'); const out = await invoke('dataset', { action: 'label' }); if (out?.state) applyState(out.state); render(); toast(`已标注 ${out?.result?.labelled || 0} 条`); return; }
+    if (actionId === 'datasetExport') { const out = await invoke('dataset', { action: 'export', format: id === 'jsonl' ? 'jsonl' : 'csv', target: id === 'project' ? 'project' : '' }); if (out?.state) applyState(out.state); const r = out?.result || {}; if (!r.cancelled) toast(`已导出 ${r.count} 条 → ${r.file}`); return; }
     if (actionId === 'feedFilter') { feedFilter = id || 'important'; render(); return; }
     if (actionId === 'feedSeen') { await update('feed', { action: 'seen' }); toast('已全部标为已读'); return; }
     if (actionId === 'feedDismiss') { await update('feed', { action: 'dismiss', id }); return; }
