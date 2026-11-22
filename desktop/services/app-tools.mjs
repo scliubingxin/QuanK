@@ -79,6 +79,13 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_pf_holding_save', '手动录入或修改一笔持仓（没有在量化引擎里记录成交的股票），用于组合汇总和风控提醒；同一只股票以手动录入为准。会弹出确认框。', {query: {type: 'string', description: '公司名称或代码'}, shares: {type: 'integer'}, cost: {type: 'number'}, stopPrice: {type: 'number'}, note: {type: 'string'}}, ['query', 'shares', 'cost']),
     def('app_pf_holding_remove', '删除一笔手动录入的持仓（引擎里的成交记录不受影响）。会弹出确认框。', {query: {type: 'string', description: '公司名称或代码'}}, ['query']),
     def('app_pf_report', '生成组合风控报告（Word / PPT / 网页）：组合概况、行业分布、风控检查、风险指标、压力测试，Word 版附组合曲线与仓位图；保存到「成果中心」并在 QuanK 里打开。', {format: {type: 'string', enum: ['docx', 'pptx', 'html']}}),
+    // [v0.52] 半自动委托：信号转委托单，最后由用户在券商页面提交
+    def('app_trade_orders', '查看今天的委托单（买点 / 卖点 / 止损自动生成的，以及手动创建的）：方向、股票、股数、限价、金额、状态、未通过风控的原因，今日额度和模拟盘账户。只读。'),
+    def('app_trade_order_create', '手动创建一张委托单（经过单笔、每日、现金、仓位上限检查）。只生成待确认的委托单，不会下单。会弹出确认框。', {query: {type: 'string', description: '公司名称或代码'}, side: {type: 'string', enum: ['buy', 'sell']}, shares: {type: 'integer', description: '股数（可选，100 的整数倍）'}, price: {type: 'number', description: '限价（可选）'}, reason: {type: 'string'}}, ['query', 'side']),
+    def('app_trade_order_confirm', '对一张待确认的委托单下单：模拟盘直接按行情撮合；真实下单模式会在 QuanK 的券商窗口里填好代码、价格、数量并标出提交按钮，最后由用户自己点击提交（QuanK 不会替用户提交）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
+    def('app_trade_order_fill', '回填真实委托单的结果：submitted（用户已在券商提交）/ filled（全部成交）/ partial（部分成交）/ cancelled（已撤单）；成交会记入持仓。会弹出确认框。', {id: {type: 'string'}, status: {type: 'string', enum: ['submitted', 'filled', 'partial', 'cancelled']}, price: {type: 'number'}, shares: {type: 'integer'}}, ['id', 'status']),
+    def('app_trade_order_cancel', '撤销一张委托单（真实委托如果已在券商提交，还需要用户在券商那边撤单）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
+    def('app_trade_settings', '查看或修改半自动委托设置：paused（暂停）、baseAmount（每笔基准金额）、maxOrder、maxDaily、maxCount、slippage、maxDeviation、sellPct。不给参数时只读。切换模拟盘 / 真实下单只能在 QuanK 界面里操作。修改会弹出确认框。', {paused: {type: 'boolean'}, baseAmount: {type: 'number'}, maxOrder: {type: 'number'}, maxDaily: {type: 'number'}, maxCount: {type: 'integer'}, slippage: {type: 'number'}, maxDeviation: {type: 'number'}, sellPct: {type: 'number'}}),
     // [F5] 安全与合规：状态、操作审计、外发记录、合规审阅
     def('app_sec_status', '安全与合规状态：本机数据是否加密、应用锁、离线模式、发给模型前是否隐藏金额、最近一次加密备份、审计日志条数与校验结果、合规检查设置。只读。'),
     def('app_audit_list', '查看操作审计日志（谁在什么时间改了风控规则、持仓、成交、授权、导出、模型调用等，只记录操作与对象，不含金额和密钥）。可按类型或关键词筛选。只读。', {kind: {type: 'string', enum: ['data', 'trade', 'rules', 'approval', 'export', 'model', 'security', 'chat', 'system']}, q: {type: 'string'}, limit: {type: 'integer'}}),
@@ -109,7 +116,7 @@ export function appToolDefinitions({incognito = false} = {}) {
 const MARKET_NOTE = '行情来自公开行情接口，可能有延迟；仅供研究，不构成投资建议。'; // [F1]
 export const APP_TOOL_NAMES = new Set(appToolDefinitions().map(d => d.function.name));
 /** Requests that only make sense through app tools: offered even when the composer's 「允许使用工具」 is off (app tools only). */
-export const APP_INTENT = /合规|免责声明|审计日志|操作记录|外发记录|离线模式|能不能发|违规(用语|表述|词)|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|打开.{0,6}(页面|动态|创作|自动化|知识图谱|记忆|连接)|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/;
+export const APP_INTENT = /委托单|委托|下单|模拟盘|半自动|挂单|撤单|合规|免责声明|审计日志|操作记录|外发记录|离线模式|能不能发|违规(用语|表述|词)|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|打开.{0,6}(页面|动态|创作|自动化|知识图谱|记忆|连接)|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/;
 
 function f_isSelectInvalid(info, config) { // [ux9]
   return (info.fields || []).some(f => f.type === 'select' && config[f.name] !== undefined && !f.options.some(([v]) => v === config[f.name]));
@@ -117,7 +124,7 @@ function f_isSelectInvalid(info, config) { // [ux9]
 
 export function appToolContext(now = Date.now()) {
   const d = new Date(now);
-  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；检查文章或研报是否合规用 app_compliance_check，问操作记录用 app_audit_list，问数据发去了哪里用 app_egress_list，问安全设置用 app_sec_status；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
+  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；用户问委托单、要下单、撤单、回填成交时用 app_trade_*（每一笔都要用户确认；真实下单时 QuanK 只在券商页面填好，提交由用户亲自完成，绝不能说已经替用户下单）；检查文章或研报是否合规用 app_compliance_check，问操作记录用 app_audit_list，问数据发去了哪里用 app_egress_list，问安全设置用 app_sec_status；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
 }
 
 const taskView = t => ({id: t.id, name: t.name, schedule: describeSchedule(t.schedule), enabled: !!t.enabled, status: t.status || 'ready',
@@ -127,7 +134,7 @@ const taskView = t => ({id: t.id, name: t.name, schedule: describeSchedule(t.sch
  * deps (filled in by main as services are created): workspace, runTask, connectors, dashboards, briefing, openPage, notify.
  * ask(title, detail, signal) -> boolean (the gated approver).
  */
-const WRITE_TOOL = /_(create|update|delete|run|sync|add|remove|record|set|signin|test|watch|auto|save|digest|report|export|note_add|link_document|rules|holding_save|holding_remove)$/;
+const WRITE_TOOL = /_(create|update|delete|run|sync|add|remove|record|set|signin|test|watch|auto|save|digest|report|export|note_add|link_document|rules|holding_save|holding_remove|confirm|fill|cancel|settings)$/;
 /** [F5] Runs a tool, masks holding amounts for the model when configured, and records writes in the audit log. */
 export async function executeAppTool(name, args = {}, opts = {}) {
   const {deps = {}, chatId} = opts;
@@ -522,6 +529,45 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
         deps.openDocument?.(r.document.id); deps.notify?.();
         return {status: 'succeeded', document: r.document, summary: r.summary, sections: r.sections, opened: !!deps.openDocument};
       } catch (e) { if (e?.choices) return {status: 'needs_choice', candidates: e.choices, message: '有多只股票匹配，请让用户确认是哪一只'}; throw e; }
+    }
+    case 'app_trade_orders': case 'app_trade_order_create': case 'app_trade_order_confirm': case 'app_trade_order_fill': case 'app_trade_order_cancel': case 'app_trade_settings': { // [v0.52]
+      const T = need('trade');
+      const brief = o => ({id: o.id, side: o.side === 'buy' ? '买入' : '卖出', code: o.code, name: o.name, shares: o.shares, price: o.price, amount: o.amount, status: o.status, mode: o.mode === 'real' ? '真实' : '模拟', source: o.source, reason: o.reason || undefined, blocked: o.blockReason || undefined, notes: o.notes?.length ? o.notes : undefined, filled: o.filledShares ? `${o.filledShares} 股 @ ${o.filledPrice}` : undefined});
+      const findO = id => { const v = T.view(), o = [...v.orders, ...v.history].find(x => x.id === id); if (!o) throw new Error('没有这张委托单，请先用 app_trade_orders 查看'); return o; };
+      const line = o => `${o.side === 'buy' ? '买入' : '卖出'} ${o.name}（${o.code}）${o.shares} 股，限价 ${o.price}，约 ${Math.round(o.amount)} 元`;
+      if (name === 'app_trade_orders') { const v = T.view(); return {status: 'succeeded', mode: v.settings.mode === 'real' ? '真实下单' : '模拟盘', settings: v.text, usage: v.usage, orders: v.orders.map(brief), paper: v.settings.mode === 'paper' ? v.paper : undefined, broker: {name: v.broker.name, buyReady: v.broker.ready.buy, sellReady: v.broker.ready.sell, open: v.broker.open}, note: '委托单都需要用户确认；真实下单时最后的提交由用户在券商页面亲自完成。'}; }
+      if (name === 'app_trade_order_create') {
+        let code = String(args.query || '').trim();
+        if (!/^\d{6}$/.test(code)) { const r = await need('market').handle({action: 'resolve', query: code}); code = r?.code || ''; if (!/^\d{6}$/.test(code)) throw new Error(`没有找到「${clip(args.query, 20)}」`); }
+        if (!await confirm(`生成${args.side === 'sell' ? '卖出' : '买入'}委托单：${code}？`, `${args.shares ? args.shares + ' 股' : '股数按规则计算'}${args.price ? `，限价 ${args.price}` : '，限价按现价 ± 滑点'}\n只生成待确认的委托单，不会下单。`)) return denied;
+        const r = await T.handle({action: 'create', code, side: args.side, shares: args.shares, price: args.price, reason: args.reason}); deps.notify?.();
+        return {status: 'succeeded', order: brief(r.order)};
+      }
+      if (name === 'app_trade_order_confirm') {
+        const o = findO(String(args.id || '')), real = T.view().settings.mode === 'real';
+        if (!await confirm(real ? `在券商页面填好委托：${o.name}？` : `模拟下单：${o.name}？`, `${line(o)}\n${real ? 'QuanK 会打开券商网页版填好代码、价格和数量，最后的提交需要你自己点击。' : '按模拟盘行情撮合。'}`)) return denied;
+        const r = await T.handle({action: 'confirm', id: o.id}); deps.notify?.();
+        return {status: 'succeeded', order: brief(r.order), note: r.note};
+      }
+      if (name === 'app_trade_order_fill') {
+        const o = findO(String(args.id || ''));
+        const what = {submitted: '已在券商提交', filled: '全部成交', partial: '部分成交', cancelled: '已撤单'}[args.status];
+        if (!await confirm(`回填委托单：${o.name} ${what}？`, `${line(o)}${args.shares ? `\n成交 ${args.shares} 股${args.price ? ' @ ' + args.price : ''}` : ''}${['filled', 'partial'].includes(args.status) ? '\n成交会记入持仓。' : ''}`)) return denied;
+        const r = await T.handle({action: 'report', id: o.id, status: args.status, price: args.price, shares: args.shares}); deps.notify?.();
+        return {status: 'succeeded', order: brief(r.order), recorded: r.recorded || undefined};
+      }
+      if (name === 'app_trade_order_cancel') {
+        const o = findO(String(args.id || ''));
+        if (!await confirm(`撤销委托单：${o.name}？`, line(o))) return denied;
+        const r = await T.handle({action: 'cancel', id: o.id}); deps.notify?.();
+        return {status: 'succeeded', order: brief(r.order), note: r.note || undefined};
+      }
+      const keys = ['paused', 'baseAmount', 'maxOrder', 'maxDaily', 'maxCount', 'slippage', 'maxDeviation', 'sellPct'].filter(k => args[k] !== undefined && args[k] !== null);
+      if (!keys.length) { const v = T.view(); return {status: 'succeeded', settings: v.settings, text: v.text}; }
+      const change = Object.fromEntries(keys.map(k => [k, args[k]]));
+      if (!await confirm('修改半自动委托设置？', keys.map(k => `${k}: ${change[k]}`).join('\n'))) return denied;
+      const r = await T.handle({action: 'settings', settings: change}); deps.notify?.();
+      return {status: 'succeeded', text: r.text};
     }
     case 'app_sec_status': { // [F5]
       const v = await need('security').view();

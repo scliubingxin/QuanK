@@ -9,7 +9,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const VERSION = '0.51.0';
+const VERSION = '0.52.0';
 const DEFAULT_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'QuanK');
 
 // ---------- connection ----------
@@ -112,6 +112,11 @@ const HELP = `quank ${VERSION} — QuanK 命令行（需要 QuanK 正在运行�
         pf risk | pf stress [--market -10 | --stock 股票 --pct -20 | --industry 行业 --pct -15]
         pf sim "<股票 股数 [价格]>；…"    模拟调仓（只计算）
         pf report [--format docx|pptx|html]
+委托    order                       今天的委托单与额度
+        order buy|sell <股票> [--shares 股数 --price 限价]   生成待确认的委托单
+        order confirm <编号> | order cancel <编号>
+        order fill <编号> [--status filled|partial|submitted|cancelled --price 价 --shares 股]
+        order settings [--pause | --resume | --baseAmount 5000 …]   （每一步都要在 QuanK 里确认，提交由你在券商页面完成）
 投研    kb search <关键词> [--stock 股票]   kb finance <股票>   kb graph <股票>
         notices <股票> [--limit 20]
         report <股票> [--format docx|pptx|html] [--ai]
@@ -208,6 +213,15 @@ function plan(argv) {
     case 'sec': return T('app_sec_status');
     case 'audit': return T('app_audit_list', {...(flags.kind ? {kind: flags.kind} : {}), ...(flags.q ? {q: flags.q} : {}), limit: flags.limit ? num(flags.limit) : 30});
     case 'egress': return T('app_egress_list', flags.host ? {host: flags.host} : {});
+    case 'order': { // [v0.52] 半自动委托 — every write asks for confirmation inside QuanK
+      if (!sub || sub === 'ls') return T('app_trade_orders');
+      if (sub === 'buy' || sub === 'sell') return T('app_trade_order_create', {query: need(words(rest), '股票'), side: sub, ...(flags.shares ? {shares: num(flags.shares)} : {}), ...(flags.price ? {price: num(flags.price)} : {}), ...(flags.reason ? {reason: String(flags.reason)} : {})});
+      if (sub === 'confirm') return T('app_trade_order_confirm', {id: need(rest[0], '委托单编号')});
+      if (sub === 'cancel') return T('app_trade_order_cancel', {id: need(rest[0], '委托单编号')});
+      if (sub === 'fill') return T('app_trade_order_fill', {id: need(rest[0], '委托单编号'), status: flags.status || 'filled', ...(flags.price ? {price: num(flags.price)} : {}), ...(flags.shares ? {shares: num(flags.shares)} : {})});
+      if (sub === 'settings') { const a = {}; if (flags.pause) a.paused = true; if (flags.resume) a.paused = false; for (const k of ['baseAmount', 'maxOrder', 'maxDaily', 'maxCount', 'slippage', 'maxDeviation', 'sellPct']) if (flags[k] !== undefined) a[k] = num(flags[k]); return T('app_trade_settings', a); }
+      throw new Error('用法：quank order [ls | buy <股票> | sell <股票> | confirm <编号> | fill <编号> --status filled|partial|submitted|cancelled | cancel <编号> | settings]');
+    }
     case 'briefing': return T('app_briefing_generate');
   }
   throw new Error(`不认识的命令：${[cmd, sub].filter(Boolean).join(' ')}。用 quank --help 查看用法`);

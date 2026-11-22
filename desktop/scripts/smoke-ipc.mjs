@@ -19,7 +19,7 @@ const within = (p, ms, what) => { let t; return Promise.race([p, new Promise((_,
 const BAD = /缺少此功能接口|不支持这个功能（缺少|拒绝不可信页面|No handler registered|is not a function/;
 
 // read-only calls: [channel, payload, needsNetwork]
-const CALLS = [['state', undefined, false], ['security', {action: 'view'}, false], ['security', {action: 'secrets'}, false], ['security', {action: 'egressList'}, false],
+const CALLS = [['state', undefined, false], ['security', {action: 'view'}, false], ['trade', {action: 'view'}, false], ['security', {action: 'secrets'}, false], ['security', {action: 'egressList'}, false],
   ['security', {action: 'auditList', limit: 5}, false], ['security', {action: 'auditVerify'}, false], ['security', {action: 'review', text: '仅供研究，不构成投资建议。', kind: 'text', record: false}, false],
   ['portfolio', {action: 'view'}, false], ['portfolio', {action: 'overview'}, true], ['knowledge', {action: 'view'}, false], ['knowledge', {action: 'finance', code: '600438'}, true],
   ['research', {action: 'view'}, false], ['research', {action: 'library'}, false], ['market', {action: 'quotes', codes: ['600438']}, true]];
@@ -94,8 +94,9 @@ try {
     }
     else await c.evaluate(`(document.querySelector('[data-page="${p}"]') || {click(){}}).click(), true`);
     await sleep(p === 'quant' ? 6000 : 2500);
-    const info = await c.evaluate(`(() => { const t = document.body.innerText; const errs = [...document.querySelectorAll('.task-error')].map(e => e.textContent.trim()).filter(Boolean); return {title: document.querySelector('.plaza-hero h1, h1')?.textContent?.trim() || '', errors: errs.slice(0, 8), bad: /缺少此功能接口|不支持这个功能（缺少|拒绝不可信页面/.test(t), boxes: ['#securityBox', '#portfolioBox', '#knowledgeBox'].filter(s => document.querySelector(s))}; })()`);
+    const info = await c.evaluate(`(() => { const t = document.body.innerText; const errs = [...document.querySelectorAll('.task-error')].map(e => e.textContent.trim()).filter(Boolean); return {title: document.querySelector('.plaza-hero h1, h1')?.textContent?.trim() || '', errors: errs.slice(0, 8), bad: /缺少此功能接口|不支持这个功能（缺少|拒绝不可信页面/.test(t), boxes: ['#securityBox', '#portfolioBox', '#tradeBox', '#knowledgeBox'].filter(s => document.querySelector(s))}; })()`);
     if (p === 'quant' && !info.boxes.includes('#portfolioBox')) report.problems.push('量化页没有出现「组合与风控」（从工作台没有打开量化页）');
+    if (p === 'quant' && !info.boxes.includes('#tradeBox')) report.problems.push('量化页没有出现「半自动委托」');
     const shot = await c.send('Page.captureScreenshot', {format: 'png'});
     const file = path.join(out, `smoke-${p}.png`); await writeFile(file, Buffer.from(shot.data, 'base64'));
     report.pages.push({page: p, ...info, screenshot: file});
