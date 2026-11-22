@@ -1506,7 +1506,8 @@ async function handle(actionId, id) {
         return;
     }
     // [ux6] automation page
-    if (actionId === 'taskTab') { taskTab = id === 'runs' ? 'runs' : 'tasks'; render(); return; }
+    if (actionId === 'taskTab') { taskTab = ['runs', 'trade'].includes(id) ? id : 'tasks'; render(); return; }
+    if (actionId === 'tradeHome') { taskTab = 'trade'; await navigate('tasks'); return; } // [v0.52.2]
     if (actionId === 'taskFilter') { taskFilter = ['active', 'paused'].includes(id) ? id : 'all'; render(); return; }
     if (actionId === 'taskRuns') { taskTab = 'runs'; runTaskFilter = id || 'all'; runStatus = 'all'; runTrigger = 'all'; render(); return; }
     if (actionId === 'taskEditorToggle') { $('#modal')?.close(); return handle('toggleTask', id); }
@@ -1679,7 +1680,7 @@ async function boot() {
     }
 }
 let runtimeTimer;
-api?.onOpenPage?.(p => { if (p?.page === 'library' && p.document) { navigate('library'); Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { marketStockCode = p.code ? String(p.code) : ''; navigate('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code)).catch(e => toast(e.message)); else { quantOpen = ''; navigate('quant'); } return; } if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context'].includes(p?.page)) navigate(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
+api?.onOpenPage?.(p => { if (p?.page === 'library' && p.document) { navigate('library'); Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { marketStockCode = p.code ? String(p.code) : ''; navigate('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code)).catch(e => toast(e.message)); else { quantOpen = ''; navigate('quant'); } return; } if (p?.page === 'tasks' && p.tab) { taskTab = p.tab === 'trade' ? 'trade' : 'tasks'; navigate('tasks'); return; } /* [v0.52.2] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context'].includes(p?.page)) navigate(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
 api?.onOpenChat?.(p => { if (p?.id && state.chats.some(c => c.id === p.id)) handle('openChat', p.id).catch(e => toast(e.message)); });
 api?.onRuntime?.(() => {
     clearTimeout(runtimeTimer);

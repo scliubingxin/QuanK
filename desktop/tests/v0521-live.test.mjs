@@ -124,3 +124,20 @@ test('feed: only buy / sell points, order drafts, stop-loss and own price alerts
   assert.match(app, /feedFilter = 'important'/);
   assert.match(app, /filter\(a => a\?\.title === '行情提醒'\)/, 'automatic market moves no longer pop up');
 });
+
+test('[v0.52.2] 半自动委托 tab under 自动化; negative engine cash and drawdown sign', async () => {
+  const {automationPage} = await import('../src/ui/automation.js');
+  const {tradeUI} = await import('../src/ui/trade.js'); void tradeUI;
+  const action = (l, a, id = '') => `<button data-action="${a}" data-id="${id}">${l}</button>`;
+  const st = {tasks: [], chats: [], trade: {settings: {mode: 'paper'}, usage: {}, paper: {}, broker: {}, orders: [], history: [], text: '模拟盘'}};
+  const tabs = automationPage(st, {action, empty: () => '', tab: 'tasks'});
+  assert.match(tabs, /data-action="taskTab" data-id="trade">半自动委托/);
+  assert.match(automationPage(st, {action, empty: () => '', tab: 'trade'}), /id="tradeBox"/);
+  assert.doesNotMatch(automationPage({tasks: [], chats: []}, {action, empty: () => '', tab: 'tasks'}), /半自动委托/);
+  const read = f => readFile(new URL(f, import.meta.url), 'utf8');
+  const [q, app, main] = await Promise.all(['../src/ui/quant.js', '../src/app.js', '../main.mjs'].map(read));
+  assert.match(q, /h\.cash < 0 \? '—' \+ `<em>已投入超出引擎预算/);
+  assert.match(q, /pct\(-Math\.abs\(bt\.maxDrawdown\)\)/);
+  assert.match(app, /actionId === 'tradeHome'\) \{ taskTab = 'trade'; await navigate\('tasks'\)/);
+  assert.match(main, /page: 'tasks', tab: 'trade'/);
+});

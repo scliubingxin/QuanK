@@ -284,7 +284,7 @@ test('UI, feed, audit and wiring', async () => {
   assert.match(tradeUI.fillForm(order, [{row: '600438 买入 11.14 600 部分成交 300', status: 'partial', price: 11.14, shares: 300}]), /value="300"/);
   assert.match(tradeUI.brokerPanel({id: 'cmschina', url: T.BROKER_PRESETS[0].url, ready: {buy: true, sell: false}}, T.BROKER_PRESETS), /招商证券（网页版）[\s\S]*标注卖出页面/);
   const feed = buildFeed({activity: [{id: 'x', title: '委托单', detail: '买入 通威股份（600438）600 股 @ 11.14，约 6684 元，待你确认', time: 1}]});
-  const it = feed.find(i => i.id === 'log:x'); assert.equal(it.needsAction, true); assert.deepEqual(it.actions, [{label: '查看委托单', action: 'quantHome', id: ''}]);
+  const it = feed.find(i => i.id === 'log:x'); assert.equal(it.needsAction, true); assert.deepEqual(it.actions, [{label: '查看委托单', action: 'tradeHome', id: ''}]); // [v0.52.2] under 自动化
   assert.equal(auditOf('trade', {action: 'view'}), null); assert.equal(auditOf('trade', {action: 'readBack'}), null);
   assert.equal(auditOf('trade', {action: 'confirm', id: 'od-1'}).kind, 'trade'); assert.equal(auditOf('trade', {action: 'settings'}).kind, 'rules'); assert.equal(auditOf('trade', {action: 'calibrate'}).kind, 'security');
   const read = f => readFile(new URL(f, import.meta.url), 'utf8');
@@ -294,7 +294,7 @@ test('UI, feed, audit and wiring', async () => {
   assert.match(preload, /'security','trade'\]/);
   for (const a of ['tdConfirm', 'tdCancel', 'tdReport', 'tdFill', 'tdRead', 'tdCreate', 'tdPause', 'tdSettings', 'tdBroker', 'tdBrokerOpen', 'tdCalibrate', 'tdBrokerLogout']) assert.ok(app.includes(`'${a}'`), a);
   assert.match(app, /confirmReal: true/);
-  assert.match(quant, /tradeBox\(state\.trade, \{action\}\)/);
+  assert.doesNotMatch(quant, /tradeBox\(/, '[v0.52.2] moved off the quant page');
   assert.match(broker, /partition: 'qk-broker'/); assert.ok(!/persist:/.test(broker), 'the broker login is never persisted');
   assert.ok(!/sendInputEvent|\.click\(/.test(broker), 'the broker window code never clicks');
 });

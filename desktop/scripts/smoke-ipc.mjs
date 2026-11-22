@@ -96,7 +96,6 @@ try {
     await sleep(p === 'quant' ? 6000 : 2500);
     const info = await c.evaluate(`(() => { const t = document.body.innerText; const errs = [...document.querySelectorAll('.task-error')].map(e => e.textContent.trim()).filter(Boolean); return {title: document.querySelector('.plaza-hero h1, h1')?.textContent?.trim() || '', errors: errs.slice(0, 8), bad: /缺少此功能接口|不支持这个功能（缺少|拒绝不可信页面/.test(t), boxes: ['#securityBox', '#portfolioBox', '#tradeBox', '#knowledgeBox'].filter(s => document.querySelector(s))}; })()`);
     if (p === 'quant' && !info.boxes.includes('#portfolioBox')) report.problems.push('量化页没有出现「组合与风控」（从工作台没有打开量化页）');
-    if (p === 'quant' && !info.boxes.includes('#tradeBox')) report.problems.push('量化页没有出现「半自动委托」');
     const shot = await c.send('Page.captureScreenshot', {format: 'png'});
     const file = path.join(out, `smoke-${p}.png`); await writeFile(file, Buffer.from(shot.data, 'base64'));
     report.pages.push({page: p, ...info, screenshot: file});

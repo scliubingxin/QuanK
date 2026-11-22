@@ -8,7 +8,6 @@ import { klineBox, opsMarks } from './market.js'; // [F1]
 import { researchBox, researchLibraryBox } from './research.js'; // [F2]
 import { knowledgeBox, knowledgeLibraryBox } from './knowledge.js'; // [F3]
 import { portfolioBox } from './portfolio.js'; // [F4]
-import { tradeBox } from './trade.js'; // [v0.52]
 
 const STATUS = {stopped: ['已停止', ''], starting: ['启动中', 't-blue'], running: ['运行中', 't-green'], error: ['出错', 't-red']};
 const f = (v, d = 2) => v === null || v === undefined || Number.isNaN(v) ? '—' : Number(v).toFixed(d).replace(/\.00$/, '');
@@ -45,7 +44,7 @@ export function quantPage(state, {action, heading, empty, date, open = '', detai
   const head = heading('', '让策略在本机运行，信号一眼看清。', '档位、综合分与倍率来自你自己的私有策略，在本机计算；也可以直接在对话里问「600519 现在什么信号」「池子里谁是买点」。', action('＋ 添加股票', 'quantAdd', '', 'primary') + action('全部刷新', 'quantRefreshAll'), stats);
   const grid = pool.length ? `<div class="plaza-grid q-pool-grid">${pool.map(s => stockCard(s, {action, date, holding: q.holdings?.[s.code], logo: q.logos?.[s.code], live: state.market?.quotes?.[s.code]})).join('')}</div>`
     : q.status === 'running' ? empty('股票池是空的', '点「添加股票」输入 6 位代码。') : '<p class="empty-note">启动引擎后显示股票池。</p>';
-  return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${portfolioBox(state.portfolio, {action})}${state.trade ? tradeBox(state.trade, {action}) : ''}${researchLibraryBox(state.research, {action, date})}${knowledgeLibraryBox(state.knowledge, {action, date})}${reportsBox(q, {action, date})}${alertsBox(q, {action, date})}</div>`;
+  return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${portfolioBox(state.portfolio, {action})}${researchLibraryBox(state.research, {action, date})}${knowledgeLibraryBox(state.knowledge, {action, date})}${reportsBox(q, {action, date})}${alertsBox(q, {action, date})}</div>`;
 }
 
 function quantDetail(q, code, d, {action, date, research = null}) {
@@ -64,7 +63,7 @@ function quantDetail(q, code, d, {action, date, research = null}) {
 <div class="q-hero q-${tone}"><div><span class="q-action q-${tone}">${escape(actionLabel(s.action, s.actionText))}</span><p>${escape(s.detail)}</p></div>
 <div class="q-kpis">${kpi('综合分', f(s.score, 1) + (s.scoreRaw != null && s.scoreRaw !== s.score ? `<em>调整前 ${f(s.scoreRaw, 1)}</em>` : ''))}${kpi('倍率', s.multiplier == null ? '—' : f(s.multiplier, 1) + '×')}${kpi('现价', `<span data-live-price="${escape(code)}">${f(s.price)}</span>`, up)}${kpi('涨跌', `<span data-live-pct="${escape(code)}">${pct(s.changePct)}</span>`, up)}${kpi('模型概率', s.probPct == null ? '—' : f(s.probPct, 1) + '%')}</div></div>
 ${s.advice ? `<p class="q-sizing">${escape(s.advice)}</p>` : ''}${holdingDetail(d.holding, code, q, {action})}
-<div class="q-kpis q-bt">${kpi('策略收益', pct(bt.smartPct))}${kpi('基准收益', pct(bt.blindPct))}${kpi('超额', pct(bt.excess))}${kpi('胜率', bt.winRate == null ? '—' : f(bt.winRate, 0) + '%')}${kpi('交易次数', f(bt.trades, 0))}${kpi('最大回撤', pct(bt.maxDrawdown))}</div>
+<div class="q-kpis q-bt">${kpi('策略收益', pct(bt.smartPct))}${kpi('基准收益', pct(bt.blindPct))}${kpi('超额', pct(bt.excess))}${kpi('胜率', bt.winRate == null ? '—' : f(bt.winRate, 0) + '%')}${kpi('交易次数', f(bt.trades, 0))}${kpi('最大回撤', bt.maxDrawdown == null ? '—' : pct(-Math.abs(bt.maxDrawdown)))}</div>
 ${klineBox(code, {marks: opsMarks(d.charts?.ops)})}${returnBox(d.charts, bt, s.plan ? `定投频率：${s.plan}` : '')}${knowledgeBox(code)}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
 <div class="q-grid2">${list('信号理由', s.reasons)}${list('约束与风控', s.gates, 'q-gates')}</div>${factors}${inds}${ops}
 ${researchBox(code, research, {action, date})}
@@ -189,7 +188,7 @@ function holdingDetail(h, code, q, {action}) {
   const btns = q?.features?.record ? action('记录买入', 'quantTrade', `${code}:buy`, 'primary') + action('记录卖出', 'quantTrade', `${code}:sell`) : '';
   const log = h.log?.length ? `<div class="table-scroll"><table class="q-table"><thead><tr><th>日期</th><th>方向</th><th>价格</th><th>股数</th><th>金额</th><th>备注</th></tr></thead><tbody>${h.log.map(e => `<tr><td>${escape(e.date)} <small>${escape(e.time)}</small></td><td class="${e.side === 'buy' ? 'up' : 'down'}">${e.side === 'buy' ? '买入' : '卖出'}</td><td>${f(e.price)}</td><td>${n0(e.shares)}</td><td>${money(e.amount)}</td><td>${escape(e.note)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="empty-note">还没有记录过成交。</p>';
   return `<section class="q-box q-holding"><div class="plaza-section-head"><h2>我的持仓</h2><small>${h.budget != null ? `单次计划 ${n0(h.budget)} 股 · ` : ''}已记录 ${n0(h.trades)} 笔成交</small><span class="q-head-tools">${btns}</span></div>
-<div class="q-kpis q-hold-kpis">${kpi('持仓股数', n0(h.shares))}${kpi('成本价', f(h.cost))}${kpi('市值', moneyShort(h.value))}${kpi('浮动盈亏', moneyShort(h.pnl, true) + (h.pnlPct != null ? `<em>${pct(h.pnlPct)}</em>` : ''), tone(h.pnl))}${kpi('可用资金', moneyShort(h.cash))}</div>${log}</section>`;
+<div class="q-kpis q-hold-kpis">${kpi('持仓股数', n0(h.shares))}${kpi('成本价', f(h.cost))}${kpi('市值', moneyShort(h.value))}${kpi('浮动盈亏', moneyShort(h.pnl, true) + (h.pnlPct != null ? `<em>${pct(h.pnlPct)}</em>` : ''), tone(h.pnl))}${kpi('可用资金', h.cash == null ? '—' : h.cash < 0 ? '—' + `<em>已投入超出引擎预算 ${moneyShort(-h.cash)}</em>` : moneyShort(h.cash))}</div>${log}</section>`;
 }
 export function quantTradeForm(q, {code = '', side = 'buy', price = null, today = ''} = {}) {
   const lot = q?.features?.lot || 1;
