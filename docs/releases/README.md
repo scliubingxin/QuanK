@@ -4,6 +4,7 @@ QuanK 每个正式版本的打包与发布过程记录（同步清单、asar 检
 
 | 版本 | 日期 | 内容 | 合并提交 | 发布记录提交 | DMG 字节 | DMG sha256 | ZIP sha256 | 记录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| [v0.52.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.52.0) | 2026-11-23 | 半自动委托 | `6b2aa80` | `本次` | 457,431,093 | `670a5f70faa3…` | `4cb3f8691dc4…` | [v0.52.0.md](v0.52.0.md) |
 | [v0.51.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.51.0) | 2026-11-22 | quank 命令行 | `61845a7` | `本次` | 457,456,038 | `a538dca8fa37…` | `20eda134889d…` | [v0.51.0.md](v0.51.0.md) |
 | [v0.50.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.50.0) | 2026-11-21 | F5 合规安全 | `2f7d9c5` | `本次` | 457,511,913 | `5865671c9bb2…` | `00bfd5e9829b…` | [v0.50.0.md](v0.50.0.md) |
 | [v0.49.1](https://github.com/scliubingxin/QuanK/releases/tag/v0.49.1) | 2026-11-21 | 修复投研与组合功能无法使用 | `fe3a644` | `本次` | 457,594,205 | `1e479b30d1fb…` | `e196668fc78a…` | [v0.49.1.md](v0.49.1.md) |
