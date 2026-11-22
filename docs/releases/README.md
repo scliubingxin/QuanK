@@ -4,6 +4,7 @@ QuanK 每个正式版本的打包与发布过程记录（同步清单、asar 检
 
 | 版本 | 日期 | 内容 | 合并提交 | 发布记录提交 | DMG 字节 | DMG sha256 | ZIP sha256 | 记录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| [v0.52.2](https://github.com/scliubingxin/QuanK/releases/tag/v0.52.2) | 2026-11-22 | 界面修正 | `55c7da9` | `本次` | 457,441,705 | `abb880effb682…` | `303841db2fff…` | [v0.52.2.md](v0.52.2.md) |
 | [v0.52.1](https://github.com/scliubingxin/QuanK/releases/tag/v0.52.1) | 2026-11-22 | 行情每秒刷新与回测口径修复 | `d6107f1` | `本次` | 457,430,781 | `da3f861e9e62…` | `305b17ce1fdf…` | [v0.52.1.md](v0.52.1.md) |
 | [v0.52.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.52.0) | 2026-11-23 | 半自动委托 | `6b2aa80` | `本次` | 457,431,093 | `670a5f70faa3…` | `4cb3f8691dc4…` | [v0.52.0.md](v0.52.0.md) |
 | [v0.51.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.51.0) | 2026-11-22 | quank 命令行 | `61845a7` | `本次` | 457,456,038 | `a538dca8fa37…` | `20eda134889d…` | [v0.51.0.md](v0.51.0.md) |
