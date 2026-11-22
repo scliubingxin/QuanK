@@ -16,11 +16,11 @@ function dayLabel(day, now = Date.now()) {
   return day === today ? '今天' : day === today - 864e5 ? '昨天' : `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
-export function feedPage(state, {action, date, heading, empty, filter = 'all', now = Date.now()}) {
+export function feedPage(state, {action, date, heading, empty, filter = 'important', now = Date.now()}) {
   const all = visibleFeed(state, 'all'), items = filter === 'all' ? all : visibleFeed(state, filter);
   const count = f => f === 'all' ? all.length : visibleFeed(state, f).length;
   const unread = count('unread'), needs = count('action'), today = all.filter(x => dayOf(x.time) === dayOf(now)).length;
-  const tabs = `<div class="feed-filters" role="tablist">${FEED_FILTERS.map(([id, label]) => `<button type="button" role="tab" aria-selected="${id === filter}" class="${id === filter ? 'chosen' : ''}" data-action="feedFilter" data-id="${id}">${label}${['unread', 'action'].includes(id) && count(id) ? ` <small>${count(id)}</small>` : ''}</button>`).join('')}</div>`;
+  const tabs = `<div class="feed-filters" role="tablist">${FEED_FILTERS.map(([id, label]) => `<button type="button" role="tab" aria-selected="${id === filter}" class="${id === filter ? 'chosen' : ''}" data-action="feedFilter" data-id="${id}">${label}${['important', 'unread', 'action'].includes(id) && count(id) ? ` <small>${count(id)}</small>` : ''}</button>`).join('')}</div>`;
   const row = x => {
     const [ch, a, b, label] = KIND[x.kind] || KIND.log;
     return `<div class="feed-row fk-${escape(x.kind)} fs-${escape(x.status)}${x.unread ? ' unread' : ''}" data-feed="${escape(x.id)}">${feedAvatar(x.kind)}<div class="feed-body"><b>${escape(x.title)}</b>${x.detail ? `<small>${escape(plainDetail(x.detail))}</small>` : ''}<span class="meta"><em class="fd-kind">${label}</em>${escape(date(x.time))}</span></div><div class="actions">${x.actions.map(a => action(escape(a.label), a.action, a.id, a.kind || 'secondary')).join('')}${x.kind !== 'log' && x.kind !== 'approval' ? action('移除', 'feedDismiss', x.id) : ''}</div></div>`;
@@ -33,9 +33,9 @@ export function feedPage(state, {action, date, heading, empty, filter = 'all', n
   }
   const hidden = feedState(state).dismissed.length;
   const tools = action('全部标为已读', 'feedSeen') + (hidden ? action(`恢复已移除（${hidden}）`, 'feedRestore') : '') + action('刷新', 'refresh');
-  const desc = `定时任务、待你确认的操作、研究报告、量化信号和后台对话都汇总在这里。${needs ? `当前有 ${needs} 项需要处理。` : unread ? `有 ${unread} 条新动态。` : ''}`;
+  const desc = `默认只显示需要你关注的：待确认的授权、自动化任务、量化买卖点、委托单、止损和你设的价格提醒；对话完成、研究结果、连接更新等在「全部」里，不计入未读。${needs ? `当前有 ${needs} 项需要处理。` : unread ? `有 ${unread} 条新动态。` : ''}`;
   const stat = (n, l, cls = '') => `<div class="fd-stat ${cls}"><b>${n}</b><small>${l}</small></div>`;
   const hero = `<section class="fd-hero"><div class="fd-hero-text"><span class="qk-pill">动态 · 每一步都有迹可循</span><h1>每一步，都有迹可循。</h1><p class="subtitle">${desc}</p><div class="fd-tools">${tools}</div></div><div class="fd-stats">${stat(needs, '项待处理', needs ? 'warn' : '')}${stat(unread, '条未读')}${stat(today, '今日动态')}</div></section>`;
-  const list = rows || empty(filter === 'all' ? '工作空间已准备好' : '这里暂时没有内容', filter === 'all' ? '运行一个定时任务、做一次深度研究，结果会出现在这里。' : '换一个筛选看看。');
+  const list = rows || (filter === 'important' && all.length ? empty('暂时没有需要你处理的事', '对话完成、研究结果等其他动态在「全部」里。') : empty(filter === 'all' || filter === 'important' ? '工作空间已准备好' : '这里暂时没有内容', filter === 'all' || filter === 'important' ? '运行一个定时任务、做一次深度研究，结果会出现在这里。' : '换一个筛选看看。'));
   return `<div class="page feed-page">${hero}<!--briefing--><section class="qk-card fd-card"><div class="qk-card-head"><h2>全部动态<small>${all.length} 条</small></h2></div>${tabs}<div class="feed-list">${list}</div></section></div>`;
 }

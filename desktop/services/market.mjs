@@ -59,6 +59,19 @@ export function parseTrends(json) {
 }
 // ---------- [v47.1] Tencent public quote host: fallback when Eastmoney's history host (push2his) refuses this machine ----------
 const TX = 'https://web.ifzq.gtimg.cn/appstock/app/', TXM = 'https://ifzq.gtimg.cn/appstock/app/';
+// [v0.52.1] Tencent real-time quotes (qt.gtimg.cn, GBK text): `v_sh600438="1~通威股份~600438~11.11~11.39~…";`. Fields: 1 name,
+// 2 code, 3 price, 4 previous close, 5 open, 6 volume (lots), 31 change, 32 pct, 33 high, 34 low, 35 "price/volume/amount(元)", 38 turnover.
+export const txOfSecid = id => { const [mk, c] = String(id).split('.'); return (/^(4|8|92)/.test(c) && !/^1\.000/.test(id) ? 'bj' : mk === '1' ? 'sh' : 'sz') + c; };
+export function parseTxLine(line) {
+  const m = /v_(sh|sz|bj)(\d{6})="([^"]*)"/.exec(String(line || ''));
+  if (!m || !m[3]) return null;
+  const f = m[3].split('~');
+  if (f.length < 35 || !(Number(f[3]) > 0)) return null;
+  const amt = String(f[35] || '').split('/')[2];
+  return {code: m[2], market: m[1] === 'sh' ? 1 : 0, sym: m[1] + m[2], name: clip(f[1], 30), price: val(f[3]), pct: val(f[32]), change: val(f[31]), volume: val(f[6]), amount: val(amt) ?? (val(f[37]) === null ? null : val(f[37]) * 1e4),
+    turnover: val(f[38]), high: val(f[33]), low: val(f[34]), open: val(f[5]), preClose: val(f[4]), up: null, down: null, flat: null, time: /^\d{14}$/.test(f[30] || '') ? f[30] : '', source: 'tencent'};
+}
+export const parseTxQuotes = text => String(text || '').split(';').map(parseTxLine).filter(Boolean);
 export const txSymbol = code => (/^(4|8|92)/.test(String(code)) ? 'bj' : /^(5|6|9)/.test(String(code)) ? 'sh' : 'sz') + String(code);
 /** Tencent "qt" array -> the parseQuote shape. 3 price 4 preClose 5 open 6 volume 31 change 32 pct 33 high 34 low 37 amount(万) 38 turnover. */
 export function parseTxQuote(a) {
@@ -110,7 +123,7 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
     m.alerts ??= []; m.quotes ??= {}; m.fired ??= {}; m.settings ??= {moves: true, movePct: 5, limits: true};
     return m;
   };
-  let overview = null, lastTick = 0, tickBusy = false, wantedAt = 0, ovBusy = false;
+  let overview = null, lastTick = 0, tickBusy = false, wantedAt = 0, ovBusy = false, ulistDownUntil = 0;
   async function getJson(url, ttl) {
     const hit = cache.get(url);
     if (hit && now() - hit.at < ttl) return hit.data;
@@ -137,9 +150,31 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
   }
   /** Several securities at once (ulist.np). When that endpoint is throttled (empty reply / 502), fall back to one
    *  stock/get per security (served by the delayed-quote host via redirect), at most 4 in flight. */
+  async function txQuotes(ids, ttl) {
+    const url = `https://qt.gtimg.cn/q=${ids.map(txOfSecid).join(',')}`, hit = cache.get(url);
+    if (hit && now() - hit.at < ttl) return hit.data;
+    if (inflight.has(url)) return inflight.get(url);
+    const p = (async () => {
+      const r = await fetcher(url, {headers: {'user-agent': UA['user-agent'], referer: 'https://gu.qq.com/'}, signal: AbortSignal.timeout(Math.min(timeoutMs, 6000))});
+      if (!r.ok) throw new Error(`行情服务暂时不可用（HTTP ${r.status}）`);
+      const buf = new Uint8Array(await r.arrayBuffer());
+      let text; try { text = new TextDecoder('gbk').decode(buf); } catch { text = new TextDecoder().decode(buf); }
+      const list = parseTxQuotes(text);
+      if (!list.length) throw new Error('行情服务没有返回数据');
+      cache.set(url, {at: now(), data: list});
+      if (cache.size > 300) cache.delete(cache.keys().next().value);
+      return list;
+    })().finally(() => inflight.delete(url));
+    inflight.set(url, p);
+    return p;
+  }
+  const order = (ids, list) => ids.map(id => list.find(q => q.sym ? q.sym === txOfSecid(id) : `${q.market}.${q.code}` === id)).filter(Boolean);
   async function multi(ids, fields, ttl) {
-    try { return listOf(await getJson(`${H}ulist.np/get?fltt=2&invt=2&fields=${fields}&secids=${ids.join(',')}`, ttl)).map(parseQuote); }
+    // [v0.52.1] ulist.np can be refused (502) or answer '-' for every field; then Tencent (one request), then stock/get per security
+    try { if (now() < ulistDownUntil) throw new Error('东方财富行情暂时不可用'); const list = listOf(await getJson(`${H}ulist.np/get?fltt=2&invt=2&fields=${fields}&secids=${ids.join(',')}`, ttl)).map(parseQuote); if (list.some(q => q.price !== null)) return list; throw new Error('行情服务没有返回价格'); }
     catch (e) {
+      if (now() >= ulistDownUntil) ulistDownUntil = now() + 60e3; // skip the refusing host for a minute
+      try { const t = order(ids, await txQuotes(ids, ttl)); if (t.length) return t; } catch {}
       const out = [], queue = [...ids];
       await Promise.all(Array.from({length: Math.min(4, queue.length)}, async () => {
         while (queue.length) {
@@ -324,10 +359,29 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
     }
     return hits;
   }
+  /** [v0.52.1] Live quotes for the visible page (indices + the codes shown), Tencent first with a 0.8 s cache, refreshed
+   *  every second by the renderer while trading. Updates the overview tiles and the watch quotes, and checks price alerts. */
+  async function live(codes = []) {
+    const s = session(now()), want = [...new Set(codes.map(String).filter(c => /^\d{6}$/.test(c)))].slice(0, 60).map(c => { try { return secid(c); } catch { return null; } }).filter(Boolean);
+    const ids = [...INDICES.map(i => i[0]), ...want], ttl = s === 'open' || s === 'pre' ? 800 : 60e3;
+    let list = [];
+    try { list = order(ids, await txQuotes(ids, ttl)); } catch { try { list = await multi(ids, 'f12,f13,f14,f2,f3,f4,f5,f6,f8,f15,f16,f17,f18', Math.max(ttl, 3000)); } catch {} }
+    const idx = INDICES.map(([id]) => list.find(q => `${q.market}.${q.code}` === id)).filter(Boolean).map(q => ({secid: `${q.market}.${q.code}`, price: q.price, pct: q.pct, change: q.change, amount: q.amount}));
+    if (overview && idx.length) overview = {...overview, indices: overview.indices.map(x => { const n = idx.find(y => y.secid === x.secid); return n ? {...x, ...n} : x; }), liveAt: now()};
+    const m = st(), out = {};
+    for (const q of list) {
+      if (q.sym ? INDICES.some(i => txOfSecid(i[0]) === q.sym) : INDICES.some(i => i[0] === `${q.market}.${q.code}`)) continue;
+      if (q.price === null) continue;
+      out[q.code] = {price: q.price, pct: q.pct, change: q.change, high: q.high, low: q.low, name: q.name};
+      if (m.quotes[q.code] || (store.data.quant?.pool || []).some(p => p.code === q.code)) m.quotes[q.code] = {...out[q.code], at: now()};
+      if (s === 'open') check(q);
+    }
+    return {at: now(), session: s, indices: idx, quotes: out};
+  }
   async function refreshWatch({force = false} = {}) {
     const m = st(), codes = [...new Set([...(store.data.quant?.pool || []).map(p => p.code), ...m.alerts.map(a => a.code)])].filter(c => /^\d{6}$/.test(c));
     if (!codes.length) return {quotes: 0, hits: 0};
-    const list = await quotes(codes, force ? 0 : 8e3);
+    const list = await quotes(codes, force ? 0 : 2500);
     let hits = 0;
     for (const q of list) {
       if (q.price === null) continue;
@@ -348,7 +402,7 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
         ovBusy = true;
         getOverview().then(() => notify()).catch(() => {}).finally(() => { ovBusy = false; });
       }
-      if ((s !== 'open' && s !== 'pre') || tickBusy || now() - lastTick < 15e3) return;
+      if ((s !== 'open' && s !== 'pre') || tickBusy || now() - lastTick < 3e3) return; // [v0.52.1] price alerts every 3 s
       tickBusy = true; lastTick = now();
       try { await refreshWatch(); } catch {} finally { tickBusy = false; }
     },
@@ -358,6 +412,7 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
     },
     async handle(p = {}) {
       const a = p.action;
+      if (a === 'live') return live(p.codes || []); // [v0.52.1] per-second refresh of the visible quotes
       if (a === 'overview') { wantedAt = now(); return getOverview(); }
       if (a === 'watch') { wantedAt = now(); return {watching: true, session: session(now())}; }
       if (a === 'sectors') return {kind: p.kind === 'concept' ? 'concept' : 'industry', sectors: await sectors(p.kind, {order: p.order, limit: p.limit || 20})};

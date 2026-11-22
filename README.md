@@ -4,7 +4,7 @@
   <p><b>量化工作，一键搞定</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.52.0-2F62F5" alt="version">
+    <img src="https://img.shields.io/badge/version-0.52.1-2F62F5" alt="version">
     <img src="https://img.shields.io/badge/macOS-12%2B%20·%20Apple%20芯片-0B2BA6" alt="platform">
     <img src="https://img.shields.io/badge/license-Apache--2.0-8C7CFF" alt="license">
   </p>
@@ -47,7 +47,7 @@
 
 ## 下载与安装
 
-**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.52.0-mac-arm64.dmg`**。
+**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.52.1-mac-arm64.dmg`**。
 
 1. 双击 DMG，把 **QuanK** 拖到 **应用程序**。
 2. 首次打开：在「应用程序」里右键 QuanK → 打开（只需一次）。
@@ -266,6 +266,7 @@ cd QuanK/desktop && npm install && npm start
 
 ## 更新记录
 
+- **v0.52.1** — 行情每秒刷新（指数、股票池、个股详情，东方财富不可用时自动改用腾讯行情，指数卡片不再显示「—」）；价格提醒每 3 秒检查；盯盘信号最快每 1 分钟重算；回测收益率按期末总资产显示，策略代码有更新时启动前自动同步；「动态」只推需要你处理的（授权、自动化任务、买卖点、委托单、止损、价格提醒）。下载 `QuanK-v0.52.1-mac-arm64.dmg`。
 - **v0.52** — 半自动委托：买点、卖点、止损自动生成委托单（每笔 5000 元 × 引擎倍率，单笔 / 每日 / 笔数 / 限价偏离上限），默认模拟盘按实时行情撮合；真实下单时在内置浏览器里填好券商网页并标出提交按钮，由你亲自点击提交。下载 `QuanK-v0.52.0-mac-arm64.dmg`。
 - **v0.51** — quank 命令行：终端子命令（行情、信号、组合、投研、提醒、审计）、`quank ask` 一句话让智能体做事、`quank mcp` 作为 MCP 服务、`quank acp` 作为编码代理接入。下载 `QuanK-v0.51.0-mac-arm64.dmg`。
 - **v0.50** — F5 合规安全：本机数据加密与应用锁、加密备份与恢复、密钥总览与模型密钥测试、外发记录与离线模式、发给模型前隐藏金额、不可篡改的操作审计、导出前合规审阅与统一免责声明。下载 `QuanK-v0.50.0-mac-arm64.dmg`。

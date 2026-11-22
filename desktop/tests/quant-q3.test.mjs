@@ -21,7 +21,7 @@ const ADAPTER = {engine: {entry: 'run.py', health: '/hz'}, auth: {path: '/auth',
 test('watch settings, validation, description and the China clock', () => {
   assert.deepEqual(normalizeWatch(), {enabled: false, interval: 15, notify: true, premarket: true, premarketTime: '09:15', premarketMinutes: 555});
   assert.equal(normalizeWatch({interval: 7}).interval, 15); assert.equal(normalizeWatch({premarketTime: '10:00'}).premarketTime, '09:15');
-  assert.deepEqual(WATCH_INTERVALS, [5, 10, 15, 30, 60]);
+  assert.deepEqual(WATCH_INTERVALS, [1, 2, 5, 10, 15, 30, 60]); // [v0.52.1] 1 and 2 minutes added
   assert.deepEqual(parseWatch({enabled: true, interval: '30', premarketTime: '08:50', notify: false, junk: 1}), {enabled: true, notify: false, interval: 30, premarketTime: '08:50'});
   assert.throws(() => parseWatch({interval: 3}), /5 \/ 10/); assert.throws(() => parseWatch({premarketTime: '09:45'}), /06:00–09:29/); assert.throws(() => parseWatch({premarketTime: 'x'}), /06:00/);
   assert.equal(describeWatch({}), '盯盘提醒未开启');
@@ -63,7 +63,7 @@ test('engine watch: scans in trading hours at the chosen interval, records chang
     assert.equal(await f.engine.tick(), null, 'disabled by default');
     const w = await f.engine.handle({action: 'watch', enabled: true, interval: 15});
     assert.equal(w.watch.enabled, true); assert.match(w.text, /每 15 分钟/);
-    await assert.rejects(f.engine.handle({action: 'watch', interval: 2}), /分钟/);
+    await assert.rejects(f.engine.handle({action: 'watch', interval: 3}), /分钟/);
     const r1 = await f.engine.tick();
     assert.equal(r1.kind, 'watch'); assert.equal(r1.changes.length, 0, 'the first scan only sets the baseline'); assert.equal(f.sig(), 2);
     assert.equal(await f.engine.tick(), null, 'interval not elapsed');

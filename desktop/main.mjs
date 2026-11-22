@@ -97,6 +97,7 @@ function conversationFinished({ chat, status, text }) {
         if (process.platform === 'darwin') app.dock?.setBadge(String((store?.data?.chats || []).filter(c => c.unread && !c.incognito).length || ''));
         if (win && !win.isDestroyed() && win.isFocused()) return;
         if (!Notification.isSupported()) return;
+        if (!chat.taskId) return; // [v0.52.1] a finished conversation is not something to handle: only automation runs notify
         const n = new Notification({ title: status === 'completed' ? 'QuanK · 任务完成' : 'QuanK · 任务未完成', body: (chat.incognito ? '无痕对话' : chat.name) + (text ? '\n' + String(text).replace(/\s+/g, ' ').slice(0, 80) : ''), silent: false });
         n.on('click', () => { focus(); win?.webContents.send('actwill:openChat', { id: chat.id }); });
         n.show();
@@ -303,6 +304,7 @@ else {
             saveFile: async ({ name, format, bytes }) => { const r = await dialog.showSaveDialog(win, { title: '导出小应用', defaultPath: name.replace(/[\\/:*?"<>|]/g, '_'), filters: [{ name: 'HTML', extensions: [format] }] }); if (r.canceled || !r.filePath) return false; await writeFile(r.filePath, bytes); return true; } });
         // [q1] local private quant engine (the user's own strategy project, run as a child process on 127.0.0.1)
         quant = createQuantEngine({ dir: path.join(app.getPath('userData'), 'quant'), store, lookup: createStockLookup(), notify: notifyRuntime, onAlert: a => { try { if (!normalizeWatch(store.data.quant?.watch).notify || !Notification.isSupported()) return; // [q3]
+                if (a.kind !== 'change' || !/^(BUY|STRONG_BUY|SELL|STRONG_SELL)$/i.test(String(a.to || ''))) return; // [v0.52.1] only buy / sell points
                 const n = new Notification(a.kind === 'report' ? { title: `QuanK · ${a.title}`, body: a.ok ? `${a.summary || '已生成'}${(a.warnings || []).length ? '\n⚠ ' + a.warnings[0] : ''}`.slice(0, 200) : `生成失败：${a.summary || ''}`.slice(0, 200) } : a.kind === 'digest' ? { title: 'QuanK · 盘前量化简报', body: `${a.counts.total} 只：${a.counts.buy} 个买点，${a.counts.sell} 个风控提示` } : { title: 'QuanK · 量化信号变化', body: `${a.name || a.code}：${quantActionLabel(a.from)} → ${quantActionLabel(a.to, a.toText)}${a.score != null ? `，综合分 ${a.score}` : ''}` });
                 n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', ...(a.kind === 'change' ? { code: a.code } : {}), ...(a.kind === 'report' ? { report: a.reportId } : {}) }); }); n.show(); } catch {} },
             seal: s => safeStorage.isEncryptionAvailable() ? 'v1:' + safeStorage.encryptString(s).toString('base64') : s,
@@ -375,7 +377,7 @@ else {
         register('portfolio', async p => { const result = await portfolio.handle(p); return ['view', 'overview', 'risk', 'stress', 'simulate'].includes(p?.action) ? { result } : { result, state: view() }; });
         register('knowledge', async p => { const result = await knowledge.handle(p); return ['view', 'search', 'finance', 'graph', 'profile', 'compare', 'topicCollect'].includes(p?.action) ? { result } : { result, state: view() }; });
         register('research', async p => { const result = await research.handle(p); return ['view', 'library', 'read'].includes(p?.action) ? { result } : { result, state: view() }; });
-        register('market', async p => { const result = await market.handle(p); return ['kline', 'quotes', 'sectors', 'sectorStocks', 'resolve', 'watch'].includes(p?.action) ? { result } : { result, state: view() }; });
+        register('market', async p => { const result = await market.handle(p); return ['kline', 'quotes', 'sectors', 'sectorStocks', 'resolve', 'watch', 'live'].includes(p?.action) ? { result } : { result, state: view() }; });
         app.on('before-quit', () => { quant?.stop().catch(() => {}); });
         register('miniapp', async p => { const result = await miniapps.handle(p); return ['get', 'storage', 'versions', 'export'].includes(p?.action) ? { result } : { result, state: view() }; });
         await store.save();

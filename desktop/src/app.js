@@ -43,7 +43,8 @@ import { knowledgeUI } from './ui/knowledge.js'; // [F3]
 import { portfolioUI } from './ui/portfolio.js'; // [F4]
 import { securityUI } from './ui/security.js'; // [F5]
 import { tradeUI } from './ui/trade.js'; // [v0.52]
-import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView } from './ui/market.js';
+import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView, patchLive } from './ui/market.js';
+import { session as marketSession } from './shared/market.js'; // [v0.52.1]
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
 import { feedUnread } from './shared/feed.js';
 function viewContext() { return { state, chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
@@ -70,7 +71,7 @@ let selections=[];
 let modelChoice='legacy',modelEffort='';
 let capabilityTab='agents';const busyMcp=new Set();
 const nav = [['home', 'chat', '工作台'], ['feed', 'activity', '动态'], ['library', 'grid', '成果中心'], ['studio', 'spark', '创作'], ['files', 'folder', '本地文件'], ['agents', 'agent', '智能体'], ['tools', 'activity', '浏览器与权限'], ['security', 'shield', '安全与合规'], ['tasks', 'clock', '自动化'], ['quant', 'trend', '量化'], ['market', 'trend', '行情'], ['connectors', 'link', '连接'], ['graph', 'search', '知识图谱'], ['context', 'spark', '记忆库']];
-let memoryFilter = 'all', memoryQuery = '', incognito = false, planMode = false, researchMode = false, feedFilter = 'all'; // [p1-m1][p1-m2][p1-m5][p1-m6][p2-m3]
+let memoryFilter = 'all', memoryQuery = '', incognito = false, planMode = false, researchMode = false, feedFilter = 'important'; // [p1-m1][p1-m2][p1-m5][p1-m6][p2-m3]
 let graphQuery = '', graphType = 'all'; // [p3-m5]
 let graphMode = 'graph', graphFocus = '', graphSelected = '', graphMount = null; const graphCache = {}; // [ux4]
 let studioTab = 'dashboards', dashView = null; // [p4-m1]
@@ -550,6 +551,24 @@ function marketRefreshView() {
     if (page === 'home') { const n = $('#mkHome'); if (n) n.outerHTML = marketHomeCard(state, { date }); }
     else if ((page === 'market' || (page === 'quant' && !quantOpen)) && !typing) render();
 }
+// [v0.52.1] per-second prices: while trading (incl. the call auction) and the page shows quotes, ask main for live
+// quotes every second and patch the numbers in place.
+let liveBusy = false;
+async function liveTick() {
+    if (!api || liveBusy || document.hidden || !['home', 'market', 'quant'].includes(page)) return;
+    if (!['open', 'pre'].includes(marketSession(Date.now()))) return;
+    const codes = [...new Set([...document.querySelectorAll('[data-live-price]')].map(e => e.dataset.livePrice))];
+    if (!codes.length && !document.querySelector('[data-live-idx]')) return;
+    liveBusy = true;
+    try {
+        const out = await invoke('market', { action: 'live', codes }), r = out?.result || {};
+        patchLive(document, r);
+        const o = state.market?.overview;
+        if (o && r.indices?.length) o.indices = (o.indices || []).map(x => ({ ...x, ...(r.indices.find(y => y.secid === x.secid) || {}) }));
+        if (state.market && r.quotes) state.market.quotes = { ...(state.market.quotes || {}), ...Object.fromEntries(Object.entries(r.quotes).map(([c, q]) => [c, { ...q, at: r.at }])) };
+    } catch {} finally { liveBusy = false; }
+}
+setInterval(() => { liveTick(); }, 1000);
 function marketPing() {
     if (!api || (page !== 'home' && page !== 'market')) return;
     const now = Date.now(), o = state.market?.overview;
@@ -565,7 +584,7 @@ function signalPopups() {
     const tone = a => /BUY/i.test(a || '') ? 'buy' : /SELL/i.test(a || '') ? 'sell' : '';
     const items = [
         ...(state.quant?.alerts || []).filter(a => a?.kind === 'change' && tone(a.to)).map(a => ({time: a.time, tone: tone(a.to), title: `${tone(a.to) === 'buy' ? '买点' : '卖点'}提醒 · ${a.name || a.code}`, text: [a.toText || a.to, a.score != null ? `综合分 ${a.score}` : '', a.price != null ? `现价 ${a.price}` : '', a.reason].filter(Boolean).join(' · '), code: a.code, quant: true})),
-        ...(state.activity || []).filter(a => /^(行情提醒|自选股涨停|自选股跌停)$/.test(a?.title || '')).map(a => ({time: a.time, tone: /跌停/.test(a.title) || /-\d/.test((/（([+-]?[\d.]+)%）/.exec(a.detail || '') || [])[0] || '') ? 'sell' : 'buy', title: a.title, text: a.detail || '', code: a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1] || ''}))].filter(x => Number.isFinite(x.time));
+        ...(state.activity || []).filter(a => a?.title === '行情提醒') /* [v0.52.1] only the user's own price alerts pop up */.map(a => ({time: a.time, tone: /跌停/.test(a.title) || /-\d/.test((/（([+-]?[\d.]+)%）/.exec(a.detail || '') || [])[0] || '') ? 'sell' : 'buy', title: a.title, text: a.detail || '', code: a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1] || ''}))].filter(x => Number.isFinite(x.time));
     if (signalSeenAt === null) {
         let v = 0; try { v = Number(localStorage.getItem('qk.signalSeenAt')) || 0; } catch {}
         signalSeenAt = v || Math.max(0, ...items.map(x => x.time));
@@ -1396,6 +1415,7 @@ async function handle(actionId, id) {
             if (quantOpen === code) render();
         };
         if (actionId === 'quantStart' || actionId === 'quantRestart') { toast('正在启动量化引擎…'); render(); await call({ action: actionId === 'quantStart' ? 'start' : 'restart' }); render(); toast('量化引擎已启动'); call({ action: 'pool' }).then(render).catch(() => {}); return; }
+        if (actionId === 'quantSyncRestart') { toast('正在同步策略代码并重启引擎…'); const r = await call({ action: 'syncRestart' }); render(); toast(`已同步 ${r.files ?? ''} 个文件，引擎已重启`); call({ action: 'pool' }).then(render).catch(() => {}); return; } // [v0.52.1]
         if (actionId === 'quantStop') { await call({ action: 'stop' }); render(); toast('量化引擎已停止'); return; }
         if (actionId === 'quantSync') { const q = state.quant || {}; if (q.installed) { toast('正在同步策略代码…'); const r = await call({ action: 'sync' }); render(); toast(`已同步 ${r.files} 个文件`); } else { const r = await call({ action: 'chooseSource' }); render(); if (!r.cancelled) toast(`已导入 ${r.files} 个文件`); } return; }
         if (actionId === 'quantSettings') { modal('量化设置', quantSettingsForm(state.quant || {}), '保存', async f => { const r = await call(quantSettingsPayload(f)); render(); toast(r.python?.ok ? `已保存 · Python ${r.python.version} 依赖齐全` : `已保存 · Python 缺少：${(r.python?.missing || []).join('、')}`); }); return; }
@@ -1515,7 +1535,7 @@ async function handle(actionId, id) {
     // [p2-m4] briefing
     if (actionId === 'briefingGenerate') { toast('正在生成简报…'); await update('briefingGenerate'); toast('简报已生成'); return; }
     if (actionId === 'briefingSettings') { modal('简报设置', briefingForm(state), '保存', async f => update('briefingSettings', briefingPayload(f))); return; }
-    if (actionId === 'feedFilter') { feedFilter = id || 'all'; render(); return; }
+    if (actionId === 'feedFilter') { feedFilter = id || 'important'; render(); return; }
     if (actionId === 'feedSeen') { await update('feed', { action: 'seen' }); toast('已全部标为已读'); return; }
     if (actionId === 'feedDismiss') { await update('feed', { action: 'dismiss', id }); return; }
     if (actionId === 'feedRestore') { await update('feed', { action: 'restore' }); return; }

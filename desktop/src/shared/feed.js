@@ -3,8 +3,18 @@
 // renderer (to draw the feed) and the main process (unread badge). Read/dismiss state lives in data.feed.
 import { actionLabel } from './quant.js'; // [q3]
 export const FEED_LIMIT = 200, DISMISS_LIMIT = 500;
-export const FEED_FILTERS = [['all', '全部'], ['unread', '未读'], ['action', '需要处理'], ['tasks', '定时任务'], ['research', '研究与计划'], ['connectors', '连接'], ['quant', '量化'], ['log', '记录']];
+export const FEED_FILTERS = [['important', '需要关注'], ['all', '全部'], ['unread', '未读'], ['action', '需要处理'], ['tasks', '定时任务'], ['research', '研究与计划'], ['connectors', '连接'], ['quant', '量化'], ['log', '记录']];
 
+// [v0.52.1] Only what the user has to look at counts as unread (sidebar badge) and is shown by default: approvals,
+// scheduled-task runs, buy / sell signal changes, order drafts waiting for the user, stop-loss alerts and the user's own
+// price alerts. Finished conversations, research / plan results, connector updates, digests, reports, notices and
+// automatic market moves stay under 「全部」 without a badge.
+const TRADE_ACTIONS = /^(BUY|STRONG_BUY|SELL|STRONG_SELL)$/i;
+export function isImportant(x) {
+  if (!x) return false;
+  if (x.kind === 'approval' || x.kind === 'task' || x.needsAction) return true;
+  return x.kind === 'quant' && x.important === true;
+}
 const clip = (s, n = 160) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
 
 /** Every feed item: {id, kind, group, title, detail, time, status, needsAction, actions:[{label, action, id, kind}]} */
@@ -74,28 +84,28 @@ export function buildFeed(data) {
       detail: clip((a.items || []).slice(0, 4).map(x => `${x.name || x.code} ${actionLabel(x.action, x.actionText)}`).join('；')), time: a.time, status: a.counts?.failed ? 'failed' : 'info', needsAction: false, actions: [{label: '打开量化', action: 'quantHome', id: ''}]});
     else items.push({id: 'quant:' + a.id, kind: 'quant', group: 'quant', title: `${clip(a.name || a.code, 20)}：${actionLabel(a.from)} → ${actionLabel(a.to, a.toText)}`,
       detail: clip([a.score != null ? `综合分 ${a.score}` : '', a.multiplier != null ? `倍率 ${a.multiplier}×` : '', a.price != null ? `现价 ${a.price}` : '', a.reason].filter(Boolean).join(' · ')),
-      time: a.time, status: 'info', needsAction: false, actions: [{label: '查看详情', action: 'quantOpen', id: a.code}]});
+      time: a.time, status: 'info', needsAction: false, important: TRADE_ACTIONS.test(String(a.to || '')), actions: [{label: '查看详情', action: 'quantOpen', id: a.code}]});
   }
   const structured = /^(任务已完成|任务未完成|已完成对话|对话达到轮数上限|连接有新内容)$/;
   for (const a of data.activity || []) {
     if (structured.test(a.title)) continue;
     if (a.title === '主题周报') { items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.detail, 80) || '主题周报', detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: [{label: '查看投研资料库', action: 'quantHome', id: ''}]}); continue; } // [F3]
     if (a.title === '委托单') { items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.detail, 80) || '委托单', detail: clip(a.detail), time: a.time, status: /待你确认|等你点击提交/.test(a.detail || '') ? 'attention' : 'info', needsAction: /待你确认|等你点击提交/.test(a.detail || ''), actions: [{label: '查看委托单', action: 'quantHome', id: ''}]}); continue; } // [v0.52]
-    if (a.title === '风控提醒') { const code = a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1]; items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.detail, 80) || '风控提醒', detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: code ? [{label: '查看详情', action: 'quantOpen', id: code}] : [{label: '打开量化', action: 'quantHome', id: ''}]}); continue; } // [F4]
+    if (a.title === '风控提醒') { const code = a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1]; items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.detail, 80) || '风控提醒', detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, important: true, actions: code ? [{label: '查看详情', action: 'quantOpen', id: code}] : [{label: '打开量化', action: 'quantHome', id: ''}]}); continue; } // [F4]
     if (a.title === '公告提醒') { const code = a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1]; items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.detail, 80) || '公告提醒', detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: code ? [{label: '查看公告', action: 'researchNotices', id: code}] : []}); continue; } // [F2]
-    if (/^(行情提醒|自选股涨停|自选股跌停|自选股异动)$/.test(a.title)) { const code = a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1]; items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.title, 80), detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: code ? [{label: '查看行情', action: 'mkStock', id: code}] : []}); continue; } // [F1c]
+    if (/^(行情提醒|自选股涨停|自选股跌停|自选股异动)$/.test(a.title)) { const code = a.code || (/（(\d{6})）/.exec(a.detail || '') || [])[1]; items.push({id: 'log:' + a.id, kind: 'quant', group: 'quant', title: clip(a.title, 80), detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, important: a.title === '行情提醒', actions: code ? [{label: '查看行情', action: 'mkStock', id: code}] : []}); continue; } // [F1c]
     items.push({id: 'log:' + a.id, kind: 'log', group: 'log', title: clip(a.title, 80), detail: clip(a.detail), time: a.time, status: 'info', needsAction: false, actions: []});
   }
-  return items.filter(x => Number.isFinite(x.time)).sort((a, b) => b.time - a.time).slice(0, FEED_LIMIT);
+  return items.filter(x => Number.isFinite(x.time)).map(x => ({...x, important: isImportant(x)})).sort((a, b) => b.time - a.time).slice(0, FEED_LIMIT);
 }
 
 export function feedState(data) { const f = data.feed || {}; return {seenAt: Number(f.seenAt) || 0, dismissed: Array.isArray(f.dismissed) ? f.dismissed : [], read: Array.isArray(f.read) ? f.read : []}; } // [F1e] per-item read
 
-/** Visible items for a filter, with `unread` set. Logs never count as unread. */
+/** Visible items for a filter, with `unread` set. Only important items count as unread. */
 export function visibleFeed(data, filter = 'all') {
   const {seenAt, dismissed, read} = feedState(data), hidden = new Set(dismissed), opened = new Set(read);
-  return buildFeed(data).filter(x => !hidden.has(x.id)).map(x => ({...x, unread: x.kind !== 'log' && (x.needsAction || (x.time > seenAt && !opened.has(x.id)))}))
-    .filter(x => (filter === 'all' && x.kind !== 'log') || (filter === 'unread' ? x.unread : filter === 'action' ? x.needsAction : x.group === filter));
+  return buildFeed(data).filter(x => !hidden.has(x.id)).map(x => ({...x, unread: x.important && (x.needsAction || (x.time > seenAt && !opened.has(x.id)))}))
+    .filter(x => (filter === 'all' && x.kind !== 'log') || (filter === 'important' ? x.important : filter === 'unread' ? x.unread : filter === 'action' ? x.needsAction : x.group === filter));
 }
 
 export const feedUnread = data => visibleFeed(data, 'unread').length;
