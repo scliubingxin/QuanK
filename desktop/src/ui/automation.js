@@ -2,6 +2,7 @@
 // a run-record table built from every task's history, and a two-column task editor. Pure HTML builders.
 import { escape } from './markdown.js';
 import { describeSchedule, WEEKDAY_NAMES } from '../shared/schedule.js';
+import { tradeBox } from './trade.js'; // [v0.52.2] 半自动委托 lives under 自动化
 
 export const LIVE = ['queued', 'running', 'cancelling'];
 const KINDS = [['daily', '每天'], ['weekdays', '工作日（周一至周五）'], ['weekly', '每周指定日'], ['hourly', '每隔几小时'], ['once', '仅一次'], ['manual', '仅手动运行']];
@@ -92,10 +93,11 @@ function recordsTab(state, {runStatus, runTask, runTrigger, now, chatExists}) {
 export function automationPage(state, {action, empty, tab = 'tasks', filter = 'all', runStatus = 'all', runTask = 'all', runTrigger = 'all', now = Date.now(), banner = '', extra = ''}) {
   const tasks = state.tasks || [], chatExists = id => (state.chats || []).some(c => c.id === id);
   const n = {all: tasks.length, active: tasks.filter(t => taskState(t) !== 'paused').length, paused: tasks.filter(t => taskState(t) === 'paused').length};
-  const tabs = `<div class="auto-tabs" role="tablist">${[['tasks', '定时任务'], ['runs', '运行记录']].map(([id, l]) => `<button type="button" role="tab" class="${tab === id ? 'chosen' : ''}" aria-selected="${tab === id}" data-action="taskTab" data-id="${id}">${l}</button>`).join('')}</div>`;
+  const tabs = `<div class="auto-tabs" role="tablist">${[['tasks', '定时任务'], ['runs', '运行记录'], ...(state.trade ? [['trade', '半自动委托']] : [])].map(([id, l]) => `<button type="button" role="tab" class="${tab === id ? 'chosen' : ''}" aria-selected="${tab === id}" data-action="taskTab" data-id="${id}">${l}</button>`).join('')}</div>`;
   const hero = `<div class="page-title page-hero"><div><h1>让重复的工作，<em>按时自动完成</em></h1><p>到点由智能体自动执行一次对话，结果进入「动态」；也可以直接在对话里说「每天 8 点帮我汇总未读邮件」。</p><div class="plaza-stats"><span><b>${n.all}</b>个定时任务</span><span><b>${n.active}</b>个进行中</span><span><b>${n.paused}</b>个已暂停</span></div></div></div>`; // [ux11]
   const head = `<div class="auto-head">${tabs}<div class="auto-tools">${iconBtn('refresh', 'refresh', '', '刷新')}${action('＋ 新建', 'newTask', '', 'primary')}</div></div>`;
   if (tab === 'runs') return `<div class="page auto-page">${hero}${head}${banner}${recordsTab(state, {runStatus, runTask, runTrigger, now, chatExists})}${extra}</div>`;
+  if (tab === 'trade' && state.trade) return `<div class="page auto-page quant-page auto-trade">${hero}<div class="auto-head">${tabs}</div>${banner}${tradeBox(state.trade, {action})}</div>`; // [v0.52.2]
   const chips = `<div class="auto-filters">${[['all', '全部'], ['active', '进行中'], ['paused', '已暂停']].map(([id, l]) => `<button type="button" class="${filter === id ? 'chosen' : ''}" data-action="taskFilter" data-id="${id}">${l} (${n[id]})</button>`).join('')}</div>`;
   const shown = tasks.filter(t => filter === 'all' || (filter === 'paused' ? taskState(t) === 'paused' : taskState(t) !== 'paused'));
   const cards = shown.length ? `<div class="task-grid">${shown.map(t => taskCard(state, t, {now})).join('')}</div>`

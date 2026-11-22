@@ -138,7 +138,7 @@ export function buildStockReport({code, name = '', date = '', quote = null, bars
       const p = [];
       if (returns && (fin(returns.a) || fin(returns.b))) p.push(`按累计投入计算，回测期末智能定投收益率 ${pct(returns.a)}，普通定投 ${pct(returns.b)}${fin(returns.a) && fin(returns.b) ? `，差 ${num(returns.a - returns.b)} 个百分点` : ''}。`);
       p.push('回测基于历史数据，不代表未来表现；最大回撤反映的是这套规则历史上最难熬的一段。');
-      sections.push({id: 'backtest', title: '回测表现', table: [['策略收益', '基准收益', '超额', '胜率', '交易次数', '最大回撤'], [pct(bt.smartPct), pct(bt.blindPct), pct(bt.excess), fin(bt.winRate) ? num(bt.winRate, 0) + '%' : '—', fin(bt.trades) ? String(bt.trades) : '—', pct(bt.maxDrawdown)]], paragraphs: p, chart: returns ? 'returns' : ''});
+      sections.push({id: 'backtest', title: '回测表现', table: [['策略收益', '基准收益', '超额', '胜率', '交易次数', '最大回撤'], [pct(bt.smartPct), pct(bt.blindPct), pct(bt.excess), fin(bt.winRate) ? num(bt.winRate, 0) + '%' : '—', fin(bt.trades) ? String(bt.trades) : '—', fin(bt.maxDrawdown) ? pct(-Math.abs(bt.maxDrawdown)) : '—']], paragraphs: p, chart: returns ? 'returns' : ''});
     }
   }
   // [F3] financials: table + summary lines supplied by the knowledge service (src/shared/knowledge.js)
