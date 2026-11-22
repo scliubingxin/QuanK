@@ -10,7 +10,7 @@
   </p>
   <p>
     <a href="https://github.com/scliubingxin/QuanK/releases/latest"><b>⬇ 下载 DMG</b></a> ·
-    <a href="#一分钟看懂-quank">演示视频</a> ·
+    <a href="#一分钟看懂-quank">▶ 演示视频</a> ·
     <a href="#获取量化策略">获取量化策略</a> ·
     <a href="#核心能力">核心能力</a>
   </p>
@@ -30,7 +30,9 @@
 
 ## 一分钟看懂 QuanK
 
-[![QuanK 产品演示](docs/images/quank-demo.gif)](docs/media/quank-demo.mp4)
+[![QuanK v0.53 产品演示（5 分 42 秒，点击播放）](docs/images/demo-v053-cover.png)](https://github.com/scliubingxin/QuanK/releases/download/v0.53.0/QuanK-v0.53-demo.mp4)
+
+*点击封面下载 / 播放 v0.53 演示视频（1080p，约 88 MB）。全程用对话操作：加自选、记账、价格提醒、量化买卖点与回测、AI 研判与策略迭代建议、组合风控与压力测试、半自动委托（模拟盘）、动态提醒、投研资料与训练数据、智能体协作出研报、知识图谱与记忆。画面中的持仓与委托为演示数据。*
 
 ## 获取量化策略
 
