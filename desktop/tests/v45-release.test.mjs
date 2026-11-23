@@ -5,16 +5,16 @@ import { readFile, stat } from 'node:fs/promises';
 
 const read = p => readFile(new URL(p, import.meta.url), 'utf8');
 
-test('README introduces QuanK 0.45 with the DMG installer and the product video', async () => {
+test('README links to the latest DMG, release history and screenshots', async () => {
   const md = await read('../../README.md');
-  for (const s of ['## 一分钟看懂 QuanK', '## 下载与安装', '## 核心能力', '## 界面一览', '## 隐私与安全', '## 常见问题', '## 更新记录', '**v0.45**', 'QuanK-0.45.0-arm64.dmg', 'macOS 12'])
-    assert.ok(md.includes(s), s);
-  // [v0.54.1] demo video/gif links were retired in v0.53; the README now uses current screenshots.
-  for (const f of ['docs/images/app-home.png', 'docs/images/app-home-cards.png', 'docs/images/app-quant-holdings.png', 'docs/images/app-chat-research.png'])
-    assert.ok(md.includes(f), f);
-  for (const f of ['../../docs/images/app-home.png', '../../docs/images/app-narrow.png'])
-    assert.ok((await stat(new URL(f, import.meta.url))).size > 10000, f);
-  assert.ok(md.indexOf('## 下载与安装') < md.indexOf('## 核心能力') && md.indexOf('## 核心能力') < md.indexOf('## 更新记录'));
+  for (const section of ['一分钟看懂 QuanK', '下载与安装', '核心能力', '界面一览', '隐私与安全', '常见问题'])
+    assert.ok(md.includes(`## ${section}`), section);
+  assert.match(md, /\[发布记录\]\(docs\/releases\/README\.md\)/);
+  assert.match(md, /releases\/latest\) 下载最新的 `QuanK-v<版本>-mac-arm64\.dmg`/);
+  assert.doesNotMatch(md, /^## 更新记录|^- \*\*v\d+/m);
+  assert.ok(md.indexOf('## 下载与安装') < md.indexOf('## 核心能力'));
+  for (const [, image] of md.matchAll(/\((docs\/images\/[^)]+)\)/g))
+    assert.ok((await stat(new URL(`../../${image}`, import.meta.url))).isFile(), image);
 });
 
 test('quant engine card keeps its buttons on one line each', async () => {

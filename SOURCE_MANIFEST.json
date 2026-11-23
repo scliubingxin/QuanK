@@ -1209,8 +1209,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 27166,
-      "sha256": "09ad34b05ce0b453dd4a2bb36ef7a5c638e9d6582bf8565ae51b8840ce76ec60"
+      "bytes": 5925,
+      "sha256": "5a69b8bbbb6141a1d5ab0733be4e96d290775f64a95fd1ca18bccdb4212c1dfc"
     },
     {
       "path": "RELEASE_STATUS.json",
@@ -4304,8 +4304,8 @@
     },
     {
       "path": "desktop/tests/v45-release.test.mjs",
-      "bytes": 2033,
-      "sha256": "a4944587ba051763a7a48759e2bb588810e2466ae764387a363b55b773b1c7ee"
+      "bytes": 1820,
+      "sha256": "d508ce8825fe7e9f9f8b2bf6155a2f98708909be07588ed16a0694884afeae05"
     },
     {
       "path": "desktop/tests/word-paragraphs.test.mjs",

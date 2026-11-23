@@ -1,7 +1,7 @@
 // [v45k] 动态页首页风格、智能记忆改名、股票池排布、信息图卡片、README 智能记忆章节
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
 import { feedPage } from '../src/ui/feed.js';
 import { NAV_LAYOUT } from '../src/ui/sidebar.js';
@@ -41,10 +41,10 @@ test('layout CSS: feed, stock pool grid, infographic cards', async () => {
   assert.ok(q.includes('<section class="q-pool">') && q.includes('plaza-grid q-pool-grid'));
 });
 
-test('README and demo: 智能记忆 section, graph screenshot, neutral demo brand', async () => {
+test('README links to release history and demo uses a neutral brand', async () => {
   const md = await read('../../README.md'), demo = await read('../scripts/demo-state.mjs'), fin = await read('../scripts/demo-finance.mjs');
-  assert.ok(md.includes('### 智能记忆：知识图谱与记忆库'));
-  for (const f of ['app-graph.png', 'app-memory-page.png']) { assert.ok(md.includes(`docs/images/${f}`), f); assert.ok((await stat(new URL(`../../docs/images/${f}`, import.meta.url))).size > 20000, f); }
+  assert.match(md, /\[发布记录\]\(docs\/releases\/README\.md\)/);
+  assert.doesNotMatch(md, /^## 更新记录|^- \*\*v\d+/m);
   assert.ok(!demo.includes('知行志成') && !fin.includes('知行志成'));
   assert.match(fin, /mergeExtraction/);
 });
