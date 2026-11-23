@@ -2,6 +2,7 @@ import {readFile,writeFile} from 'node:fs/promises';import path from 'node:path'
 import {officeFontEnvironment} from './office-fonts.mjs';
 import {createHash} from 'node:crypto';
 import {OFFICE_WORKER_FILES} from './office-worker-bundle.mjs';
+import {OFFICE_START_TIMEOUT_MS} from '../src/shared/office-timeouts.js';
 const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
 export async function materializeOfficeWorker(directory,{write=writeFile,read=readFile}={}){
  for(const name of ['worker.py','ABI.json']){
@@ -12,7 +13,7 @@ export async function materializeOfficeWorker(directory,{write=writeFile,read=re
  }
 }
 /** One owned process, no TCP listener, bounded serial request/response protocol. */
-export async function startOfficeKit({python,officeDirectory,directory,format,timeoutMs=30000,signal}){
+export async function startOfficeKit({python,officeDirectory,directory,format,timeoutMs,startupTimeoutMs=timeoutMs??OFFICE_START_TIMEOUT_MS,signal}){
  signal?.throwIfAborted();
  await materializeOfficeWorker(directory);
  signal?.throwIfAborted();
@@ -33,8 +34,12 @@ export async function startOfficeKit({python,officeDirectory,directory,format,ti
   const isResult=validId&&r.id>0&&r.ready===undefined&&r.error===undefined&&r.result!==null&&typeof r.result==='object'&&!Array.isArray(r.result);
   if(!isReady&&!isError&&!isResult)return die(Error('Office协议无效'));
   const p=pending.get(r.id);if(!p)continue;pending.delete(r.id);clearTimeout(p.timer);isError?p.reject(Error(r.error)):p.resolve(isReady?{ready:true}:r.result);}});
- const wait=id=>new Promise((resolve,reject)=>{if(dead)return reject(death);const timer=setTimeout(()=>die(Error('Office内核响应超时')),timeoutMs);pending.set(id,{resolve,reject,timer});});
+ const wait=(id,stage,ms=timeoutMs??30000)=>new Promise((resolve,reject)=>{
+  if(dead)return reject(death);
+  const timer=setTimeout(()=>die(Error(stage+'超时（'+ms/1000+' 秒）')),ms);
+  pending.set(id,{resolve,reject,timer});
+ });
  signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
- await wait(0).catch(async e=>{die(e);await closed;throw Error(e.message+' '+stderr.slice(0,300));});
- return {/** [p2-ux2] standby worker: load the document into the already started engine */load(format){if(!['docx','xlsx','pptx'].includes(format))return Promise.reject(Error('Office格式无效'));if(dead)return Promise.reject(death||Error('Office会话已结束'));const ready=wait(0);try{child.stdin.write(JSON.stringify({id:0,op:'load',format})+'\n',error=>{if(error)die(Error('Office内核输入管道故障：'+error.message));});}catch(error){die(Error('Office内核输入管道故障：'+error.message));}return ready;},request(op,data={}){const task=serial.then(async()=>{if(dead)throw death||Error('Office会话已结束');const id=++next,line=JSON.stringify({...data,id,op});if(line.length>18000)throw Error('Office操作输入超限');const result=wait(id);try{child.stdin.write(line+'\n',error=>{if(error)die(Error('Office内核输入管道故障：'+error.message));});}catch(error){die(Error('Office内核输入管道故障：'+error.message));}return result;});serial=task.catch(()=>{});return task;},close(){die(Error('Office会话已关闭'));},closed,get pid(){return child.pid;}};
+ await wait(0,format==='standby'?'启动 Office 内核':'启动 Office 内核并载入文档',startupTimeoutMs).catch(async e=>{die(e);await closed;throw Error(e.message+' '+stderr.slice(0,300));});
+ return {/** [p2-ux2] standby worker: load the document into the already started engine */load(format){if(!['docx','xlsx','pptx'].includes(format))return Promise.reject(Error('Office格式无效'));if(dead)return Promise.reject(death||Error('Office会话已结束'));const ready=wait(0,'载入 Office 文档');try{child.stdin.write(JSON.stringify({id:0,op:'load',format})+'\n',error=>{if(error)die(Error('Office内核输入管道故障：'+error.message));});}catch(error){die(Error('Office内核输入管道故障：'+error.message));}return ready;},request(op,data={}){const task=serial.then(async()=>{if(dead)throw death||Error('Office会话已结束');const id=++next,line=JSON.stringify({...data,id,op});if(line.length>18000)throw Error('Office操作输入超限');const result=wait(id,op==='export_pdf'?'生成 PDF':op==='snapshot'?'渲染 Office 页面':'处理 Office 操作');try{child.stdin.write(line+'\n',error=>{if(error)die(Error('Office内核输入管道故障：'+error.message));});}catch(error){die(Error('Office内核输入管道故障：'+error.message));}return result;});serial=task.catch(()=>{});return task;},close(){die(Error('Office会话已关闭'));},closed,get pid(){return child.pid;}};
 }

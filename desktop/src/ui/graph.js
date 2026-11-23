@@ -1,4 +1,5 @@
 // [p3-m5] 「知识图谱」 page, entity detail with a small neighbourhood diagram, edit / merge forms, sources under replies.
+import { searchField } from './search-field.js';
 import { escape } from './markdown.js';
 import { ENTITY_TYPES, TYPE_LABEL, relationsOf } from '../shared/graph.js';
 
@@ -17,7 +18,7 @@ export function graphPage(state, {action, heading, empty, date, query = '', type
   const settings = `<div class="memory-settings">${toggle('enabled', cfg.enabled !== false, '对话时使用', '提到图谱里的名称时自动带上相关信息')}${toggle('autoExtract', cfg.autoExtract !== false, '自动整理', '应用运行时在后台整理新的内容')}${toggle('chats', cfg.chats !== false, '来自对话', '已完成的对话（无痕对话除外）')}${toggle('documents', cfg.documents !== false, '来自文档', '成果中心里的文档')}${toggle('connectors', cfg.connectors !== false, '来自连接', '邮件、日历、订阅、群消息')}</div>`;
   const status = `<p class="graph-status">${g.entities.length} 个实体 · ${g.relations.length} 条关系 · 待整理 ${st.pending || 0} 项 · 今天已整理 ${st.today || 0}/${st.cap || 100} 次${st.lastRun ? ' · 上次 ' + escape(date(st.lastRun)) : ''}${st.lastError ? `</p><p class="task-error">${escape(st.lastError)}` : ''}</p>`;
   const chip = (id, label, n) => `<button type="button" class="chip ${type === id ? 'chosen' : ''}" data-action="graphType" data-id="${id}">${label} <small>${n}</small></button>`;
-  const tools = `<div class="memory-tools">${chip('all', '全部', g.entities.length)}${ENTITY_TYPES.filter(t => counts[t]).map(t => chip(t, TYPE_LABEL[t], counts[t])).join('')}<input id="graphQuery" type="search" placeholder="搜索名称、别名或描述" value="${escape(query)}"></div>`;
+  const tools = `<div class="memory-tools">${chip('all', '全部', g.entities.length)}${ENTITY_TYPES.filter(t => counts[t]).map(t => chip(t, TYPE_LABEL[t], counts[t])).join('')}${searchField('graphQuery', '搜索名称、别名或描述', query)}</div>`;
   const cards = list.map(e => {
     const rels = relationsOf(g, e.id).slice(0, 3);
     return `<div class="card graph-card" data-entity="${escape(e.id)}"><div class="graph-head"><h3>${escape(e.name)}</h3>${typeBadge(e.type)}${e.userEdited ? '<small>已手动编辑</small>' : ''}</div>

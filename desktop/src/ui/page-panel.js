@@ -11,9 +11,9 @@ export const MAIN_ONLY = new Set(['home', 'chat']);
 export function pageTab(page, title = '') {
   return {id: 'page:' + page, kind: 'page', page: String(page), title: String(title || page)};
 }
-export function stockTab(code, name = '') {
+export function stockTab(code, name = '', {section} = {}) {
   const c = String(code || '').trim();
-  return {id: 'stock:' + c, kind: 'stock', page: 'quant', code: c, title: String(name || c)};
+  return {id: 'stock:' + c, kind: 'stock', page: 'quant', code: c, title: String(name || c), ...(section === 'graph' ? {section} : {})};
 }
 
 /** Open (or re-focus) a tab. The newest tab goes to the right; past `max` the oldest tab that is not the one

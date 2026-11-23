@@ -1,5 +1,6 @@
 // [ux4] 「我的上下文」: tab header shared by 知识图谱 / 记忆, a force-directed knowledge-graph canvas (AWS Quick style),
-// list view, floating legend, side panel and settings form. Pure HTML builders + one canvas mount; no external libraries.
+// list view, collapsible legend, side panel and settings form. Pure HTML builders + one canvas mount; no external libraries.
+import { searchField } from './search-field.js';
 import { escape } from './markdown.js';
 import { ENTITY_TYPES, TYPE_LABEL } from '../shared/graph.js';
 import { graphDetail } from './graph.js';
@@ -7,7 +8,7 @@ import { graphDetail } from './graph.js';
 export const TYPE_COLOR = {person: '#4f46e5', org: '#d97706', project: '#0891b2', product: '#8b5cf6', event: '#0f766e', place: '#db2777'};
 export const MAX_NODES = 600;
 const REFRESH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const SEARCH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm6-2 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const FIT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 export function contextHeader(state, {tab, date}) {
   const st = state.graph?.status || {};
@@ -103,20 +104,27 @@ export function mountGraphCanvas(host, data, {cache = {}, selected = '', onSelec
   const adj = new Map(L.nodes.map(d => [d.id, new Set()]));
   for (const [i, j] of L.links) { adj.get(L.nodes[i].id).add(L.nodes[j].id); adj.get(L.nodes[j].id).add(L.nodes[i].id); }
   const view = cache.view || (cache.view = {k: 1, x: 0, y: 0, fitted: false});
-  const top = new Set([...L.nodes].sort((a, b) => b.degree - a.degree).slice(0, 12).filter(d => d.degree > 0).map(d => d.id));
+  const ranked = [...L.nodes].sort((a, b) => b.degree - a.degree);
+  const top = new Set(ranked.slice(0, 12).filter(d => d.degree > 0).map(d => d.id));
   let hover = '', sel = byId.has(selected) ? selected : '', raf = 0, disposed = false, dirty = true, drag = null;
   const size = () => ({w: host.clientWidth || 800, h: host.clientHeight || 520});
   function fit() {
-    if (!L.nodes.length) return;
     const {w, h} = size();
+    Object.assign(view, {w, h});
+    dirty = true;
+    if (!L.nodes.length) return;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const d of L.nodes) { x0 = Math.min(x0, d.x); y0 = Math.min(y0, d.y); x1 = Math.max(x1, d.x); y1 = Math.max(y1, d.y); }
     const k = Math.max(0.2, Math.min(2.2, Math.min((w - 120) / Math.max(1, x1 - x0), (h - 120) / Math.max(1, y1 - y0))));
     Object.assign(view, {k, x: -(x0 + x1) / 2 * k, y: -(y0 + y1) / 2 * k, fitted: true});
-    dirty = true;
   }
   if (L.alpha > 0.5) L.settle(L.nodes.length > 400 ? 180 : 260);
-  if (!view.fitted || cache.refit) { fit(); cache.refit = false; }
+  function fitToSize() {
+    const {w, h} = size();
+    if (w !== view.w || h !== view.h) fit();
+  }
+  if (!view.fitted || cache.refit) fit(); else fitToSize();
+  cache.refit = false;
   const toWorld = (sx, sy) => { const {w, h} = size(); return {x: (sx - w / 2 - view.x) / view.k, y: (sy - h / 2 - view.y) / view.k}; };
   const hit = (sx, sy) => {
     const p = toWorld(sx, sy);
@@ -146,12 +154,18 @@ export function mountGraphCanvas(host, data, {cache = {}, selected = '', onSelec
     }
     ctx.globalAlpha = 1; ctx.restore();
     ctx.font = '12px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-    const labelled = L.nodes.filter(d => near ? near.has(d.id) : d.match || top.has(d.id) || view.k >= 1.8);
-    for (const d of labelled.slice(0, 160)) {
+    const labelled = ranked.filter(d => d.id !== hover && (near ? near.has(d.id) : d.match || top.has(d.id) || view.k >= 1.8)).slice(0, 160);
+    if (hover) labelled.unshift(byId.get(hover));
+    const labels = [];
+    for (const d of labelled) {
       const sx = w / 2 + view.x + d.x * view.k, sy = h / 2 + view.y + (d.y + radius(d)) * view.k + 13;
       if (sx < -50 || sx > w + 50 || sy < -20 || sy > h + 20) continue;
       const t = d.name.length > 18 ? d.name.slice(0, 18) + '…' : d.name;
       ctx.font = (d.id === focusId ? '600 ' : '') + '12px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+      const width = ctx.measureText(t).width / 2 + 3;
+      const rect = {left: sx - width, right: sx + width, top: sy - 15, bottom: sy + 5};
+      if (labels.some(r => rect.left < r.right && rect.right > r.left && rect.top < r.bottom && rect.bottom > r.top)) continue;
+      labels.push(rect);
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.92)'; ctx.strokeText(t, sx, sy);
       ctx.fillStyle = '#1f2937'; ctx.fillText(t, sx, sy);
     }
@@ -189,7 +203,7 @@ export function mountGraphCanvas(host, data, {cache = {}, selected = '', onSelec
     const wx = (p.x - w / 2 - view.x) / view.k, wy = (p.y - h / 2 - view.y) / view.k;
     view.x = p.x - w / 2 - wx * k; view.y = p.y - h / 2 - wy * k; view.k = k; dirty = true;
   }, {passive: false});
-  const ro = typeof win.ResizeObserver === 'function' ? new win.ResizeObserver(() => { dirty = true; }) : null;
+  const ro = typeof win.ResizeObserver === 'function' ? new win.ResizeObserver(fitToSize) : null;
   ro?.observe(host);
   canvas.style.cursor = 'grab';
   raf = win.requestAnimationFrame(loop);
@@ -203,7 +217,7 @@ export function mountGraphCanvas(host, data, {cache = {}, selected = '', onSelec
 function legend(state, type) {
   const ents = state.graph?.entities || [], counts = Object.fromEntries(ENTITY_TYPES.map(t => [t, ents.filter(e => e.type === t).length]));
   const rows = ENTITY_TYPES.filter(t => counts[t]).sort((a, b) => counts[b] - counts[a]).map(t => `<button type="button" class="legend-row ${type === t ? 'chosen' : ''} ${type !== 'all' && type !== t ? 'dim' : ''}" data-action="graphType" data-id="${t}"><i style="background:${TYPE_COLOR[t]}"></i><span>${TYPE_LABEL[t]}</span><small>${counts[t]}</small></button>`).join('');
-  return `<div class="graph-legend">${rows}<button type="button" class="legend-all" data-action="graphMode" data-id="list">☰ 浏览全部</button></div>`;
+  return `<details class="graph-legend"><summary>图例</summary><div class="legend-panel">${rows}<button type="button" class="legend-all" data-action="graphMode" data-id="list">☰ 浏览全部</button></div></details>`;
 }
 
 export function graphSidePanel(state, id, {action, date}) {
@@ -234,14 +248,15 @@ export function contextGraphPage(state, {action, date, query = '', type = 'all',
   if (!ents.length) return `<div class="page context-page">${head}<div class="graph-empty"><h3>图谱还是空的</h3><p>和助手聊聊你的客户、同事和项目，或者添加文档、连接邮件和日历；QuanK 会用你配置的模型在后台整理出人、公司、项目和它们之间的关系。</p>${st.pending ? action('立即整理', 'graphExtract', '', 'primary') : ''}${st.lastError ? `<p class="task-error">${escape(st.lastError)}</p>` : ''}</div></div>`;
   const data = graphData(state.graph, {type, query, focus});
   const focusName = focus ? ents.find(e => e.id === focus)?.name : '';
-  const toolbar = `<div class="graph-toolbar"><label class="graph-search">${SEARCH}<input id="graphQuery" type="search" placeholder="搜索实体" value="${escape(query)}" autocomplete="off"></label>
-<div class="seg" role="tablist"><button type="button" class="${mode === 'graph' ? 'chosen' : ''}" data-action="graphMode" data-id="graph" title="图谱">图谱</button><button type="button" class="${mode === 'list' ? 'chosen' : ''}" data-action="graphMode" data-id="list" title="列表">列表</button></div>
+  const toolbar = `<div class="graph-toolbar">${searchField('graphQuery', '搜索实体', query)}
+<div class="graph-controls"><div class="seg" role="tablist"><button type="button" class="${mode === 'graph' ? 'chosen' : ''}" data-action="graphMode" data-id="graph" title="图谱">图谱</button><button type="button" class="${mode === 'list' ? 'chosen' : ''}" data-action="graphMode" data-id="list" title="列表">列表</button></div>
+${mode === 'graph' ? `<button type="button" class="ctx-icon graph-fit" data-action="graphFit" title="适应窗口" aria-label="适应窗口">${FIT}</button>${legend(state, type)}` : ''}</div>
 ${focusName ? `<span class="focus-chip">聚焦：${escape(focusName)}<button type="button" data-action="graphUnfocus" aria-label="取消聚焦">×</button></span>` : ''}${type !== 'all' ? `<span class="focus-chip">${escape(TYPE_LABEL[type] || type)}<button type="button" data-action="graphType" data-id="all" aria-label="显示全部类型">×</button></span>` : ''}
-${mode === 'graph' ? `<button type="button" class="ctx-settings" data-action="graphFit">适应窗口</button>` : ''}${st.lastError ? `<span class="graph-error" title="${escape(st.lastError)}">整理出错</span>` : ''}</div>`;
+${st.lastError ? `<span class="graph-error" title="${escape(st.lastError)}">整理出错</span>` : ''}</div>`;
   if (mode === 'list') return `<div class="page context-page">${head}${toolbar}${listView(state, {action, type, query})}</div>`;
   const note = data.matches === 0 ? '<p class="graph-note">没有找到匹配的实体</p>' : data.truncated ? `<p class="graph-note">显示关系最多的 ${data.shown} 个实体（共 ${data.total} 个），可搜索或按类型筛选</p>` : '';
   const sideHtml = selected ? graphSidePanel(state, selected, {action, date}) : '';
-  return `<div class="page context-page">${head}${toolbar}<div class="graph-stage"><div id="graphCanvas" class="graph-canvas"></div>${legend(state, type)}${note}<aside id="graphSide" class="graph-side" ${sideHtml ? '' : 'hidden'}>${sideHtml}</aside><div class="graph-hint">单击选中 · 双击聚焦 · 滚轮缩放 · 拖动平移</div></div></div>`;
+  return `<div class="page context-page">${head}${toolbar}<div class="graph-stage"><div id="graphCanvas" class="graph-canvas"></div>${note}<aside id="graphSide" class="graph-side" ${sideHtml ? '' : 'hidden'}>${sideHtml}</aside><div class="graph-hint">单击选中 · 双击聚焦 · 滚轮缩放 · 拖动平移</div></div></div>`;
 }
 
 export function graphSettingsForm(state) {

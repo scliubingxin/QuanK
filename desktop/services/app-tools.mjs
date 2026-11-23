@@ -1,6 +1,7 @@
 // [ux5] App tools: everything a user can do in the QuanK UI can also be asked for in chat.
 // Reads run directly; anything that changes the app (create / edit / pause / delete / run a scheduled task) shows a native
 // confirmation first. In unattended scheduled runs the approval gate defers those to 「待你确认」, so tasks cannot spawn tasks.
+import { APP_PAGE_INTENT } from '../src/shared/page-command.js';
 import { uid } from '../core.mjs';
 import { normalizeSchedule, nextRunAt, describeSchedule, WEEKDAY_NAMES } from '../src/shared/schedule.js';
 import { selectEntities, relationsOf } from '../src/shared/graph.js';
@@ -106,7 +107,7 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_web_read', '读取一个公网网页的正文（纯文本，最多约 12000 字）。先 app_web_search 找到链接再读取。', {url: {type: 'string'}}, ['url']),
     def('app_dashboard_create', '用成果中心里的 Excel 表格生成可交互仪表盘（保存在「创作」页）。数值由本机计算。', {documentId: {type: 'string'}, prompt: {type: 'string', description: '想看什么，例如「按月看各区域销售额」'}}, ['documentId']),
     def('app_briefing_generate', '立即生成今日简报（需要你处理的事、完成的工作、今日日程、新邮件等），返回各板块要点。'),
-    def('app_open_page', '在 QuanK 窗口中打开某个页面，方便用户查看结果（「查看我的自选」用 app_quant_open）。research（投研资料）可带 stock（6 位代码）和 kind（report/notice/note/doc/export/quant）筛选；tasks（自动化）可带 tab：trade（半自动委托）/ tasks / runs。', {page: {type: 'string', enum: Object.keys(APP_PAGES)}, stock: {type: 'string'}, kind: {type: 'string'}, tab: {type: 'string', enum: ['trade', 'tasks', 'runs']}}, ['page']),
+    def('app_open_page', '在 QuanK 窗口中打开某个页面，方便用户查看结果（「查看我的自选」用 app_quant_open）。research（投研资料）可带 stock（6 位代码）和 kind（report/notice/note/doc/export/quant）筛选；quant（量化）可带 stock（公司名称或 6 位代码）和 tab: graph 直接查看公司关系图；tasks（自动化）可带 tab：trade（半自动委托）/ tasks / runs。', {page: {type: 'string', enum: Object.keys(APP_PAGES)}, stock: {type: 'string'}, kind: {type: 'string'}, tab: {type: 'string', enum: ['trade', 'tasks', 'runs', 'graph']}}, ['page']),
     ...(incognito ? [] : [
       def('app_memory_add', '把用户明确要求记住的偏好或事实存入长期记忆（不要存密码、密钥等敏感信息）。', {text: {type: 'string'}, kind: {type: 'string', enum: ['preference', 'fact', 'profile']}}, ['text']),
       def('app_graph_search', '在知识图谱中查找人、公司、项目等实体及其关系。', {query: {type: 'string'}}, ['query']),
@@ -116,7 +117,7 @@ export function appToolDefinitions({incognito = false} = {}) {
 const MARKET_NOTE = '行情来自公开行情接口，可能有延迟；仅供研究，不构成投资建议。'; // [F1]
 export const APP_TOOL_NAMES = new Set(appToolDefinitions().map(d => d.function.name));
 /** Requests that only make sense through app tools: offered even when the composer's 「允许使用工具」 is off (app tools only). */
-export const APP_INTENT = /(查看|打开|看看|看下|进入|跳到|切到|去)(一下)?(我的)?.{0,4}(自选|股票池|量化|行情|投研资料|资料库|动态|消息|委托|自动化|知识图谱|图谱|记忆|智能体|连接|组合|风控|安全)|委托单|委托|下单|模拟盘|半自动|挂单|撤单|合规|免责声明|审计日志|操作记录|外发记录|离线模式|能不能发|违规(用语|表述|词)|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|打开.{0,6}(页面|动态|创作|自动化|知识图谱|记忆|连接)|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/;
+export const APP_INTENT = new RegExp(APP_PAGE_INTENT.source + "|" + /委托单|委托|下单|模拟盘|半自动|挂单|撤单|合规|免责声明|审计日志|操作记录|外发记录|离线模式|能不能发|违规(用语|表述|词)|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/.source);
 
 function f_isSelectInvalid(info, config) { // [ux9]
   return (info.fields || []).some(f => f.type === 'select' && config[f.name] !== undefined && !f.options.some(([v]) => v === config[f.name]));
@@ -659,6 +660,19 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
       if (!APP_PAGES[args.page]) throw new Error('页面不存在');
       const extra = {};
       if (args.page === 'research') { if (/^\d{6}$/.test(String(args.stock || '').trim())) extra.stock = String(args.stock).trim(); if (['report', 'notice', 'note', 'doc', 'export', 'quant'].includes(args.kind)) extra.kind = args.kind; }
+      if (args.page === 'quant' && args.tab === 'graph') {
+        const query = clip(args.stock, 40);
+        if (!query) return {status: 'failed', error: '请提供公司名称或 6 位代码'};
+        const pool = store.data.quant?.pool || [];
+        const exact = pool.find(s => s.code === query || s.name === query);
+        const aliases = pool.filter(s => s.name?.startsWith(query));
+        const stock = exact || (aliases.length === 1 ? aliases[0] : await need('quant').handle({action: 'resolveStock', query}));
+        signal?.throwIfAborted();
+        if (stock?.choices?.length) return {status: 'needs_choice', candidates: stock.choices};
+        if (!/^\d{6}$/.test(stock?.code || '')) return {status: 'failed', error: stock?.error || '没有找到该股票，请提供公司全称或 6 位代码'};
+        need('openPage')('quant', {code: stock.code, name: stock.name, tab: 'graph'});
+        return {status: 'succeeded', opened: `${stock.name || stock.code} · 财务与关系 → 公司关系图`};
+      }
       if (args.page === 'tasks' && ['trade', 'tasks', 'runs'].includes(args.tab)) extra.tab = args.tab;
       need('openPage')(args.page, extra);
       return {status: 'succeeded', opened: APP_PAGES[args.page] + (extra.stock ? ` · ${extra.stock}` : '') + (extra.tab === 'trade' ? ' · 半自动委托' : ''), where: '已在对话右侧的页签中打开，对话保持不动'}; // [v0.54]

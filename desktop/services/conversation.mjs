@@ -13,7 +13,8 @@ import { graphSettings, selectEntities, graphBlock } from '../src/shared/graph.j
 import { COMPARISON_INSTRUCTION } from '../src/shared/comparison.js'; // [p4-m2]
 import { INFOGRAPHIC_INSTRUCTION } from '../src/shared/infographic.js'; // [p4-m3]
 import { MINIAPP_INSTRUCTION } from '../src/shared/miniapp.js'; // [p4-m4]
-import { APP_INTENT } from './app-tools.mjs'; // [ux5]
+import { companyGraphQuery } from '../src/shared/page-command.js';
+import { APP_INTENT, executeAppTool } from './app-tools.mjs'; // [ux5]
 import { QUANT_INTENT } from '../src/shared/quant.js'; // [q1]
 import { historyForPrompt, compactionTranscript, COMPACT_PROMPT } from '../src/shared/context.js'; // [p1-m3]
 // Stop waiting for an unresponsive filesystem read. The underlying read may
@@ -95,8 +96,18 @@ export function createConversationService({ models, approve, rules, clientFactor
             const usedEntities = graphSettings(store.data.settings).enabled && !incognito ? selectEntities(store.data.graph, prompt) : []; // [p3-m5] incognito chats never read the graph
             const appOnly = !toolsEnabled && !!appTools && !chat?.taskId && (APP_INTENT.test(prompt) || (!!store.data.quant?.source && QUANT_INTENT.test(prompt))); // [ux5][q1] app actions work without the tool switch
             try {
-                agentSession = toolsEnabled || appOnly ? await createAgentSession({agent,store,executeTool:(name,args,signal,context)=>executeTool(name,args,signal,{...context,allowedImageIds:imageIds}),approve:rules?rules.gate(approve,{chatId:id}):approve,clientFactory,secrets,signal:controller.signal,chatId:id,runId,notify,eagerSkills:true,appTools,appOnly}) : null;
-                const result = await runAgent({
+                const graphQuery = appTools && !chat?.taskId && !files.length && !imageIds.length && !selections.length && companyGraphQuery(prompt);
+                agentSession = !graphQuery && (toolsEnabled || appOnly) ? await createAgentSession({agent,store,executeTool:(name,args,signal,context)=>executeTool(name,args,signal,{...context,allowedImageIds:imageIds}),approve:rules?rules.gate(approve,{chatId:id}):approve,clientFactory,secrets,signal:controller.signal,chatId:id,runId,notify,eagerSkills:true,appTools,appOnly}) : null;
+                let graphResult;
+                if (graphQuery) {
+                    const opened = await executeAppTool('app_open_page', {page: 'quant', stock: graphQuery, tab: 'graph'}, {store, deps: appTools, signal: controller.signal, chatId: id});
+                    if (opened.status === 'failed') throw new Error(opened.error);
+                    const reply = opened.status === 'needs_choice'
+                        ? '找到多只股票，请提供公司全称或代码：' + opened.candidates.map(s => `${s.name}（${s.code}）`).join('、')
+                        : '已在右侧页签打开' + opened.opened + '。';
+                    graphResult = {text: reply, events: []};
+                }
+                const result = graphResult || await runAgent({
                     messages: [{ role: 'system', content: agent.prompt + (agentSession?.context||'') + '\n回复可使用Markdown图文：图片用![说明](公开HTTPS图片直链)；视频用[说明](公开HTTPS的mp4/webm/ogv直链)；网页用[标题](https://网址)。只引用实际已知或工具返回的URL，不编造图片或视频，不声称附件已生成。回复用户时只用自然语言，不要暴露内部工具名或括号里的工具标识符（例如 app_xxx、connector_xxx），直接说你做了什么。图表使用完整chart代码围栏和JSON：{"type":"bar","title":"标题","labels":["A","B"],"series":[{"name":"数值","values":[1,2]}]}；type支持bar/line/pie，标签最多30、系列最多4，pie仅一组非负数。没有来源的数据须明确标示为示例，不添加脚本。外部媒体由用户点击后才加载。\n' + COMPARISON_INSTRUCTION + '\n' + INFOGRAPHIC_INSTRUCTION + '\n' + MINIAPP_INSTRUCTION + '\n' + instructions + '\n本轮用户选择、可经批准嵌入Word或PPT的本机图片ID（没有图片则不得声称有照片）：'+JSON.stringify(imageMetadata)+memoryBlock(usedMemories)+graphBlock(usedEntities, store.data.graph) }, ...prior, { role: 'user', content: (p.sendImages===true&&selectedImages.length ? [{type:'text',text:userText+(context?'\n'+context:'')},...selectedImages.map(i=>({type:'image_url',image_url:{url:'data:image/png;base64,'+i.base64,detail:'auto'}}))] : userText + (context ? '\n\n用户为本次请求明确附加的本地资料：\n' + context : '')) }],
                     enabled: toolsEnabled || appOnly, summarizeOnLimit: true, definitions:agentSession?.definitions, maxSteps:modelRoute?.maxSteps??agentSession?.maxSteps, signal: controller.signal,
                     request: async (messages, tools) => {
