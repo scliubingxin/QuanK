@@ -5,3 +5,30 @@ test('real LibreOfficeKit renders Word, native selection and edit auto-commit; n
 test('real LibreOfficeKit opens Excel/PPT, switches parts and renders actual pixels',{timeout:60000},async()=>{const dir=await mkdtemp(path.join(tmpdir(),'wb-kit-formats-')),store=new Store(dir);await store.load();const documents=createDocumentService({store}),kit=createOfficeWorkspace({documents,directory:path.join(dir,'kit'),runtime:async()=>({python:officePython,officeDirectory}),approve:async()=>true});try{for(const [format,data] of [['xlsx',{sheets:[{name:'First',rows:[['Label','Amount'],['A',600]]},{name:'Second',rows:[['Visible second sheet']]}]}],['pptx',{title:'Deck',slides:[{title:'First slide',bullets:['Native content']},{title:'Second slide',bullets:['Part two']}]}]]){const d=(await documents.importFile('Native '+format,format,(await generateDocument(format,JSON.stringify(data))).bytes)).document,s=await kit.open(d.id,1),a=await kit.snapshot(s.sessionId,{width:600,height:500});assert.equal(a.parts.length,2);await kit.operation(s.sessionId,'part',{part:1});const b=await kit.snapshot(s.sessionId,{width:600,height:500});assert.equal(b.part,1);assert.notEqual(a.png,b.png);await kit.close(s.sessionId);}}finally{await kit.shutdown();await rm(dir,{recursive:true,force:true});}});
 test('approval denial never starts driver; input boundaries and original-version guard',{timeout:60000},async()=>{const dir=await mkdtemp(path.join(tmpdir(),'wb-kit-boundary-')),store=new Store(dir);await store.load();const documents=createDocumentService({store}),d=(await documents.importFile('Boundary','docx',(await generateDocument('docx',JSON.stringify({blocks:[{type:'paragraph',text:'Before'}]}))).bytes)).document;let starts=0;const denied=createOfficeWorkspace({documents,directory:path.join(dir,'denied'),runtime:async()=>({}),approve:async()=>false,driver:async()=>{starts++;}});try{assert.equal((await denied.open(d.id,1)).status,'denied');assert.equal(starts,0);await assert.rejects(denied.open(d.id,2),/版本/);}finally{await denied.shutdown();await rm(dir,{recursive:true,force:true});}});
 test('real Calc selected cells write actual XLSX values with native engine',{timeout:60000},async()=>{const dir=await mkdtemp(path.join(tmpdir(),'wb-kit-calc-')),store=new Store(dir);await store.load();const documents=createDocumentService({store}),d=(await documents.importFile('Grid','xlsx',(await generateDocument('xlsx',JSON.stringify({sheets:[{name:'Budget',rows:[['Label','Amount'],['A',600]]}]}))).bytes)).document,kit=createOfficeWorkspace({documents,directory:path.join(dir,'kit'),runtime:async()=>({python:officePython,officeDirectory}),approve:async()=>true});try{const s=await kit.open(d.id,1);await kit.snapshot(s.sessionId);await kit.operation(s.sessionId,'range',{ref:'A1:B2'});await kit.operation(s.sessionId,'paste',{text:'Label\tAmount\nA\t900'});assert.match(documents.read(d.id).text,/900/);assert.equal(documents.read(d.id).revision,2);}finally{await kit.shutdown();await rm(dir,{recursive:true,force:true});}});
+
+test('unit: OfficeKit reports the stage that timed out and uses separate startup and render budgets', async () => {
+  const {writeFile} = await import('node:fs/promises');
+  const {startOfficeKit} = await import('../runtime/office-kit.mjs');
+  const dir = await mkdtemp(path.join(tmpdir(), 'wb-kit-timeout-'));
+  let worker;
+  try {
+    const waiting = path.join(dir, 'waiting');
+    await writeFile(waiting, '#!/bin/sh\nexec /bin/sleep 5\n', {mode: 0o700});
+    await assert.rejects(startOfficeKit({
+      python: waiting, officeDirectory: dir, directory: dir, format: 'standby',
+      timeoutMs: 1000, startupTimeoutMs: 50,
+    }), /启动 Office 内核超时（0\.05 秒）/);
+    const renderDir = await mkdtemp(path.join(dir, 'render-'));
+    const ready = path.join(dir, 'ready');
+    await writeFile(ready, '#!/bin/sh\nprintf \'WBKIT {"id":0,"ready":true}\\n\'\nexec /bin/sleep 5\n', {mode: 0o700});
+    worker = await startOfficeKit({
+      python: ready, officeDirectory: dir, directory: renderDir, format: 'pptx',
+      timeoutMs: 50, startupTimeoutMs: 2000,
+    });
+    await assert.rejects(worker.request('snapshot'), /渲染 Office 页面超时（0\.05 秒）/);
+  } finally {
+    worker?.close();
+    await worker?.closed;
+    await rm(dir, {recursive: true, force: true});
+  }
+});

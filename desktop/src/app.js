@@ -22,6 +22,7 @@ import { insightHtml } from './ui/insight.js';
 import * as views from './ui/workspace.js';
 import { memoryPage } from './ui/memory.js';
 import { recentSections, chatMarkdown } from './ui/chats.js';
+import { composerSendMode } from './shared/page-command.js';
 import { matchCommands, helpHtml, contextMeter } from './ui/slash.js';
 import { contextUsage } from './shared/context.js';
 import { readPlanSteps } from './ui/plan.js';
@@ -81,7 +82,7 @@ let miniappOpenId = '', miniappDispose = null, miniappVersionsFor = ''; // [p4-m
 let quantOpen = '', quantDetailData = null, quantDisposers = []; // [q1]
 // [v0.54] right-hand page tabs: pages opened from the chat and every stock detail open beside the conversation.
 // quantOpen is the stock of the active stock tab; each stock's computed detail stays in quantCache until refreshed.
-let pageTabs = [], pageTabId = '', pageWide = false, pageWidth = 0, panelClickAt = 0, panelHeadHtml = '', panelBodyKey = '', renderingStock = '';
+let pageTabs = [], pageTabId = '', pageWide = false, pageWidth = 0, panelClickAt = 0, panelHeadHtml = '', panelBodyKey = '', renderingStock = '', renderingStockTab;
 const quantCache = new Map(), quantVer = new Map(), quantLoading = new Set();
 try { const r = panelUI.restoreTabs(localStorage.getItem('qk.pageTabs')); pageTabs = r.tabs; pageTabId = r.active; pageWide = r.wide; pageWidth = r.width; } catch {}
 let marketTab = 'industry', marketStockCode = '', marketPingAt = 0; // [F1]
@@ -160,7 +161,42 @@ function openPreview(item) {
     render();
 }
 function previewPanel() { return views.previewPanel(viewContext()); }
-function toast(message) { $('#toast').textContent = message; $('#toast').style.display = 'block'; clearTimeout(toast.timer); toast.timer = setTimeout(() => $('#toast').style.display = 'none', 4500); }
+function toast(message, {persistent = false, retry} = {}) {
+    const node = $('#toast');
+    node.textContent = message;
+    node.style.display = 'block';
+    clearTimeout(toast.timer);
+    const dismiss = () => { if (toast.dismiss === dismiss) node.style.display = 'none'; };
+    toast.dismiss = dismiss;
+    if (retry) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'secondary';
+        button.textContent = '重试';
+        button.addEventListener('click', () => { dismiss(); retry().catch(error => toast(error.message)); }, {once: true});
+        node.append(' ', button);
+    }
+    if (!persistent && !retry) toast.timer = setTimeout(dismiss, 4500);
+    return dismiss;
+}
+async function runOfficeAction(label, work) {
+    const dismiss = toast('正在' + label + '…', {persistent: true});
+    try {
+        await work();
+    } catch (error) {
+        if (!/超时|timeout/i.test(error.message)) throw error;
+        const detail = error.message.replace(/^Error invoking remote method '[^']+':\s*/, '').replace(/^Error:\s*/, '').trim();
+        toast(label + '超时。' + (/timeout/i.test(detail) ? '本机 Office 内核或转换未及时完成。' : detail), {retry: () => runOfficeAction(label, work)});
+    } finally {
+        dismiss();
+    }
+}
+function exportOfficeDocumentPdf(id, revision) {
+    return runOfficeAction('准备 PDF 导出', async () => {
+        const result = await invoke('documentExportPdf', {id, revision});
+        if (result?.status === 'succeeded') toast('PDF 已保存');
+    });
+}
 async function invoke(name, payload) {
     if (!api)
         throw new Error('当前为界面预览。请通过 npm start 启动桌面应用以使用此功能。');
@@ -268,11 +304,12 @@ function render() {
     }
     mountInfographics(document, state.brand); // [p4-m3] also mounts images that arrive while a reply streams
     if (typeof MutationObserver === 'function' && !window.__wbIgObserver) { window.__wbIgObserver = new MutationObserver(() => mountInfographics(document, state.brand)); window.__wbIgObserver.observe(document.body, { childList: true, subtree: true }); }
-    bindOnce($('#graphQuery'), 'change', e => { graphQuery = e.target.value; render(); }); // [p3-m5]
+    bindOnce($('#graphQuery'), 'change', e => { graphQuery = e.target.value; graphCache.refit = true; render(); }); // [p3-m5]
     bindOnce($('#runStatus'), 'change', e => { runStatus = e.target.value; render(); }); // [ux6]
     bindOnce($('#runTrigger'), 'change', e => { runTrigger = e.target.value; render(); });
     bindOnce($('#runTask'), 'change', e => { runTaskFilter = e.target.value; render(); });
     // [ux4] knowledge-graph canvas: positions and zoom persist in graphCache across re-renders
+    if (!graphMount) graphCache.refit = true;
     graphMount?.dispose(); graphMount = null;
     if ($('#graphCanvas')) graphMount = mountGraphCanvas($('#graphCanvas'), graphData(state.graph, { type: graphType, query: graphQuery, focus: graphFocus }), { cache: graphCache, selected: graphSelected,
         onSelect: sel => { graphSelected = sel; const side = $('#graphSide'); if (side) { side.innerHTML = sel ? graphSidePanel(state, sel, { action, date }) : ''; side.hidden = !sel; } },
@@ -420,7 +457,7 @@ function content() {
     if (page === 'market') // [F1]
         return marketPage(state, {action, date, tab: marketTab, stock: marketStockCode});
     if (page === 'quant') // [q1]
-        return quantPage(state, {action, heading, empty, date, open: renderingStock, detail: renderingStock ? quantCache.get(renderingStock) ?? null : null, panel: !!renderingStock}); // [v0.54] stock details live in panel tabs
+        return quantPage(state, {action, heading, empty, date, open: renderingStock, detail: renderingStock ? quantCache.get(renderingStock) ?? null : null, panel: !!renderingStock, section: renderingStockTab?.section, stockTitle: renderingStockTab?.title}); // [v0.54] stock details live in panel tabs
     if (page === 'studio') // [p4-m1]
         return studioTab === 'infographics' ? infographicPage(state, {action, heading, empty, date, tab: studioTab}) : studioTab === 'miniapps' ? miniappPage(state, {action, heading, empty, date, tab: studioTab, open: miniappOpenId}) : studioPage(state, {action, heading, empty, date, tab: studioTab}); // [p4-m3][p4-m4]
     if (page === 'graph') // [p3-m5][ux4] 我的上下文 · 知识图谱
@@ -515,7 +552,9 @@ async function send() {
     }
     if(!draft.trim()&&images.length&&!sendImages){toast('请勾选本轮发送图片，或输入文字');return;}
     const prompt = draft.trim()?draft:files.length?'请阅读附加的资料，概括要点并指出需要我注意的地方。':'请分析这些图片。'; // [ux3] an attachment alone can be sent
-    if (planMode || researchMode) return sendPlan(prompt, researchMode ? 'research' : ''); // [p1-m5][p1-m6]
+    const mode = composerSendMode(prompt, {plan: planMode, research: researchMode});
+    if (mode === 'plan' || mode === 'research') return sendPlan(prompt, mode === 'research' ? mode : '');
+    if (mode === 'page') toast('这是打开页面的指令，已按普通对话处理');
     const id = chatId || crypto.randomUUID();
     const selectedSelections=[...selections];
     const selected = [...files], selectedImages=[...images], selectedConsent=sendImages;
@@ -615,7 +654,7 @@ async function navigate(next, main = false) {
     else
         render();
 }
-async function handle(actionId, id) {
+async function handle(actionId, id, stockTarget) {
     if (actionId === 'ppSelect') { setPanelActive(id); savePanel(); render(); return; } // [v0.54]
     if (actionId === 'ppClose') { closePanelTab(id); return; }
     if (actionId === 'ppCloseAll') { pageTabs = []; setPanelActive(''); savePanel(); render(); return; }
@@ -703,7 +742,18 @@ async function handle(actionId, id) {
     if(actionId==='revokeBrowserApprovals'||actionId==='cancelApprovals'){await invoke(actionId);toast(actionId==='cancelApprovals'?'已取消当前与排队的确认；也可按 ⌘⇧Esc':'已撤销全部浏览器任务授权');return;}
     if (actionId==='documentImport') {await invoke('documentImport');await update('state');return;}
     if(actionId==='officeCollect'){const result=await invoke('officeCollect',{id});if(result.status==='succeeded'){await update('state');toast('编辑结果已保存新版本');}return;}
-    if(state.officeNative&&id&&['documentCanvas','documentWordEditor','documentEditor'].includes(actionId)&&['docx','xlsx','pptx'].includes(state.documents?.find(d=>d.id===id)?.format)){const d=state.documents.find(d=>d.id===id);await invoke(state.officeWorkspace?'officeOpen':'officeEdit',{id,revision:d.revision});await update('state');toast(state.officeWorkspace?'已打开QuanK Office，编辑直接保存，无需收回':'已打开内置编辑窗口；保存并退出后点击收回编辑结果');return;}
+    if(state.officeNative&&id&&['documentCanvas','documentWordEditor','documentEditor'].includes(actionId)&&['docx','xlsx','pptx'].includes(state.documents?.find(d=>d.id===id)?.format)){
+        const d=state.documents.find(d=>d.id===id);
+        if (!state.officeWorkspace) {
+            const result = await invoke('officeEdit', {id, revision: d.revision});
+            if (result?.status === 'opened') { await update('state'); toast('已打开内置编辑窗口；保存并退出后点击收回编辑结果'); }
+            return;
+        }
+        return runOfficeAction('启动 QuanK Office 并载入文档', async () => {
+            const result = await invoke('officeOpen', {id, revision: d.revision});
+            if (result?.status === 'opened') { await update('state'); toast('已打开 QuanK Office，编辑直接保存'); }
+        });
+    }
     if (actionId==='documentCanvas') {
         const editor=id?await invoke('documentRichEditor',{id}):{name:'新文档',html:'<h1>项目方案</h1><p>在这里编辑正文，选择文字后可设置格式。</p>'};
         let canvas;
@@ -744,7 +794,7 @@ async function handle(actionId, id) {
         }
         if(actionId==='documentView'){openPreview({id:'document:'+id,name:d.name+'.'+d.format,text:d.text,kind:'document',documentId:id});return;}
         if(actionId==='documentHistory'){modal('历史版本 · '+d.name,d.history.map(h=>`<div class="file-row"><div>v${h.revision} · ${date(h.time)}<small>${h.size} 字节 · ${escape(h.sha256)}</small></div>${action('导出此版本','documentExportVersion',id+':'+h.revision)}</div>`).join(''));return;}
-        if(actionId==='documentExportPdf'){const result=await invoke('documentExportPdf',{id,revision:d.revision});if(result?.status==='succeeded')toast('PDF 已保存');return;}
+        if(actionId==='documentExportPdf')return exportOfficeDocumentPdf(id, d.revision);
         if(actionId==='documentExport'){await invoke('documentExport',{id,revision:d.revision});return;}
         if(actionId==='documentContinue'){switchChat('');page='home';toolsEnabled=true;draft=`请先调用 document_read 读取文档「${d.name}.${d.format}」（id=${id}，当前版本 ${d.revision}），再根据以下要求调用 ${d.hasRichSource?'document_write（保留editableHtml结构）':d.format==='docx'?'document_patch（使用wordEditing片段坐标，保留其他样式）':'document_edit'} 保存新版本。修改要求：`;render();$('#prompt')?.focus();return;}
         if(actionId==='documentEdit'){
@@ -755,7 +805,7 @@ async function handle(actionId, id) {
     }
     if (actionId === 'previewExportPdf') {
         const item=previewTabs.find(t=>t.id===previewId);const d=(state.documents||[]).find(x=>x.id===item?.documentId);
-        if(!d)throw Error('文档已删除');const result=await invoke('documentExportPdf',{id:d.id,revision:d.revision});if(result?.status==='succeeded')toast('PDF 已保存');return;
+        if(!d)throw Error('文档已删除');return exportOfficeDocumentPdf(d.id, d.revision);
     }
     if (actionId === 'previewExport') {
         const item = previewTabs.find(t => t.id === previewId);
@@ -1203,7 +1253,7 @@ async function handle(actionId, id) {
         modal('知识图谱设置', graphSettingsForm(state), '', null);
         return;
     }
-    if (actionId === 'graphType') { graphType = !id || id === graphType ? 'all' : id; render(); return; }
+    if (actionId === 'graphType') { graphType = !id || id === graphType ? 'all' : id; graphCache.refit = true; render(); return; }
     if (actionId === 'graphToggle') {
         const cur = state.graph?.settings || {};
         const out = await invoke('graph', { action: 'settings', settings: { [id]: cur[id] === false } });
@@ -1428,11 +1478,20 @@ async function handle(actionId, id) {
     if (/^quant/.test(actionId)) { // [q1] local quant engine
         const call = async p => { const out = await invoke('quant', p); if (out?.state) applyState(out.state); return out?.result || {}; };
         const loadDetail = async (code, fresh = false) => { // [v0.54] each stock opens in its own panel tab; its result is kept
-            openPanelTab(panelUI.stockTab(code, stockName(code)));
+            const existing = pageTabs.find(t => t.id === 'stock:' + code);
+            const poolName = stockName(code);
+            const title = stockTarget?.name || (poolName === code ? existing?.title || code : poolName);
+            openPanelTab(panelUI.stockTab(code, title, stockTarget));
+            const paintDetail = () => {
+                if (stockTarget?.section === 'graph') panelBodyKey = '';
+                render();
+                if (stockTarget?.section === 'graph') document.querySelector('#pagePanel [data-kn-initial="graph"]')?.scrollIntoView?.({block: 'start'});
+            };
             const have = quantCache.get(code);
-            if (!fresh && have && !have.error) { quantDetailData = have; render(); return; }
-            if (quantLoading.has(code)) { render(); return; }
-            quantLoading.add(code); quantCache.delete(code); quantVer.set(code, (quantVer.get(code) || 0) + 1); if (quantOpen === code) quantDetailData = null; render();
+            if (!fresh && have && !have.error) { quantDetailData = have; paintDetail(); return; }
+            if (quantLoading.has(code)) { paintDetail(); return; }
+            quantLoading.add(code); quantCache.delete(code); quantVer.set(code, (quantVer.get(code) || 0) + 1); if (quantOpen === code) quantDetailData = null;
+            paintDetail();
             let d; try { d = await call({ action: 'signal', code, fresh }); } catch (e) { d = { error: e.message }; }
             quantLoading.delete(code); quantCache.set(code, d); quantVer.set(code, (quantVer.get(code) || 0) + 1);
             while (quantCache.size > 16) quantCache.delete(quantCache.keys().next().value);
@@ -1742,9 +1801,9 @@ function renderPanel() {
     let body, key;
     if (tab.kind === 'page' && tab.page === page) { body = panelUI.panelBusy(tab); key = 'busy:' + tab.id; }
     else {
-        const saved = page; page = tab.page; renderingStock = tab.kind === 'stock' ? tab.code : '';
-        try { body = content(); } catch (e) { body = `<div class="pp-same"><p>页面加载失败：${escape(e.message)}</p></div>`; } finally { page = saved; renderingStock = ''; }
-        key = tab.kind === 'stock' ? `${tab.id}\n#${quantVer.get(tab.code) || 0}` : `${tab.id}\n${body}`; // a stock detail only changes when it is (re)computed
+        const saved = page; page = tab.page; renderingStockTab = tab.kind === 'stock' ? tab : undefined; renderingStock = renderingStockTab?.code || '';
+        try { body = content(); } catch (e) { body = `<div class="pp-same"><p>页面加载失败：${escape(e.message)}</p></div>`; } finally { page = saved; renderingStock = ''; renderingStockTab = undefined; }
+        key = tab.kind === 'stock' ? `${tab.id}\n#${quantVer.get(tab.code) || 0}:${tab.section || ''}` : `${tab.id}\n${body}`; // a stock detail only changes when it is (re)computed
     }
     const el = host.querySelector('.pp-body');
     if (key !== panelBodyKey) { const same = panelBodyKey.split('\n')[0] === key.split('\n')[0]; el.innerHTML = body; panelBodyKey = key; if (!same) el.scrollTop = tab.scroll || 0; }
@@ -1764,7 +1823,7 @@ async function boot() {
     }
 }
 let runtimeTimer;
-api?.onOpenPage?.(p => { if (p?.page === 'library' && p.document) { openPageTab('library'); Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { marketStockCode = p.code ? String(p.code) : ''; openPageTab('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code)).catch(e => toast(e.message)); else openPageTab('quant'); return; } if (p?.page === 'tasks' && p.tab) { taskTab = ['trade', 'runs'].includes(p.tab) ? p.tab : 'tasks'; openPageTab('tasks'); return; } /* [v0.52.2] */ if (p?.page === 'research') { rpStock = /^\d{6}$/.test(String(p.stock || '')) ? String(p.stock) : ''; rpKind = typeof p.kind === 'string' ? p.kind : ''; rpQuery = ''; openPageTab('research'); return; } /* [v0.53.1] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context', 'security'].includes(p?.page)) openPageTab(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
+api?.onOpenPage?.(p => { if (p?.page === 'library' && p.document) { openPageTab('library'); Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { marketStockCode = p.code ? String(p.code) : ''; openPageTab('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code), {name: p.name, section: p.tab}).catch(e => toast(e.message)); else openPageTab('quant'); return; } if (p?.page === 'tasks' && p.tab) { taskTab = ['trade', 'runs'].includes(p.tab) ? p.tab : 'tasks'; openPageTab('tasks'); return; } /* [v0.52.2] */ if (p?.page === 'research') { rpStock = /^\d{6}$/.test(String(p.stock || '')) ? String(p.stock) : ''; rpKind = typeof p.kind === 'string' ? p.kind : ''; rpQuery = ''; openPageTab('research'); return; } /* [v0.53.1] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context', 'security'].includes(p?.page)) openPageTab(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
 api?.onOpenChat?.(p => { if (p?.id && state.chats.some(c => c.id === p.id)) handle('openChat', p.id).catch(e => toast(e.message)); });
 api?.onRuntime?.(() => {
     clearTimeout(runtimeTimer);

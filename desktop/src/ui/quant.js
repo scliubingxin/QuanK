@@ -43,9 +43,9 @@ function researchLink(state, {action}) {
   const n = (state.research?.library || []).length, d = state.dataset?.stats?.total || 0;
   return `<section class="q-box q-research-link"><div class="plaza-section-head"><h2>投研资料</h2><small>研报、公告、笔记、日报复盘和训练数据已移到「资料库 → 投研资料」，按股票分类整理 · ${n} 份资料 · ${d} 条训练数据</small><span class="q-head-tools">${action('打开投研资料', 'rpOpen', '', 'primary')}</span></div></section>`;
 }
-export function quantPage(state, {action, heading, empty, date, open = '', detail = null, panel = false}) {
+export function quantPage(state, {action, heading, empty, date, open = '', detail = null, panel = false, section, stockTitle}) {
   const q = state.quant || {status: 'stopped', pool: []};
-  if (open) return quantDetail(q, open, detail, {action, date, research: state.research, panel});
+  if (open) return quantDetail(q, open, detail, {action, date, research: state.research, panel, section, stockTitle});
   const pool = q.pool || [], stats = [[pool.length, '只自选'], [pool.filter(p => ['BUY', 'STRONG_BUY'].includes(p.last?.action)).length, '个买点'], [pool.filter(p => ['SELL', 'STRONG_SELL'].includes(p.last?.action)).length, '个风控提示']];
   const head = heading('', '让策略在本机运行，信号一眼看清。', '档位、综合分与倍率来自你自己的私有策略，在本机计算；也可以直接在对话里问「600519 现在什么信号」「池子里谁是买点」。', action('＋ 添加股票', 'quantAdd', '', 'primary') + action('全部刷新', 'quantRefreshAll'), stats);
   const grid = pool.length ? `<div class="plaza-grid q-pool-grid">${pool.map(s => stockCard(s, {action, date, holding: q.holdings?.[s.code], logo: q.logos?.[s.code], live: state.market?.quotes?.[s.code]})).join('')}</div>`
@@ -53,11 +53,14 @@ export function quantPage(state, {action, heading, empty, date, open = '', detai
   return `<div class="page quant-page">${head}<div class="plaza-grid quant-top">${engineCard(q, {action, date})}</div><section class="q-pool"><div class="plaza-section-head"><h2>股票池</h2><small>交易时段信号随行情变化；单只计算可能需要几十秒，结果缓存 2 分钟。</small></div>${grid}</section>${holdingsBox(q, {action})}${portfolioBox(state.portfolio, {action})}${researchLink(state, {action})}${alertsBox(q, {action, date})}</div>`;
 }
 
-function quantDetail(q, code, d, {action, date, research = null, panel = false}) {
-  const name = (q.pool || []).find(p => p.code === code)?.name || code;
+function quantDetail(q, code, d, {action, date, research = null, panel = false, section, stockTitle}) {
+  const name = stockTitle || (q.pool || []).find(p => p.code === code)?.name || code;
+  const knowledge = knowledgeBox(code, section);
   const bar = `<div class="miniapp-bar">${panel ? '' : action('← 股票池', 'quantClose')}<h2>${escape(name)} <small>${escape(code)}</small></h2><span class="miniapp-tools">${action('重新计算', 'quantRefresh', code)}${action('AI 研判', 'quantInsight', code, 'primary')}</span></div>`;
-  if (!d) return `<div class="page quant-page">${bar}<p class="empty-note" id="quantLoading">正在计算信号…（首次可能需要半分钟）</p></div>`;
-  if (d.error) return `<div class="page quant-page">${bar}<p class="task-error">${escape(d.error)}</p></div>`;
+  if (!d || d.error) {
+    const signalView = d?.error ? `<p class="task-error">${escape(d.error)}</p>` : '<p class="empty-note" id="quantLoading">正在计算信号…（首次可能需要半分钟）</p>';
+    return `<div class="page quant-page">${bar}${section === 'graph' ? knowledge : ''}${signalView}</div>`;
+  }
   const s = d.summary, tone = actionTone(s.action), bt = s.backtest || {};
   const kpi = (label, v, cls = '') => `<div class="q-kpi ${cls}"><small>${label}</small><b>${v}</b></div>`;
   const list = (title, items, cls = '') => items?.length ? `<section class="q-box ${cls}"><h3>${title}</h3><ul class="q-list">${items.map(x => `<li>${escape(String(x).replace(/\*\*/g, ''))}</li>`).join('')}</ul></section>` : ''; // [F1e]
@@ -65,12 +68,12 @@ function quantDetail(q, code, d, {action, date, research = null, panel = false})
   const inds = s.indicators?.length ? `<section class="q-box q-inds"><h3>指标</h3><div class="qi-grid">${s.indicators.map(x => `<div class="qi"><small>${escape(x.name)}</small><b class="${typeof x.value === 'number' && /涨跌|%/.test(x.name) ? (x.value >= 0 ? 'up' : 'down') : ''}">${f(x.value)}</b></div>`).join('')}</div></section>` : '';
   const ops = d.charts?.ops?.length ? `<section class="q-box"><h3>回测操作（最近 ${d.charts.ops.length} 次）</h3><div class="table-scroll"><table class="q-table"><thead><tr><th>日期</th><th>操作</th><th>价格</th><th>股数</th><th>金额</th><th>分</th><th>原因</th></tr></thead><tbody>${d.charts.ops.map(o => `<tr><td>${escape(o.date)}</td><td>${escape(o.action)}</td><td>${f(o.price)}</td><td>${f(o.shares, 0)}</td><td>${f(o.amount, 0)}</td><td>${f(o.score, 1)}</td><td>${escape(o.reason)}</td></tr>`).join('')}</tbody></table></div></section>` : '';
   const up = (s.changePct || 0) >= 0 ? 'up' : 'down';
-  return `<div class="page quant-page">${bar}
+  return `<div class="page quant-page">${bar}${section === 'graph' ? knowledge : ''}
 <div class="q-hero q-${tone}"><div><span class="q-action q-${tone}">${escape(actionLabel(s.action, s.actionText))}</span><p>${escape(s.detail)}</p></div>
 <div class="q-kpis">${kpi('综合分', f(s.score, 1) + (s.scoreRaw != null && s.scoreRaw !== s.score ? `<em>调整前 ${f(s.scoreRaw, 1)}</em>` : ''))}${kpi('倍率', s.multiplier == null ? '—' : f(s.multiplier, 1) + '×')}${kpi('现价', `<span data-live-price="${escape(code)}">${f(s.price)}</span>`, up)}${kpi('涨跌', `<span data-live-pct="${escape(code)}">${pct(s.changePct)}</span>`, up)}${kpi('模型概率', s.probPct == null ? '—' : f(s.probPct, 1) + '%')}</div></div>
 ${s.advice ? `<p class="q-sizing">${escape(s.advice)}</p>` : ''}${holdingDetail(d.holding, code, q, {action})}
 <div class="q-kpis q-bt">${kpi('策略收益', pct(bt.smartPct))}${kpi('基准收益', pct(bt.blindPct))}${kpi('超额', pct(bt.excess))}${kpi('胜率', bt.winRate == null ? '—' : f(bt.winRate, 0) + '%')}${kpi('交易次数', f(bt.trades, 0))}${kpi('最大回撤', bt.maxDrawdown == null ? '—' : pct(-Math.abs(bt.maxDrawdown)))}</div>
-${klineBox(code, {marks: opsMarks(d.charts?.ops)})}${returnBox(d.charts, bt, s.plan ? `定投频率：${s.plan}` : '')}${knowledgeBox(code)}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
+${klineBox(code, {marks: opsMarks(d.charts?.ops)})}${returnBox(d.charts, bt, s.plan ? `定投频率：${s.plan}` : '')}${section === 'graph' ? '' : knowledge}<div class="q-charts" id="quantCharts" data-code="${escape(code)}"></div>
 <div class="q-grid2">${list('信号理由', s.reasons)}${list('约束与风控', s.gates, 'q-gates')}</div>${factors}${inds}${ops}
 ${researchBox(code, research, {action, date})}
 <p class="auto-note">数据由本机私有引擎计算${s.plan ? `（${escape(s.plan)}）` : ''}${s.model ? `，模型 ${escape(s.model)}` : ''}。仅供研究，不构成投资建议。</p></div>`;

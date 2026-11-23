@@ -1,3 +1,5 @@
+import {OFFICE_PREVIEW_TIMEOUT_MS} from '../shared/office-timeouts.js';
+
 /** Revision-bound bridge. Fixed app resource route in installed file:// builds. */
 export function mountOfficePreview(host, invoke) {
   const doc = host.ownerDocument,
@@ -31,7 +33,7 @@ export function mountOfficePreview(host, invoke) {
         retry = doc.createElement("button");
       p.textContent = message;
       retry.type = "button";
-      retry.textContent = "重新加载预览";
+      retry.textContent = "重试预览";
       retry.addEventListener("click", start, { once: true });
       host.replaceChildren(p, retry);
     };
@@ -56,8 +58,8 @@ export function mountOfficePreview(host, invoke) {
       }
       if (e.data.kind !== "office-ready" || sent) return;
       sent = true;
-      note.textContent = "正在生成预览，首次打开需要几秒…";
-      deadline(host.dataset.engine==='libreoffice'?95000:15000, host.dataset.engine==='libreoffice'?'本机转换或分页渲染超时；文件未修改。可重试或导出查看。':'文件预览未在15秒内完成；文件未修改。可重试或导出查看。');
+      note.textContent = host.dataset.engine === "libreoffice" ? "正在启动本机 Office 内核并生成预览…" : "正在生成预览…";
+      deadline(host.dataset.engine==='libreoffice'?OFFICE_PREVIEW_TIMEOUT_MS + 35000:15000, host.dataset.engine==='libreoffice'?'本机转换或分页渲染超时；文件未修改。可重试或导出查看。':'文件预览未在15秒内完成；文件未修改。可重试或导出查看。');
       try {
         snapshot = await invoke("documentPreview", {
           id: host.dataset.documentId,

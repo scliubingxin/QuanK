@@ -30,6 +30,6 @@ export function helpHtml() {
 export function contextMeter(u) {
   if (!u) return '';
   const pct = Math.round(u.ratio * 100);
-  const tip = `本轮预计约 ${formatTokens(u.tokens)} / ${formatTokens(u.limit)} tokens（估算）` + (u.level !== 'ok' ? '。对话较长时可输入 /compact 压缩上下文' : '');
+  const tip = `本轮预计约 ${formatTokens(u.tokens)} / ${formatTokens(u.limit)} tokens（估算，${pct}%）` + (u.level !== 'ok' ? '。对话较长时可输入 /compact 压缩上下文' : '');
   return `<span class="context-meter ${u.level}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="上下文用量" title="${escape(tip)}"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="track"/><circle cx="10" cy="10" r="8" class="bar" stroke-dasharray="${(u.ratio * 50.27).toFixed(2)} 50.27"/></svg><small>${pct}%</small></span>`;
 }

@@ -1,3 +1,4 @@
+import {OFFICE_START_TIMEOUT_MS, OFFICE_PDF_TIMEOUT_MS} from '../src/shared/office-timeouts.js';
 import {startOfficeKit} from './office-kit.mjs';
 // Deadline/abort also covers an adapter which resolves its factory late.
 function abortable(promise,signal,onLate=()=>{}){
@@ -11,7 +12,7 @@ export async function exportOfficePdf({runtime,directory,format,signal,driver=st
  if(!['docx','xlsx','pptx'].includes(format))throw Error('Office PDF格式无效');signal?.throwIfAborted();let worker;
  try{
   const config=await abortable(Promise.resolve().then(runtime),signal);signal?.throwIfAborted();
-  worker=await abortable(Promise.resolve().then(()=>{signal?.throwIfAborted();return driver({...config,directory,format,timeoutMs:60000,signal});}),signal,w=>w?.close());
+  worker=await abortable(Promise.resolve().then(()=>{signal?.throwIfAborted();return driver({...config,directory,format,timeoutMs:OFFICE_PDF_TIMEOUT_MS,startupTimeoutMs:OFFICE_START_TIMEOUT_MS,signal});}),signal,w=>w?.close());
   signal?.throwIfAborted();await abortable(worker.request('export_pdf'),signal);signal?.throwIfAborted();
  }finally{worker?.close();if(worker?.closed)await worker.closed;}
 }

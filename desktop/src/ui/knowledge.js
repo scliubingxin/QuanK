@@ -9,8 +9,9 @@ const table = t => t?.length > 1 ? `<div class="table-scroll"><table class="q-ta
 const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 /** Stock detail placeholder; mountKnowledge loads 财务 first and 关系图 on demand. */
-export function knowledgeBox(code) {
-  return `<section class="q-box kn-box" id="knowledgeBox" data-kn-code="${escape(code)}"><div class="kn-head"><h3>财务与关系</h3><div class="mk-seg kn-tabs"><button type="button" data-kn="finance" class="chosen">财务数据</button><button type="button" data-kn="graph">公司关系图</button></div><span class="kn-tools"><button type="button" data-kn-refresh>刷新</button></span></div><div class="kn-body"><p class="empty-note">正在读取财务数据…</p></div></section>`;
+export function knowledgeBox(code, initial = 'finance') {
+  const graph = initial === 'graph';
+  return `<section class="q-box kn-box" id="knowledgeBox" data-kn-code="${escape(code)}" data-kn-initial="${graph ? 'graph' : 'finance'}"><div class="kn-head"><h3>财务与关系</h3><div class="mk-seg kn-tabs"><button type="button" data-kn="finance"${graph ? '' : ' class="chosen"'}>财务数据</button><button type="button" data-kn="graph"${graph ? ' class="chosen"' : ''}>公司关系图</button></div><span class="kn-tools"><button type="button" data-kn-refresh>刷新</button></span></div><div class="kn-body"><p class="empty-note">${graph ? '正在整理公司关系…' : '正在读取财务数据…'}</p></div></section>`;
 }
 export function financeHtml(f) {
   if (!f?.table) return '<p class="empty-note">没有财务数据。</p>';
@@ -59,17 +60,21 @@ export function mountKnowledge(root, call, {now = Date.now} = {}) {
   if (box && !box.dataset.bound) {
     box.dataset.bound = '1';
     const code = box.dataset.knCode, body = box.querySelector('.kn-body');
-    let tab = 'finance';
+    let tab = box.dataset.knInitial === 'graph' ? 'graph' : 'finance', paintId = 0;
     const paint = async (fresh = false) => {
-      for (const b of box.querySelectorAll('[data-kn]')) b.classList.toggle('chosen', b.dataset.kn === tab);
+      const requestId = ++paintId;
+      for (const b of box.querySelectorAll('[data-kn]')) {
+        b.classList.toggle('chosen', b.dataset.kn === tab);
+        b.setAttribute('aria-pressed', String(b.dataset.kn === tab));
+      }
       const key = `${tab}|${code}`, hit = kcache.get(key);
       let d = !fresh && hit && now() - hit.at < 600e3 ? hit.data : null;
       if (!d) {
         if (body) body.innerHTML = `<p class="empty-note">${tab === 'finance' ? '正在读取财务数据…' : '正在整理公司关系…'}</p>`;
         try { const out = await call({action: tab, code, ...(fresh ? {fresh: true} : {})}); d = out?.result ?? out; kcache.set(key, {at: now(), data: d}); }
-        catch (e) { if (body && box.isConnected) body.innerHTML = `<p class="task-error">${escape(String(e?.message || e).replace(/^Error invoking remote method '[^']+':\s*/, '').replace(/^(Type)?Error:\s*/, '').replace(/^fetch failed$/, '数据服务暂时连不上，请检查网络后点「刷新」'))}</p>`; return; }
+        catch (e) { if (requestId === paintId && body && box.isConnected) body.innerHTML = `<p class="task-error">${escape(String(e?.message || e).replace(/^Error invoking remote method '[^']+':\s*/, '').replace(/^(Type)?Error:\s*/, '').replace(/^fetch failed$/, '数据服务暂时连不上，请检查网络后点「刷新」'))}</p>`; return; }
       }
-      if (box.isConnected && body) body.innerHTML = tab === 'finance' ? financeHtml(d) : graphHtml(d);
+      if (requestId === paintId && box.isConnected && body) body.innerHTML = tab === 'finance' ? financeHtml(d) : graphHtml(d);
     };
     box.addEventListener('click', e => { const t = e.target.closest?.('[data-kn]'); if (t) { tab = t.dataset.kn; paint(); return; } if (e.target.closest?.('[data-kn-refresh]')) paint(true); });
     paint();

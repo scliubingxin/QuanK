@@ -86,7 +86,7 @@ html,body,#app,.main,.workspace,.sidebar,.topbar{background-color:#fff}input[typ
 .graph-svg{width:100%;height:auto;margin:6px 0}.graph-svg line{stroke:var(--line,#d1d5db);stroke-width:1.2}
 .graph-svg text{font-size:11px;fill:var(--fg,#374151);text-anchor:middle}.graph-svg text.edge{fill:var(--muted,#9ca3af);font-size:10px}.graph-svg text.center{font-size:13px;font-weight:600}
 .graph-chips{display:flex;flex-wrap:wrap;gap:6px;padding:6px 0}.graph-chips .chip small{margin-left:4px;color:var(--muted,#6b7280)}
-#graphQuery{margin-left:auto;min-width:200px}
+
 
 /* [p4-m1] studio · dashboards */
 .studio-tabs{margin-bottom:14px}
