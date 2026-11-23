@@ -4,6 +4,7 @@ QuanK 每个正式版本的打包与发布过程记录（同步清单、asar 检
 
 | 版本 | 日期 | 内容 | 合并提交 | 发布记录提交 | DMG 字节 | DMG sha256 | ZIP sha256 | 记录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| [v0.55.1](https://github.com/scliubingxin/QuanK/releases/tag/v0.55.1) | 2026-11-23 | 本地引擎固定端口与输入框精简 | `0be9030` | `本次` | 457,424,821 | `ef9af4371a0867c…` | `ae5ad53c45c1670…` | [v0.55.1.md](v0.55.1.md) |
 | [v0.55.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.55.0) | 2026-11-23 | 远程引擎与页签排版 | `735184d` | `本次` | 457,434,010 | `df013afb0f251b92…` | `529c000bafdb2cc…` | [v0.55.0.md](v0.55.0.md) |
 | [v0.54.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.54.0) | 2026-11-22 | 右侧页签 | `e2856f7` | `本次` | 457,456,849 | `9b21bf4edba2…` | `be87a94e96ba…` | [v0.54.0.md](v0.54.0.md) |
 | [v0.53.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.53.0) | 2026-11-22 | 投研资料与训练数据 | `201032e` | `本次` | 457,478,101 | `8d8d9bccf6fd…` | `7b113c5c8221…` | [v0.53.0.md](v0.53.0.md) |
