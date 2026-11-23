@@ -42,6 +42,7 @@ export function normalizeAdapter(a) {
   for (const [k, e] of Object.entries(a.endpoints)) need(pathOk(typeof e === 'string' ? e : e?.path), `endpoints.${k}`);
   need(a.fields && typeof a.fields === 'object', 'fields');
   if (a.engine.health !== undefined) need(pathOk(a.engine.health), 'engine.health');
+  if (a.engine.port !== undefined) need(Number.isInteger(Number(a.engine.port)) && Number(a.engine.port) > 0 && Number(a.engine.port) < 65536, 'engine.port（1–65535）');
   if (a.engine.requires !== undefined) need(Array.isArray(a.engine.requires) && a.engine.requires.every(m => /^[A-Za-z_][\w.]*$/.test(m)), 'engine.requires');
   if (a.config?.file !== undefined) need(/^[\w.-]+\.json$/.test(a.config.file), 'config.file');
   return a;

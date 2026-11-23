@@ -32,6 +32,11 @@ export function remoteBase(url, port) {
 }
 export const REMOTE_ADAPTER_PATH = '/wb-engine.json';
 
+/** [v0.55.1] true when nothing listens on 127.0.0.1:port */
+export function isPortFree(port) {
+  return new Promise(resolve => { const s = createServer(); s.unref(); s.once('error', () => resolve(false)); s.listen(port, '127.0.0.1', () => s.close(() => resolve(true))); });
+}
+
 export async function freePort() {
   return new Promise((resolve, reject) => { const s = createServer(); s.unref(); s.on('error', reject); s.listen(0, '127.0.0.1', () => { const {port} = s.address(); s.close(() => resolve(port)); }); });
 }
@@ -64,7 +69,7 @@ export function runPythonScript({python, cwd, script, args = [], timeoutMs = 600
 }
 
 export function createQuantEngine({onSignal = null, onReport = null, dir, store, seal = s => s, unseal = s => s, aiGateway = () => null, notify = () => {}, onAlert = () => {}, now = Date.now,
-  spawn = nodeSpawn, fetcher = globalThis.fetch, probe = probePython, exists = existsSync, port: pickPort = freePort, chooseFolder = null, runScript = null, lookup = null}) {
+  spawn = nodeSpawn, fetcher = globalThis.fetch, probe = probePython, exists = existsSync, port: pickPort = freePort, portFree = isPortFree, chooseFolder = null, runScript = null, lookup = null}) {
   const engineDir = path.join(dir, 'engine'), logPath = path.join(dir, 'engine.log');
   const st = () => (store.data.quant ??= {source: '', python: '', autoStart: true, ai: 'willbuddy', pool: []});
   let child = null, base = '', cookie = '', status = 'stopped', error = '', starting = null, uid = null, adapter = null;
@@ -166,7 +171,9 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
       const ad = await ensureAdapter();
       const py = python(), check = probe(py, ad.engine.requires || []);
       if (!check.ok) { set('error', check.error || `Python 缺少：${check.missing.join('、')}。请在量化设置里选择装好引擎依赖的 Python`); throw new Error(error); }
-      const port = await pickPort();
+      // [v0.55.1] a strategy that must listen on a fixed port (e.g. behind its own reverse proxy) declares engine.port
+      const fixed = Number(ad.engine.port), port = Number.isInteger(fixed) && fixed > 0 && fixed < 65536 ? fixed : await pickPort();
+      if (port === fixed && !(await portFree(fixed))) { set('error', `端口 ${fixed} 已被占用：可能策略服务已经在本机运行，或上次的引擎没有退出。请先关闭占用该端口的程序再启动`); throw new Error(error); }
       await writeConfig(port);
       try { const t = await stat(logPath); if (t.size > LOG_BYTES) await rm(logPath, {force: true}); } catch {}
       const log = await open(logPath, 'a');
@@ -182,7 +189,7 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
         if (i === 119) { await stop(); set('error', '引擎 60 秒内没有就绪，请查看日志'); throw new Error(error); }
       }
       await login();
-      s.port = port; set('running');
+      s.port = port; s.watchError = ''; set('running'); // [v0.55.1] an engine that is up again must not keep showing the old start failure
       return view();
     })();
     try { return await starting; } catch (e) { if (status !== 'error') set('error', e.message); throw e; } finally { starting = null; }
@@ -205,7 +212,7 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     if (r.status === 401 || r.status === 403) { base = ''; set('error', '远程引擎拒绝访问：鉴权密钥无效或已过期'); throw new Error(error); }
     if (r.status >= 500) { base = ''; const err = new Error(`远程引擎暂时不可用（${r.status}）`); err.network = true; set('error', err.message); throw err; }
     if (ad.auth?.path && R.user && R.passSealed) await login();
-    st().lastRemote = now(); set('running');
+    st().lastRemote = now(); st().watchError = ''; set('running');
     return view();
   }
   async function testRemote() {

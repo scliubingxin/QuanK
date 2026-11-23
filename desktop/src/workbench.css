@@ -1686,3 +1686,21 @@ dialog .q-mode label.check,dialog .q-remote-fields label.check{display:flex;alig
 dialog .q-mode label.check input,dialog .q-remote-fields label.check input{flex:0 0 auto;width:auto;margin:3px 0 0}
 dialog .q-remote-fields>label:not(.check){margin:0}
 dialog .q-remote-fields .hint,dialog .q-mode~.hint,dialog form>.hint{display:block;font-size:12px;line-height:1.6;color:#64748b;padding:4px 2px}
+
+/* [v0.55.1] 窄主区域：输入框下方的功能只保留图标，鼠标悬停显示文字（title），一行排开不挤 */
+@container qkzone (max-width:1000px){
+  .composer-bar{flex-wrap:nowrap;column-gap:6px}
+  .composer-bar-start{flex-wrap:nowrap;min-width:0;gap:4px}
+  .composer-modes{flex-shrink:0}
+  .composer-mode{gap:0;padding:6px 8px}
+  .composer-mode .cm-label{display:none}
+  .composer-agent-pill .composer-agent{max-width:84px;text-overflow:ellipsis}
+  .composer-bar-end [data-composer-trigger="model"] span:first-child{max-width:96px;overflow:hidden;text-overflow:ellipsis}
+  .qk-hero .suggestions{display:flex;flex-wrap:wrap;gap:8px}
+  .qk-hero .suggestions button{width:40px;height:40px;padding:0;justify-content:center;border-radius:12px}
+  .qk-hero .suggestions .sg-label{display:none}
+  .qk-hero .suggestions svg{width:17px;height:17px;margin:0}
+}
+@container qkzone (max-width:560px){
+  .composer-agent-pill .composer-agent{display:none}
+}

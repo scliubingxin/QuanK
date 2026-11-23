@@ -117,7 +117,7 @@ export function homeDashboard({state, icon, composer, action, date, taskStatus})
 <h1>今天的市场，从哪里开始？</h1>
 <p class="subtitle">看信号、读财报、写研报、做模型，一句话交给 QuanK；也可以先附上资料。</p>
 ${composer()}
-<div class="suggestions">${SUGGEST.map(([id, i, t]) => `<button data-action="suggest" data-id="${id}">${icon(i)}${t}</button>`).join('')}</div>${setup}
+<div class="suggestions">${SUGGEST.map(([id, i, t]) => `<button data-action="suggest" data-id="${id}" title="${t}" aria-label="${t}">${icon(i)}<span class="sg-label">${t}</span></button>`).join('')}</div>${setup}
 </div></section>
 <div class="qk-grid">
 <div class="qk-col-12">${marketHomeCard(state, {date})}</div>
