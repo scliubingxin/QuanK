@@ -4,7 +4,7 @@
   <p><b>量化工作，一键搞定</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.54.1-2F62F5" alt="version">
+    <img src="https://img.shields.io/badge/version-0.55.0-2F62F5" alt="version">
     <img src="https://img.shields.io/badge/macOS-12%2B%20·%20Apple%20芯片-0B2BA6" alt="platform">
     <img src="https://img.shields.io/badge/license-Apache--2.0-8C7CFF" alt="license">
   </p>
@@ -49,7 +49,7 @@
 
 ## 下载与安装
 
-**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.54.1-mac-arm64.dmg`**。
+**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载 **`QuanK-v0.55.0-mac-arm64.dmg`**。
 
 1. 双击 DMG，把 **QuanK** 拖到 **应用程序**。
 2. 首次打开：在「应用程序」里右键 QuanK → 打开（只需一次）。
@@ -280,7 +280,7 @@ cd QuanK/desktop && npm install && npm start
 
 ## 更新记录
 
-- **v0.54.1** — 右侧页签排版修复：统一容器查询 + auto-fit 网格，600–1400px 下自适应；量化数字不重叠、按钮整齐；投研搜索框圆角化且全站不再出现「[object Object]」；动态窄屏改上下排列、回复不暴露工具名；MCP 卡片名称不截断；页签栏可横向滚动。下载 `QuanK-v0.54.1-mac-arm64.dmg`。
+- **v0.55** — 远程引擎：量化设置可选「本地引擎 / 远程引擎」，远程模式读取云端服务器的信号（HTTPS + 鉴权密钥，密钥由系统钥匙串加密保存），连不上时自动回退本地引擎；并入原 v0.54.1 的右侧页签排版修复（容器查询自适应、首页窄宽度不再竖长、数字不重叠、不再出现「[object Object]」）。下载 `QuanK-v0.55.0-mac-arm64.dmg`。
 - **v0.54** — 对话里打开的页面改为在对话右侧的页签中显示，对话保持不动；每只股票的量化详情单独一个页签，切换不重新计算；页签可拖动调整宽度、放大或关闭，重启后保留。另修复自定义智能体导致工作区打不开、对话打开投研资料 / 安全与合规 / 委托等页面时的筛选条件。下载 `QuanK-v0.54.0-mac-arm64.dmg`。
 - **v0.53** — 资料库新增「投研资料」：按股票和类型整理研报、公告、笔记、导出和量化日报，可搜索、编辑和删除；引擎的日报复盘自动归档；新增训练数据（每日信号记录 + 20 日后自动标注涨跌与对错，可导出或写入策略项目用于重新训练模型）；半自动委托放在「自动化」第一位；修复券商页面标注后仍显示未标注。下载 `QuanK-v0.53.0-mac-arm64.dmg`。
 - **v0.52.2** — 半自动委托移到「自动化」；持仓「可用资金」为负时改为提示已投入超出引擎预算；最大回撤显示为负数。下载 `QuanK-v0.52.2-mac-arm64.dmg`。

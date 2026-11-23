@@ -15,14 +15,15 @@ const pct = v => v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${f
 const val = (fm, n) => String((typeof fm?.get === 'function' ? fm.get(n) : fm?.elements?.[n]?.value ?? fm?.[n]?.value) ?? '');
 const on = (fm, n) => typeof fm?.get === 'function' ? fm.get(n) !== null : !!(fm?.elements?.[n]?.checked ?? fm?.[n]?.checked);
 
+const remoteLabel = R => { try { const u = new URL(R?.url || ''); if (R?.port) u.port = String(R.port); return u.host + (u.pathname === '/' ? '' : u.pathname); } catch { return R?.url || '尚未填写服务器地址'; } };
 function engineCard(q, {action, date}) {
-  const [label, tone] = STATUS[q.status] || STATUS.stopped;
+  const [label, tone] = STATUS[q.status] || STATUS.stopped, remote = q.mode === 'remote';
   const btn = q.status === 'running' ? action('停止引擎', 'quantStop') + action('重启', 'quantRestart') : q.status === 'starting' ? '' : action('启动引擎', 'quantStart', '', 'primary');
-  return `<div class="card plaza-card quant-engine"><div class="pc-head">${plazaIcon('量化')}<div class="pc-title"><h3>${escape(q.title || '本机量化引擎')}</h3><small>${q.source ? escape(q.source) : '尚未导入策略项目'}</small></div><span class="pc-tag ${tone}">${label}</span></div>
-${q.error ? `<p class="task-error">${escape(q.error)}</p>` : ''}
-<p class="pc-desc">${q.installed ? `已同步 ${q.files || 0} 个文件${q.lastSync ? ' · ' + escape(date(q.lastSync)) : ''} · Python：${escape(q.python || q.pythonFound || '未找到')}` : '需要添加微信 findingnoone 获取量化策略和支持。'}</p>
+  return `<div class="card plaza-card quant-engine"><div class="pc-head">${plazaIcon('量化')}<div class="pc-title"><h3>${escape(q.title || (remote ? '远程量化引擎' : '本机量化引擎'))}</h3><small>${remote ? escape(remoteLabel(q.remote)) : q.source ? escape(q.source) : '尚未导入策略项目'}</small></div><span class="pc-tag ${tone}">${label}</span></div>
+${q.error ? `<p class="task-error">${escape(q.error)}</p>` : ''}${q.fellBack ? '<p class="q-fallback">远程服务器连不上，本次已切换到本地引擎；恢复后点「重启」重新连接远程引擎。</p>' : ''}
+<p class="pc-desc">${remote ? `远程引擎 · HTTPS · 鉴权密钥${q.remote?.hasToken ? '已保存' : '未填写'}${q.remote?.lastRemote ? ' · 上次连接 ' + escape(date(q.remote.lastRemote)) : ''}${q.remote?.fallback !== false ? ' · 离线回退本地' : ''}` : q.installed ? `已同步 ${q.files || 0} 个文件${q.lastSync ? ' · ' + escape(date(q.lastSync)) : ''} · Python：${escape(q.python || q.pythonFound || '未找到')}` : '需要添加微信 findingnoone 获取量化策略和支持。'}</p>
 <p class="q-watch"><span class="${normalizeWatch(q.watch).enabled ? 'on' : 'off'}">${escape(describeWatch(q.watch))}</span>${q.lastWatch ? `<span>上次检查 ${escape(date(q.lastWatch))}</span>` : ''}${q.watchError ? `<span class="err">${escape(q.watchError)}</span>` : ''}</p>
-<div class="pc-actions">${q.installed ? '' : action('添加微信', 'quantContact', '', 'primary')}${btn}${action(q.installed ? '从源目录同步' : '导入策略项目', 'quantSync', '', 'secondary')}${action('盯盘与提醒', 'quantWatch')}${q.features?.plan ? action('定投计划', 'quantPlan') : ''}${action('设置', 'quantSettings')}${action('日志', 'quantLog')}</div></div>`;
+<div class="pc-actions">${q.installed || remote ? '' : action('添加微信', 'quantContact', '', 'primary')}${btn}${remote ? action('测试连接', 'quantTestRemote', '', 'secondary') : action(q.installed ? '从源目录同步' : '导入策略项目', 'quantSync', '', 'secondary')}${action('盯盘与提醒', 'quantWatch')}${q.features?.plan ? action('定投计划', 'quantPlan') : ''}${action('设置', 'quantSettings')}${action('日志', 'quantLog')}</div></div>`;
 }
 
 // [v45q] company logo (data URL fetched when the stock was added), letter badge otherwise
@@ -135,13 +136,37 @@ export function quantAddForm() {
 }
 export const quantAddPayload = fm => ({action: 'addStock', code: val(fm, 'code').trim(), name: val(fm, 'name').trim()});
 export function quantSettingsForm(q) {
-  return `<label>Python 解释器（需装好引擎声明的依赖包）<input name="python" value="${escape(q.python || '')}" placeholder="${escape(q.pythonFound || '自动查找')}"></label>
+  const R = q.remote || {}, remote = q.mode === 'remote';
+  // [v0.55] 引擎来源：本地策略项目（子进程）或云端服务（HTTPS + 鉴权密钥）
+  return `<fieldset class="q-mode"><legend>引擎来源</legend>
+<label class="check"><input type="radio" name="mode" value="local" ${remote ? '' : 'checked'}> 本地引擎：在本机运行策略项目（离线可用）</label>
+<label class="check"><input type="radio" name="mode" value="remote" ${remote ? 'checked' : ''}> 远程引擎：读取云端服务器的信号</label></fieldset>
+<div class="q-remote-fields">
+<label>服务器地址<input name="remoteUrl" value="${escape(R.url || '')}" placeholder="https://quant.example.com" autocomplete="off" spellcheck="false"></label>
+<label>端口（可选，默认 443）<input name="remotePort" type="number" min="1" max="65535" value="${escape(R.port ?? '')}" placeholder="443"></label>
+<label>鉴权密钥（Token）<input name="remoteToken" type="password" autocomplete="new-password" placeholder="${R.hasToken ? '已保存，留空不修改' : '服务端签发的访问密钥'}"></label>
+${R.hasToken ? '<label class="check"><input type="checkbox" name="clearToken"> 清除已保存的密钥</label>' : ''}
+<details class="q-remote-login"><summary>服务端仍要求账号登录（可选）</summary>
+<label>用户名<input name="remoteUser" value="${escape(R.user || '')}" autocomplete="off"></label>
+<label>密码<input name="remotePass" type="password" autocomplete="new-password" placeholder="${R.hasPass ? '已保存，留空不修改' : ''}"></label></details>
+<label class="check"><input type="checkbox" name="remoteFallback" ${R.fallback !== false ? 'checked' : ''}> 连不上服务器时自动切换到本地引擎（需已导入策略项目）</label>
+<p class="hint">只接受 HTTPS 地址，并校验服务器证书、拒绝跳转，防止信号和账号被中间人篡改。每次请求都在 Authorization 请求头里带上 Bearer 密钥；密钥和密码用系统钥匙串加密保存在本机，不写入任何配置文件，也不会显示在界面或对话里。服务器需要提供 /wb-engine.json 描述文件（与本地策略项目相同）。</p>
+</div>
+<label>Python 解释器（需装好引擎声明的依赖包）<input name="python" value="${escape(q.python || '')}" placeholder="${escape(q.pythonFound || '自动查找')}"></label>
 <label>AI 研判<select name="ai"><option value="willbuddy" ${q.ai !== 'none' ? 'selected' : ''}>使用 QuanK 当前配置的模型</option><option value="none" ${q.ai === 'none' ? 'selected' : ''}>关闭（只用算法结论）</option></select></label>
 <label class="check"><input type="checkbox" name="autoStart" ${q.autoStart !== false ? 'checked' : ''}> 需要时自动启动引擎</label>
 <label class="check"><input type="checkbox" name="importHoldings" ${q.importHoldings ? 'checked' : ''}> 首次启动时从源项目导入持仓等设置（之后由本机引擎维护）</label>
 <p class="hint">源目录：${escape(q.source || '尚未选择')}。同步时复制项目文件，但不复制数据库、密钥类配置、日志以及 wb-engine.json 里列出的文件。模型密钥会写入本机引擎目录的配置文件（仅你本人可读）。</p>`;
 }
-export const quantSettingsPayload = fm => ({action: 'settings', python: val(fm, 'python'), ai: val(fm, 'ai') || 'willbuddy', autoStart: on(fm, 'autoStart'), importHoldings: on(fm, 'importHoldings')});
+export const quantSettingsPayload = fm => {
+  const mode = typeof fm?.get === 'function' ? fm.get('mode') : (fm?.elements?.mode?.value ?? [...(fm?.querySelectorAll?.('input[name="mode"]') || [])].find(x => x.checked)?.value);
+  const port = val(fm, 'remotePort').trim();
+  const base = {action: 'settings', python: val(fm, 'python'), ai: val(fm, 'ai') || 'willbuddy', autoStart: on(fm, 'autoStart'), importHoldings: on(fm, 'importHoldings')};
+  if (mode === null || mode === undefined) return base; // no engine-source field in this form: leave mode and remote settings unchanged
+  return {...base,
+    mode: mode === 'remote' ? 'remote' : 'local', remoteUrl: val(fm, 'remoteUrl').trim(), remotePort: port === '' ? '' : Number(port), remoteToken: val(fm, 'remoteToken'), clearToken: on(fm, 'clearToken'),
+    remoteUser: val(fm, 'remoteUser').trim(), remotePass: val(fm, 'remotePass'), remoteFallback: on(fm, 'remoteFallback')};
+};
 
 /** [q3] 盯盘与提醒 settings form (field names match quantWatchPayload). */
 export function quantWatchForm(q) {

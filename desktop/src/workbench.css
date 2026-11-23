@@ -1671,3 +1671,18 @@ body.pp-resizing iframe{pointer-events:none}
   .qk-hero{padding:20px 16px 16px}
   .qk-hero .suggestions{grid-template-columns:repeat(auto-fit,minmax(104px,1fr))}
 }
+
+/* [v0.55] 量化设置：引擎来源（本地 / 远程） */
+.q-mode{border:1px solid #e3e9f3;border-radius:12px;padding:8px 12px 10px;margin:0 0 12px;display:grid;gap:6px}
+.q-mode legend{font-size:12px;color:#64748b;padding:0 4px}
+.q-remote-fields{display:grid;gap:10px;padding:10px 12px;margin:0 0 12px;border-radius:12px;background:#f6f8ff}
+form:has(input[name="mode"][value="local"]:checked) .q-remote-fields{display:none}
+.q-remote-login summary{cursor:pointer;font-size:12.5px;color:#475569}
+.q-remote-login[open]{display:grid;gap:8px}
+.q-fallback{margin:6px 0;padding:7px 10px;border-radius:9px;background:#fff7e6;color:#9a5b00;font-size:12.5px}
+
+/* [v0.55-b] 量化设置弹窗：单选项与勾选项左对齐（不被全局 input 宽度拉伸）、说明文字按段落排版 */
+dialog .q-mode label.check,dialog .q-remote-fields label.check{display:flex;align-items:flex-start;justify-content:flex-start;gap:8px;margin:0;text-align:left;font-size:13px;line-height:1.5;color:#334155}
+dialog .q-mode label.check input,dialog .q-remote-fields label.check input{flex:0 0 auto;width:auto;margin:3px 0 0}
+dialog .q-remote-fields>label:not(.check){margin:0}
+dialog .q-remote-fields .hint,dialog .q-mode~.hint,dialog form>.hint{display:block;font-size:12px;line-height:1.6;color:#64748b;padding:4px 2px}
