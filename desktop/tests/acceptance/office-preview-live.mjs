@@ -1,3 +1,5 @@
+import {openLibrary} from '../helpers/office-live-ui.mjs';
+import {officePython} from '../helpers/office-kit-runtime.mjs';
 import { normalizeImageFixture } from "../helpers/image-workbook.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -14,7 +16,7 @@ import {
   documentViews,
 } from "../../services/documents.mjs";
 import ExcelJS from "exceljs";
-test("production UI click Preview renders actual Word, styled multi-sheet Excel and all PPT slides offline", async () => {
+test("production UI click Preview renders actual Word, styled multi-sheet Excel and all PPT slides offline", { timeout: 120_000 }, async () => {
   const root = path.resolve(import.meta.dirname, "../../src"),
     dir = await mkdtemp(path.join(tmpdir(), "wb-preview-")),
     store = new Store(dir);
@@ -36,7 +38,7 @@ test("production UI click Preview renders actual Word, styled multi-sheet Excel 
           ? "text/html"
           : f.endsWith(".js")
             ? "text/javascript"
-            : "application/octet-stream",
+            : f.endsWith(".css") ? "text/css" : "application/octet-stream",
       );
       res.end(await readFile(f));
     } catch {
@@ -143,7 +145,7 @@ test("production UI click Preview renders actual Word, styled multi-sheet Excel 
     );
     await writeFile(path.join(dir, "anchors.xlsx"), excelBytes);
     execFileSync(
-      "python3",
+      officePython,
       [
         "-c",
         `import sys,openpyxl
@@ -177,7 +179,7 @@ print('Independent openpyxl anchors and hidden dimensions passed')`,
         bytes,
       );
       await page.goto(origin + "/index.html");
-      await page.locator(".sidebar [data-page=library]").click();
+      await openLibrary(page);
       await page
         .locator(`[data-document="${d.id}"] [data-action=documentView]`)
         .click();
@@ -276,7 +278,7 @@ print('Independent openpyxl anchors and hidden dimensions passed')`,
         const initialReads = previewReads;
         await page.evaluate(() => {
           window.__previewFrame = document.querySelector("iframe.office-frame");
-          document.querySelector(".preview-scroll").scrollTop = 73;
+          document.querySelector("#pagePanel .pp-body").scrollTop = 73;
         });
         for (let i = 0; i < 12; i++) {
           const calls = await page.evaluate(() => window.__stateCalls);

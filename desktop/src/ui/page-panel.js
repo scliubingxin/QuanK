@@ -1,3 +1,4 @@
+import {docIcon} from './avatars.js';
 // [v0.54] right-hand page tabs: pages opened from the chat, and every stock detail, open as tabs beside the
 // conversation instead of replacing it. Pure helpers here; app.js owns the DOM host and the render loop.
 
@@ -11,9 +12,17 @@ export const MAIN_ONLY = new Set(['home', 'chat']);
 export function pageTab(page, title = '') {
   return {id: 'page:' + page, kind: 'page', page: String(page), title: String(title || page)};
 }
+export function documentTab(documentId, title, format) {
+  return {id: 'document:' + documentId, kind: 'document', documentId, title, format};
+}
+
 export function stockTab(code, name = '', {section} = {}) {
   const c = String(code || '').trim();
   return {id: 'stock:' + c, kind: 'stock', page: 'quant', code: c, title: String(name || c), ...(section === 'graph' ? {section} : {})};
+}
+
+export function marketStockTab(code, name = '', period) {
+  return {id: 'market-stock:' + code, kind: 'market-stock', page: 'market', code, title: String(name || code), period};
 }
 
 /** Open (or re-focus) a tab. The newest tab goes to the right; past `max` the oldest tab that is not the one
@@ -45,6 +54,8 @@ export function activeTab(tabs, active) {
 export function restoreTabs(raw) {
   let v; try { v = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { v = null; }
   const tabs = (Array.isArray(v?.tabs) ? v.tabs : []).map(t => t?.kind === 'stock' && /^\d{6}$/.test(String(t.code || '')) ? stockTab(t.code, t.title)
+    : t?.kind === 'market-stock' && /^\d{6}$/.test(String(t.code || '')) ? marketStockTab(t.code, t.title, t.period)
+    : t?.kind === 'document' && typeof t.documentId === 'string' && t.documentId ? documentTab(t.documentId, String(t.title || ''), String(t.format || ''))
     : t?.kind === 'page' && typeof t.page === 'string' && /^[a-z]+$/.test(t.page) && !MAIN_ONLY.has(t.page) ? pageTab(t.page, t.title) : null).filter(Boolean).slice(-PANEL_MAX_TABS);
   const width = Number(v?.width);
   return {tabs, active: tabs.some(t => t.id === v?.active) ? v.active : tabs.at(-1)?.id || '', wide: !!v?.wide, width: Number.isFinite(width) && width >= PANEL_MIN_WIDTH ? Math.round(width) : 0};
@@ -58,7 +69,7 @@ export function clampWidth(w, viewport) {
 
 /** Header: tab strip + controls. `icon` is the app's icon() helper. */
 export function panelHead({tabs, active, wide = false, icon = () => ''}) {
-  const strip = tabs.map(t => `<div class="pp-tab ${t.id === active ? 'selected' : ''} pp-${t.kind}" title="${esc(t.title)}${t.kind === 'stock' ? ' ' + esc(t.code) : ''}"><button type="button" role="tab" aria-selected="${t.id === active}" data-action="ppSelect" data-id="${esc(t.id)}">${t.kind === 'stock' ? '<span class="pp-dot" aria-hidden="true"></span>' : icon('grid')}<span>${esc(t.title)}</span>${t.kind === 'stock' && t.title !== t.code ? `<small>${esc(t.code)}</small>` : ''}</button><button type="button" class="pp-x" data-action="ppClose" data-id="${esc(t.id)}" aria-label="关闭 ${esc(t.title)}">×</button></div>`).join('');
+  const strip = tabs.map(t => `<div class="pp-tab ${t.id === active ? 'selected' : ''} pp-${t.kind}" title="${esc(t.title)}${t.kind === 'stock' ? ' ' + esc(t.code) : ''}"><button type="button" role="tab" aria-selected="${t.id === active}" data-action="ppSelect" data-id="${esc(t.id)}">${t.kind === 'stock' ? '<span class="pp-dot" aria-hidden="true"></span>' : t.kind === 'document' ? docIcon(t.format, 'file-type lib-icon ' + esc(t.format)) : icon('grid')}<span>${esc(t.title)}</span>${t.kind === 'stock' && t.title !== t.code ? `<small>${esc(t.code)}</small>` : ''}</button><button type="button" class="pp-x" data-action="ppClose" data-id="${esc(t.id)}" aria-label="关闭 ${esc(t.title)}">×</button></div>`).join('');
   return `<div class="pp-tabs" role="tablist" aria-label="打开的页面">${strip}</div><div class="pp-tools"><button type="button" class="icon-button" data-action="ppMain" title="在主区域打开" aria-label="在主区域打开">↙</button><button type="button" class="icon-button" data-action="ppWide" aria-pressed="${wide}" title="${wide ? '还原' : '放大'}" aria-label="${wide ? '还原' : '放大'}">${wide ? '⤡' : '⤢'}</button><button type="button" class="icon-button" data-action="ppCloseAll" title="关闭全部页签" aria-label="关闭全部页签">${icon('close') || '×'}</button></div>`;
 }
 

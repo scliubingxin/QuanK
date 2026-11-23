@@ -1,3 +1,4 @@
+import {startLiveOfficeKit, waitForHostState} from '../helpers/office-live-ui.mjs';
 // [excel] Live check of the spreadsheet editor operations against a real LibreOfficeKit (Calc).
 // Run: WB_TEST_PYTHON=<python3> WB_TEST_OFFICE_DIRECTORY=<LibreOffice program dir> node --test tests/acceptance/office-sheet-live.mjs
 // Every check is recorded; the test prints a JSON summary (SHEET-LIVE ...) and fails if any check failed.
@@ -8,19 +9,18 @@ import {mkdtemp, rm} from 'node:fs/promises';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 import office from '../../runtime/vendor/office.cjs';
-import {startOfficeKit} from '../../runtime/office-kit.mjs';
 import {Store} from '../../core.mjs';
 import {generateDocument} from '../../runtime/documents.mjs';
 import {createDocumentService} from '../../services/documents.mjs';
 import {createOfficeWorkspace} from '../../services/office-workspace.mjs';
 import {axisRuns, MAX_COL, MAX_ROW, parseCellCursor} from '../../src/shared/office-sheet.js';
 
-test('real XLSX: sheet info, typing, formulas, formats, borders, rows, freeze, filter, sizes, sheet tabs, dialog guard', {timeout: 600000}, async () => {
+test('real XLSX: sheet info, typing, formulas, formats, borders, rows, freeze, filter, sizes, sheet tabs, dialog guard', {timeout: 120000}, async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'wb-sheet-live-')), store = new Store(dir); await store.load();
   const documents = createDocumentService({store});
   const rows = [['名称', '金额', '备注'], ['甲', 600, '保留'], ['乙', 900, '其他'], ['丙', 300, '']];
   const d = (await documents.importFile('Sheet live', 'xlsx', (await generateDocument('xlsx', JSON.stringify({sheets: [{name: 'Budget', rows}, {name: 'Second', rows: [['x']]}]}))).bytes)).document;
-  const kit = createOfficeWorkspace({documents, directory: path.join(dir, 'kit'), runtime: async () => ({python: officePython, officeDirectory}), approve: async () => true, driver: o => startOfficeKit({...o, timeoutMs: 120000})});
+  const kit = createOfficeWorkspace({documents, directory: path.join(dir, 'kit'), runtime: async () => ({python: officePython, officeDirectory}), approve: async () => true, driver: o => startLiveOfficeKit({...o, timeoutMs: 120000})});
   const results = [];
   const check = async (name, fn) => { const t = Date.now(); try { const detail = await fn(); results.push({name, ok: true, ms: Date.now() - t, detail: detail ?? ''}); } catch (e) { results.push({name, ok: false, ms: Date.now() - t, error: String(e.message || e).slice(0, 300)}); } };
   const files = () => office.zip.unzipSync(documents.bytes(d.id, documents.read(d.id).revision).bytes);
@@ -40,11 +40,13 @@ test('real XLSX: sheet info, typing, formulas, formats, borders, rows, freeze, f
       assert.ok(parseCellCursor(s.sheet.cursor), 'cell cursor ' + s.sheet.cursor);
       return {address: s.sheet.address, cursor: s.sheet.cursor, cols: s.sheet.geometry.columns.sizes.slice(0, 40)};
     });
-    await check('goto + typing + Enter commits and saves', async () => {
+    await t.test('goto + typing + Enter commits and saves', async () => {
+      const revision = documents.read(d.id).revision;
       await goto('D6'); await op('sheet_text', {text: '123'});
       let s = await shot(); assert.equal(s.sheet.editing, true, 'edit mode while typing');
       await op('sheet_key', {key: 'Enter'});
       s = await shot(); assert.equal(s.sheet.editing, false); assert.equal(s.sheet.address, 'D7');
+      await waitForHostState(() => documents.read(d.id).revision > revision, 'Calc auto-save after Enter', 3_000);
       assert.match(sheetXml(), /r="D6"[^>]*>(?:<f[^>]*>[^<]*<\/f>)?<v>123<\/v>/);
     });
     await check('typing Chinese text', async () => {

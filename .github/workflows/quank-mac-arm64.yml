@@ -35,10 +35,13 @@ jobs:
           PYCODE
           python3 -m pip download --dest ../native-cache/python-wheels --only-binary=:all: --require-hashes -r requirements-native-python.txt
           python3 ../scripts/prepare-native-runtimes.py --cache ../native-cache --output ../native-runtimes
+      - name: Verify Pillow in the isolated bundled interpreter
+        run: ../native-runtimes/python/bin/python3.12 -I -B -c "from PIL import Image; Image.new('RGBA', (1, 1)).tobytes()"
       - run: npm test
         env:
+          # The acceptance parsers are installed only on the build host.
           WB_TEST_SOFFICE: ${{ github.workspace }}/native-runtimes/WillBuddyEngine/Contents/MacOS/soffice
-          WB_TEST_PYTHON: ${{ github.workspace }}/native-runtimes/python/bin/python3.12
+          WB_TEST_PYTHON: python3
       - name: Native file-host Office preview (actual Electron, fixture documents)
         run: npm run test:preview-native
       - name: Packaging boundary tests

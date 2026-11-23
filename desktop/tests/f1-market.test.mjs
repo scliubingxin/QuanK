@@ -204,5 +204,5 @@ test('wiring: main, preload, renderer, sidebar, test loader, README', async () =
   for (const s of ["if (page === 'market') // [F1]", "startsWith('mk')) return marketAction(actionId, id)", 'mountKlineBoxes(document', "p?.page === 'market'", "['market', 'trend', '行情']", 'marketPing()', 'marketRefreshView()']) assert.ok(app.includes(s), s);
   assert.match(sb, /page === 'quant' \|\| page === 'market'/); assert.match(home, /marketHomeCard\(state, \{date\}\)/);
   assert.match(loader, /marketPage,marketHomeCard,mountKlineBoxes/); assert.equal(loader.split('marketPage,marketHomeCard,mountKlineBoxes').length, 4);
-  assert.ok(md.includes('### 行情工作台：指数、板块与 K 线')); assert.ok(css.includes('[F1] 行情工作台'));
+  assert.ok(md.includes('**行情与分钟 K 线**')); assert.ok(css.includes('[F1] 行情工作台'));
 });

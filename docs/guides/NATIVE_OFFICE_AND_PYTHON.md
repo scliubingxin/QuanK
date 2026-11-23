@@ -1,6 +1,6 @@
 # 内置 Python 与 LibreOffice
 
-Apple 芯片离线包内置 Python 3.12.16（python-build-standalone 20261026）、LibreOffice 26.8.1.1 和 20 个锁定 Python 包，包括 skills-runtime-sdk、python-docx、openpyxl、python-pptx、Pillow、lxml。首次使用不运行 npm/pip，不向用户要求另装 LibreOffice/Python。第三方代码、许可证和对应源码地址随运行包保留；源码 ZIP 提供打包脚本、依赖锁和上游校验和，不重复放入大型上游二进制。SDK 已随包提供，但技能调用协议仍为 QuanK 现有受控脚本协议，不等同于完整 SDK actions 集成。
+Apple 芯片离线包内置 Python 3.12.16（python-build-standalone 20261026）、Pillow 和按白名单构建的 LibreOffice 26.8.1.1。编辑 worker 用 Pillow 编码图块和缩略图。Office 验收用的独立解析器依赖由构建机安装。第三方许可证和对应源码地址随运行包保留。源码 ZIP 提供打包脚本、依赖锁和上游校验和。
 
 安装版的 Python/Office 固定解析包内路径，缺失或不支持架构时明确失败，不降级到未知系统软件。源码开发环境保留旧工具和 JS 预览路径。`scripts/prepare-native-runtimes.py` 仅在构建机下载完成后校验和解包；跨平台 wheel 哈希锁定并离线安装。`scripts/package-offline-mac.py --native-runtimes PATH` 才能生成新的完整包。electron-builder 同样要求根目录 native-runtimes，缺失会失败。
 

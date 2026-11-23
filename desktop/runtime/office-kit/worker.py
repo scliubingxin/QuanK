@@ -536,6 +536,15 @@ def change_marker():
  return (h.get('undo'),h.get('redo'),call('getParts',C.c_int)(doc))
 def post_key(char,code):
  k=call('postKeyEvent',None,C.c_int,C.c_int,C.c_int);k(doc,0,char,code);k(doc,1,char,code)
+def calc_key_committed(before):
+ # LOK posts key events asynchronously. The document's undo count can lag
+ # behind the cell cursor and context callbacks, and ModifiedStatus can be
+ # true while the text is still in the cell editor.
+ deadline=time.monotonic()+1
+ while True:
+  if not events.get('39','').endswith('EditCell') and change_marker()!=before:return True
+  if dialogs or time.monotonic()>=deadline:return False
+  time.sleep(0.005)
 def sheet_key(p):
  if fmt not in ['xlsx','docx'] or set(p)-set(['id','op','key','shift','control','alt']) or p.get('key') not in SHEET_KEYS or any(type(p.get(k,False)) is not bool for k in ['shift','control','alt']):raise ValueError('Invalid sheet key')
  key=p['key'];editing=events.get('39','').endswith('EditCell')
@@ -545,8 +554,10 @@ def sheet_key(p):
  before=change_marker()
  code=SHEET_KEYS[key]+(0x1000 if p.get('shift') else 0)+(0x2000 if p.get('control') else 0)+(0x4000 if p.get('alt') else 0)
  post_key(0,code)
+ committing=fmt=='xlsx' and editing and key in ['Enter','Tab']
+ changed=calc_key_committed(before) if committing else change_marker()!=before
  if close_dialogs():raise ValueError('该操作需要确认对话框，已取消')
- return {'changed':change_marker()!=before}
+ return {'changed':changed,'calcCommitChecked':True} if committing else {'changed':changed}
 def sheet_text(p):
  text=p.get('text')
  if fmt not in ['xlsx','docx'] or set(p)-set(['id','op','text']) or not isinstance(text,str) or not 0<len(text)<=200 or any(ord(c)<32 or ord(c)>0xFFFF or 0xD800<=ord(c)<=0xDFFF for c in text):raise ValueError('Invalid sheet text')
@@ -781,7 +792,8 @@ for line in sys.stdin:
   elif op=='sheet_size':result=sheet_size(p) # [excel]
   elif op=='sheet_tab':result=sheet_tab(p) # [excel]
   else:raise ValueError('Unknown operation')
-  if soft and isinstance(result,dict):result['changed']=bool(result.get('changed')) or change_marker()!=marker # [excel]
+  if soft and isinstance(result,dict) and not result.pop('calcCommitChecked',False):
+   result['changed']=bool(result.get('changed')) or change_marker()!=marker # [excel]
   reply(i,result=result)
  except Exception as e:reply(p.get('id',-1),error=str(e)[:400])
 os._exit(0) # owned process ends without upstream deferred clipboard atexit teardown

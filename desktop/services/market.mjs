@@ -79,12 +79,12 @@ export function parseTxQuote(a) {
   const amt = val(a[37]);
   return {code: clip(a[2], 12), name: clip(a[1], 30), price: val(a[3]), preClose: val(a[4]), open: val(a[5]), volume: val(a[6]), change: val(a[31]), pct: val(a[32]), high: val(a[33]), low: val(a[34]), amount: amt === null ? null : amt * 1e4, turnover: val(a[38]), source: 'tencent'};
 }
-const txDate = s => { s = String(s || ''); return /^\d{12}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)} ${s.slice(8, 10)}:${s.slice(10, 12)}` : s.slice(0, 10); };
+const txDate = s => { s = String(s || ''); return /^\d{12}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)} ${s.slice(8, 10)}:${s.slice(10, 12)}` : s.slice(0, 16).replace('T', ' '); };
 /** fqkline / mkline JSON -> {code, name, bars, quote}. Rows: [date, open, close, high, low, volume, ...]. */
 export function parseTxKline(json, code, period = 'day') {
   const sym = txSymbol(code), d = json?.data?.[sym];
   if (!json || json.code !== 0 || !d || typeof d !== 'object') throw new Error('没有取到 K 线数据');
-  const keys = {day: ['qfqday', 'day'], week: ['qfqweek', 'week'], month: ['qfqmonth', 'month'], m60: ['m60'], m30: ['m30']}[period] || ['qfqday', 'day'];
+  const keys = {day: ['qfqday', 'day'], week: ['qfqweek', 'week'], month: ['qfqmonth', 'month'], m1: ['m1'], m5: ['m5'], m15: ['m15'], m30: ['m30'], m60: ['m60']}[period] || ['qfqday', 'day'];
   const rows = keys.map(k => d[k]).find(Array.isArray) || [];
   const bars = [];
   for (const r of rows) {
@@ -169,12 +169,12 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
     return p;
   }
   const order = (ids, list) => ids.map(id => list.find(q => q.sym ? q.sym === txOfSecid(id) : `${q.market}.${q.code}` === id)).filter(Boolean);
-  async function multi(ids, fields, ttl) {
+  async function multi(ids, fields, ttl, tryTencent = true) {
     // [v0.52.1] ulist.np can be refused (502) or answer '-' for every field; then Tencent (one request), then stock/get per security
     try { if (now() < ulistDownUntil) throw new Error('东方财富行情暂时不可用'); const list = listOf(await getJson(`${H}ulist.np/get?fltt=2&invt=2&fields=${fields}&secids=${ids.join(',')}`, ttl)).map(parseQuote); if (list.some(q => q.price !== null)) return list; throw new Error('行情服务没有返回价格'); }
     catch (e) {
       if (now() >= ulistDownUntil) ulistDownUntil = now() + 60e3; // skip the refusing host for a minute
-      try { const t = order(ids, await txQuotes(ids, ttl)); if (t.length) return t; } catch {}
+      if (tryTencent) { try { const t = order(ids, await txQuotes(ids, ttl)); if (t.length) return t; } catch {} }
       const out = [], queue = [...ids];
       await Promise.all(Array.from({length: Math.min(4, queue.length)}, async () => {
         while (queue.length) {
@@ -258,18 +258,25 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
       }
     }
     let q = null;
-    try {
+    const minute = /^m\d+$/.test(period);
+    const emFetch = async () => {
       q = await liveQuote(code);
       const k = parseKlines(await getJson(`${HIS}stock/kline/get?secid=${id}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${P[0]}&fqt=1&end=20500101&lmt=${n}`, open ? 30e3 : 600e3));
+      if (!k.bars.length) throw new Error('没有取到 K 线数据');
       return {code: k.code || code, name: k.name || q?.name || '', period, bars: k.bars, quote: await quoteOrBars(q, code, period === 'day' ? k.bars : null)};
-    } catch (e) { // [v47.1] Eastmoney refused (push2his resets connections for some networks): Tencent K lines + quote
-      let k;
-      try {
-        const url = /^m\d+$/.test(period) ? `${TXM}kline/mkline?param=${sym},${period},,${n}` : `${TX}fqkline/get?param=${sym},${period === 'week' || period === 'month' ? period : 'day'},,,${n},qfq`;
-        k = parseTxKline(await getJson(url, open ? 30e3 : 600e3), code, period);
-      } catch (e2) { throw marketDown(/没有取到/.test(String(e2?.message)) ? e2 : e); }
+    };
+    const txFetch = async () => {
+      const url = minute ? `${TXM}kline/mkline?param=${sym},${period},,${n}` : `${TX}fqkline/get?param=${sym},${period === 'week' || period === 'month' ? period : 'day'},,,${n},qfq`;
+      const k = parseTxKline(await getJson(url, open ? 30e3 : 600e3), code, period);
       return {code, name: k.name || q?.name || '', period, bars: k.bars, quote: live(q, k.quote) || quoteFromBars(k.bars), source: 'tencent'};
+    };
+    // [v0.56] Minute bars ask Tencent first (Eastmoney history is unreachable on this machine); established
+    // periods keep their v47.1 Eastmoney-first order so the fallback contract is preserved.
+    let last;
+    for (const f of minute ? [txFetch, emFetch] : [emFetch, txFetch]) {
+      try { return await f(); } catch (e) { last = e; }
     }
+    throw marketDown(last);
   }
   /** [F4] Daily K lines of an index (e.g. '1.000300' CSI 300) for beta / benchmark; Tencent when Eastmoney refuses. */
   async function indexKline(id = '1.000300', count = 250) {
@@ -365,14 +372,15 @@ export function createMarketService({store, fetcher = globalThis.fetch, lookup =
     const s = session(now()), want = [...new Set(codes.map(String).filter(c => /^\d{6}$/.test(c)))].slice(0, 60).map(c => { try { return secid(c); } catch { return null; } }).filter(Boolean);
     const ids = [...INDICES.map(i => i[0]), ...want], ttl = s === 'open' || s === 'pre' ? 800 : 60e3;
     let list = [];
-    try { list = order(ids, await txQuotes(ids, ttl)); } catch { try { list = await multi(ids, 'f12,f13,f14,f2,f3,f4,f5,f6,f8,f15,f16,f17,f18', Math.max(ttl, 3000)); } catch {} }
-    const idx = INDICES.map(([id]) => list.find(q => `${q.market}.${q.code}` === id)).filter(Boolean).map(q => ({secid: `${q.market}.${q.code}`, price: q.price, pct: q.pct, change: q.change, amount: q.amount}));
+    try { list = order(ids, await txQuotes(ids, ttl)); } catch { try { list = await multi(ids, 'f12,f13,f14,f2,f3,f4,f5,f6,f8,f15,f16,f17,f18', Math.max(ttl, 3000), false); } catch {} }
+    const idx = INDICES.map(([id]) => list.find(q => `${q.market}.${q.code}` === id)).filter(q => q?.price > 0).map(q => ({secid: `${q.market}.${q.code}`, price: q.price, pct: q.pct, change: q.change, amount: q.amount}));
     if (overview && idx.length) overview = {...overview, indices: overview.indices.map(x => { const n = idx.find(y => y.secid === x.secid); return n ? {...x, ...n} : x; }), liveAt: now()};
     const m = st(), out = {};
     for (const q of list) {
       if (q.sym ? INDICES.some(i => txOfSecid(i[0]) === q.sym) : INDICES.some(i => i[0] === `${q.market}.${q.code}`)) continue;
-      if (q.price === null) continue;
-      out[q.code] = {price: q.price, pct: q.pct, change: q.change, high: q.high, low: q.low, name: q.name};
+      if (!(q.price > 0)) continue;
+      const {price, pct, change, open, high, low, preClose, amount, volume, turnover, name, time} = q;
+      out[q.code] = {price, pct, change, open, high, low, preClose, amount, volume, turnover, name, time};
       if (m.quotes[q.code] || (store.data.quant?.pool || []).some(p => p.code === q.code)) m.quotes[q.code] = {...out[q.code], at: now()};
       if (s === 'open') check(q);
     }

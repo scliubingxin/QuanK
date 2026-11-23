@@ -312,8 +312,11 @@ export function createDocumentService({
     },
     async importFile(name, format, bytes, signal, guard, ocrProvenance) {
       checkName(name);
-      if (!formats.includes(format)) throw Error("格式不支持");
-      const inspected = inspectDocument(format, bytes);
+      if (!formats.includes(format) && format !== 'pdf') throw Error("格式不支持");
+      if (format === 'pdf' && (bytes.length > 4 * 1024 * 1024 || !bytes.subarray(0, 5).equals(Buffer.from('%PDF-')))) {
+        throw Error('PDF 文件无效或超过 4 MiB');
+      }
+      const inspected = format === 'pdf' ? {text:'', sha256:sha256(bytes), size:bytes.length} : inspectDocument(format, bytes);
       const candidate=record(name, format, { bytes, ...inspected });
       if (ocrProvenance) {
         if (format!=="md" || ocrProvenance.textSha256!==candidate.sha256) throw Error("OCR来源与文档不一致");
