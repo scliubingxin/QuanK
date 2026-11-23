@@ -18,6 +18,20 @@ const home = p => String(p || '').replace(/^~(?=\/|$)/, os.homedir());
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const PYTHON_CANDIDATES = ['/opt/homebrew/bin/python3', '/usr/local/bin/python3', '/usr/bin/python3'];
 
+/** [v0.55] Remote engine URL: HTTPS only (plain HTTP only to this Mac itself, for testing). Returns origin + optional base path, no trailing slash. */
+export function remoteBase(url, port) {
+  let u;
+  try { u = new URL(String(url || '').trim()); } catch { throw new Error('服务器地址无效，请填写完整地址，例如 https://quant.example.com'); }
+  const local = ['127.0.0.1', 'localhost', '[::1]', '::1'].includes(u.hostname);
+  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) throw new Error('远程引擎必须使用 HTTPS 地址，防止信号和账号被中间人篡改');
+  if (u.username || u.password) throw new Error('服务器地址里不能包含用户名或密码，请填在鉴权字段里');
+  if (u.search || u.hash) throw new Error('服务器地址不能带查询参数');
+  const n = port === '' || port === undefined || port === null ? NaN : Number(port);
+  if (Number.isFinite(n)) { if (!Number.isInteger(n) || n < 1 || n > 65535) throw new Error('端口需要是 1–65535 的整数'); u.port = String(n); }
+  return (u.origin + u.pathname).replace(/\/+$/, '');
+}
+export const REMOTE_ADAPTER_PATH = '/wb-engine.json';
+
 export async function freePort() {
   return new Promise((resolve, reject) => { const s = createServer(); s.unref(); s.on('error', reject); s.listen(0, '127.0.0.1', () => { const {port} = s.address(); s.close(() => resolve(port)); }); });
 }
@@ -54,6 +68,14 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
   const engineDir = path.join(dir, 'engine'), logPath = path.join(dir, 'engine.log');
   const st = () => (store.data.quant ??= {source: '', python: '', autoStart: true, ai: 'willbuddy', pool: []});
   let child = null, base = '', cookie = '', status = 'stopped', error = '', starting = null, uid = null, adapter = null;
+  let fellBack = false; // [v0.55] remote engine unreachable → this session runs the local engine instead
+  const remoteCfg = () => st().remote || {};
+  const wantsRemote = () => st().mode === 'remote';
+  const isRemote = () => wantsRemote() && !fellBack;
+  const remoteToken = () => { const t = remoteCfg().tokenSealed; return t ? unseal(t) : ''; };
+  const authHeaders = () => ({'Content-Type': 'application/json', ...(cookie ? {Cookie: cookie} : {}), ...(isRemote() && remoteToken() ? {Authorization: `Bearer ${remoteToken()}`} : {})});
+  const netOpts = () => isRemote() ? {redirect: 'error'} : {};
+  const localReady = () => exists(path.join(engineDir, ADAPTER_FILE));
   const cache = new Map();
   const set = (s, e = '') => { status = s; error = e; notify(); };
 
@@ -64,7 +86,24 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     try { j = JSON.parse(raw); } catch { throw new Error(`${ADAPTER_FILE} 不是有效的 JSON`); }
     return normalizeAdapter(j);
   }
-  async function ensureAdapter() { if (!adapter) { adapter = await readAdapter(engineDir); const s = st(); s.features = engineFeatures(adapter); s.planOptions = planOptions(adapter); s.reportDefs = reportDefsView(adapter); } return adapter; }
+  /** [v0.55] The remote server describes itself with the same wb-engine.json (served at REMOTE_ADAPTER_PATH, token required). */
+  async function readRemoteAdapter() {
+    const b = remoteBase(remoteCfg().url, remoteCfg().port), r = await fetcher(b + REMOTE_ADAPTER_PATH, {headers: {Authorization: `Bearer ${remoteToken()}`}, redirect: 'error', signal: AbortSignal.timeout(15000)});
+    if (r.status === 401 || r.status === 403) throw new Error('远程引擎拒绝访问：鉴权密钥无效或已过期');
+    if (!r.ok) throw new Error(`远程引擎没有提供 ${REMOTE_ADAPTER_PATH}（${r.status}）`);
+    let j; try { j = await r.json(); } catch { throw new Error(`远程引擎的 ${REMOTE_ADAPTER_PATH} 不是有效的 JSON`); }
+    const who = pick(j, j?.auth?.userIdPath || 'user.id'); // the server names the token's own user, so {uid} is never guessed
+    if (who !== null && who !== undefined && who !== '') uid = who;
+    return normalizeAdapter(j);
+  }
+  async function ensureAdapter() {
+    if (!adapter) {
+      adapter = isRemote() ? await readRemoteAdapter().catch(e => { if (localReady()) return readAdapter(engineDir); throw e; }) : await readAdapter(engineDir);
+      const s = st(); s.features = engineFeatures(adapter); s.planOptions = planOptions(adapter); s.reportDefs = reportDefsView(adapter);
+      if (isRemote() && adapter.title) s.remoteTitle = clip(adapter.title, 40);
+    }
+    return adapter;
+  }
   async function tail(n = 4000) {
     try { const h = await open(logPath, 'r'); const {size} = await h.stat(); const b = Buffer.alloc(Math.min(n, size)); await h.read(b, 0, b.length, size - b.length); await h.close(); return b.toString('utf8'); } catch { return ''; }
   }
@@ -121,6 +160,7 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     if (starting) return starting;
     starting = (async () => {
       const s = st();
+      if (isRemote()) { try { return await startRemote(); } catch (e) { if (!(e.network && remoteCfg().fallback !== false && (localReady() || s.source))) throw e; fellBack = true; adapter = null; cookie = ''; base = ''; store.log?.('远程引擎不可用，已切换到本地引擎', clip(e.message, 120)); } }
       if (!exists(path.join(engineDir, ADAPTER_FILE))) { if (!s.source) { set('error', '请先导入策略项目'); throw new Error(error); } await sync({}); }
       else if (await sourceChanged()) { try { const r = await sync({}); store.log?.('策略代码已自动同步', `策略项目有更新，启动前已同步 ${r.files} 个文件`); } catch {} } // [v0.52.1]
       const ad = await ensureAdapter();
@@ -148,16 +188,49 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     try { return await starting; } catch (e) { if (status !== 'error') set('error', e.message); throw e; } finally { starting = null; }
   }
 
+  /** [v0.55] Remote engine: nothing to spawn; check the server answers with our token over HTTPS, then log in if it still needs it. */
+  async function startRemote() {
+    const R = remoteCfg();
+    if (!R.url) { set('error', '请先在量化设置里填写远程引擎的服务器地址'); throw new Error(error); }
+    if (!R.tokenSealed) { set('error', '请先在量化设置里填写远程引擎的鉴权密钥'); throw new Error(error); }
+    let b;
+    try { b = remoteBase(R.url, R.port); } catch (e) { set('error', e.message); throw e; }
+    set('starting'); base = b; cookie = ''; adapter = null;
+    let ad;
+    try { ad = await ensureAdapter(); }
+    catch (e) { base = ''; const net = /fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|timeout|aborted|certificate|CERT|SSL|TLS|redirect/i.test(String(e.message) + String(e.cause?.message || e.cause?.code || '')); const err = new Error(net ? '无法连接远程引擎：' + clip(e.cause?.code || e.cause?.message || e.message, 80) : e.message); err.network = net; set('error', err.message); throw err; }
+    let r;
+    try { r = await fetcher(base + (ad.engine.health || '/'), {headers: authHeaders(), ...netOpts(), signal: AbortSignal.timeout(10000)}); }
+    catch (e) { base = ''; const err = new Error('无法连接远程引擎：' + clip(e.cause?.code || e.cause?.message || e.message, 80)); err.network = true; set('error', err.message); throw err; }
+    if (r.status === 401 || r.status === 403) { base = ''; set('error', '远程引擎拒绝访问：鉴权密钥无效或已过期'); throw new Error(error); }
+    if (r.status >= 500) { base = ''; const err = new Error(`远程引擎暂时不可用（${r.status}）`); err.network = true; set('error', err.message); throw err; }
+    if (ad.auth?.path && R.user && R.passSealed) await login();
+    st().lastRemote = now(); set('running');
+    return view();
+  }
+  async function testRemote() {
+    const t0 = now(), was = {base, cookie, adapter, status, error, fellBack};
+    fellBack = false;
+    try { if (!remoteCfg().tokenSealed) return {ok: false, error: '还没有填写鉴权密钥'}; const b = remoteBase(remoteCfg().url, remoteCfg().port); base = b; const ad = await readRemoteAdapter(); const r = await fetcher(b + (ad.engine.health || '/'), {headers: {Authorization: `Bearer ${remoteToken()}`}, redirect: 'error', signal: AbortSignal.timeout(10000)});
+      if (r.status === 401 || r.status === 403) return {ok: false, error: '鉴权密钥无效或已过期'};
+      return {ok: r.status < 500, status: r.status, ms: now() - t0, title: clip(ad.title, 40), error: r.status >= 500 ? `服务器返回 ${r.status}` : ''};
+    } catch (e) { return {ok: false, error: clip(e.cause?.code || e.cause?.message || e.message, 160)}; }
+    finally { if (was.status === 'running') { base = was.base; cookie = was.cookie; adapter = was.adapter; fellBack = was.fellBack; } else { base = ''; cookie = ''; adapter = null; fellBack = was.fellBack; } }
+  }
+
   async function stop() {
     const c = child; child = null; cookie = ''; base = ''; uid = null;
+    if (wantsRemote()) { fellBack = false; adapter = null; }
     if (c) { c.kill('SIGTERM'); await new Promise(r => { const t = setTimeout(() => { try { c.kill('SIGKILL'); } catch {} r(); }, 3000); c.once('exit', () => { clearTimeout(t); r(); }); }); }
     set('stopped');
     return view();
   }
 
   async function login() {
-    const A = adapter.auth, body = {[A.user || 'username']: ENGINE_USER, [A.pass || 'password']: unseal(st().adminSealed)};
-    const r = await fetcher(base + A.path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body), signal: AbortSignal.timeout(15000)});
+    const A = adapter.auth, R = remoteCfg();
+    if (isRemote() && !(R.user && R.passSealed)) { cookie = ''; return; } // [v0.55] token-only server
+    const body = isRemote() ? {[A.user || 'username']: R.user, [A.pass || 'password']: unseal(R.passSealed)} : {[A.user || 'username']: ENGINE_USER, [A.pass || 'password']: unseal(st().adminSealed)};
+    const r = await fetcher(base + A.path, {method: 'POST', headers: {'Content-Type': 'application/json', ...(isRemote() ? {Authorization: `Bearer ${remoteToken()}`} : {})}, body: JSON.stringify(body), ...netOpts(), signal: AbortSignal.timeout(15000)});
     const setCookie = r.headers.getSetCookie?.() || [r.headers.get('set-cookie')].filter(Boolean);
     cookie = setCookie.map(c => c.split(';')[0]).join('; ');
     const j = await r.json().catch(() => ({}));
@@ -169,9 +242,17 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     if (status !== 'running') { if (st().autoStart !== false) await start(); else throw new Error('量化引擎没有运行，请先在「量化」页启动'); }
     const sig = signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
     let r;
-    try { r = await fetcher(base + p, {method, headers: {'Content-Type': 'application/json', Cookie: cookie}, body: body === undefined ? undefined : JSON.stringify(body), signal: sig}); }
-    catch (e) { throw new Error(sig.aborted ? '量化引擎响应超时' : '无法连接量化引擎：' + clip(e.message, 80)); }
-    if (r.status === 401 && retry) { await login(); return call(p, {method, body, timeoutMs, retry: false, signal}); }
+    try { r = await fetcher(base + p, {method, headers: authHeaders(), body: body === undefined ? undefined : JSON.stringify(body), ...netOpts(), signal: sig}); }
+    catch (e) {
+      if (isRemote() && !signal?.aborted && retry && remoteCfg().fallback !== false && localReady()) { // [v0.55] offline fallback
+        fellBack = true; adapter = null; cookie = ''; base = ''; status = 'stopped';
+        store.log?.('远程引擎不可用，已切换到本地引擎', clip(e.cause?.code || e.message, 120));
+        await start(); return call(p, {method, body, timeoutMs, retry: false, signal});
+      }
+      throw new Error(sig.aborted ? '量化引擎响应超时' : (isRemote() ? '无法连接远程引擎：' : '无法连接量化引擎：') + clip(e.cause?.code || e.message, 80));
+    }
+    if (r.status === 403 && isRemote()) throw new Error('远程引擎拒绝访问：鉴权密钥无效或已过期');
+    if (r.status === 401 && retry) { if (isRemote() && !(remoteCfg().user && remoteCfg().passSealed)) throw new Error('远程引擎拒绝访问：鉴权密钥无效或已过期'); await login(); return call(p, {method, body, timeoutMs, retry: false, signal}); }
     const data = await r.json().catch(() => null);
     if (!r.ok) throw new Error(clip(data?.error || `量化引擎返回 ${r.status}`, 200));
     return data;
@@ -242,7 +323,7 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     const rep = await reportTick().catch(() => null); // [q5] after-close reports
     if (rep) return rep;
     const s = st(), w = normalizeWatch(s.watch);
-    if (watching || !w.enabled || !s.source || !(s.pool || []).length) return null;
+    if (watching || !w.enabled || !(s.source || (wantsRemote() && s.remote?.url)) || !(s.pool || []).length) return null;
     const t = now(), c = cstClock(t);
     let kind = null;
     if (w.premarket && c.weekday && c.minutes >= w.premarketMinutes && c.minutes < 570 && s.lastPremarket !== c.day) { s.lastPremarket = c.day; kind = 'premarket'; }
@@ -326,12 +407,14 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
 
   function view() {
     const s = st();
-    return {status, error, title: s.title || '', source: s.source || '', python: s.python || '', pythonFound: python(), autoStart: s.autoStart !== false, ai: s.ai || 'willbuddy',
+    const R = s.remote || {};
+    return {mode: wantsRemote() ? 'remote' : 'local', effective: isRemote() ? 'remote' : 'local', fellBack, remote: {url: R.url || '', port: R.port ?? '', hasToken: !!R.tokenSealed, user: R.user || '', hasPass: !!R.passSealed, fallback: R.fallback !== false, title: s.remoteTitle || '', lastRemote: s.lastRemote || null},
+      status, error, title: (isRemote() && s.remoteTitle) || s.title || '', source: s.source || '', python: s.python || '', pythonFound: python(), autoStart: s.autoStart !== false, ai: s.ai || 'willbuddy',
       importHoldings: !!s.importHoldings, lastSync: s.lastSync || null, features: s.features || engineFeatures(null), reportDefs: s.reportDefs || [], reportAuto: normalizeReportAuto(s.reportAuto), reports: Object.fromEntries(Object.entries(s.reports || {}).map(([k, r]) => [k, {...r}])), planOptions: s.planOptions || [], holdings: s.holdings || {}, plan: s.plan || null, watch: normalizeWatch(s.watch), lastWatch: s.lastWatch || null, watchError: s.watchError || '', alerts: (s.alerts || []).slice(0, 50), logos: s.logos || {}, files: s.files || 0, installed: exists(path.join(engineDir, ADAPTER_FILE)), pool: (s.pool || []).map(p => ({...p}))};
   }
 
   return {
-    view, start, stop, sync, sourceChanged, call, signal, pool, tail, engineDir, tick, scanAll,
+    view, start, stop, sync, sourceChanged, call, signal, pool, tail, engineDir, tick, scanAll, testRemote,
     async handle(p = {}) {
       const a = p.action;
       if (a === 'start') return start();
@@ -346,7 +429,23 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
         if (typeof p.autoStart === 'boolean') s.autoStart = p.autoStart;
         if (['willbuddy', 'none'].includes(p.ai)) s.ai = p.ai;
         if (typeof p.importHoldings === 'boolean') s.importHoldings = p.importHoldings;
+        // [v0.55] remote engine: address + port + token (sealed in this process, never sent to the window)
+        const R = {...(s.remote || {})}, prevMode = s.mode || 'local', prevRemote = JSON.stringify(s.remote || {});
+        if (typeof p.remoteUrl === 'string') R.url = p.remoteUrl.trim();
+        if (p.remotePort !== undefined) R.port = p.remotePort === '' || p.remotePort === null ? '' : Number(p.remotePort);
+        if (typeof p.remoteToken === 'string' && p.remoteToken.trim()) R.tokenSealed = seal(p.remoteToken.trim());
+        if (p.clearToken === true) delete R.tokenSealed;
+        if (typeof p.remoteUser === 'string') R.user = p.remoteUser.trim();
+        if (typeof p.remotePass === 'string' && p.remotePass) R.passSealed = seal(p.remotePass);
+        if (p.clearPass === true || (typeof p.remoteUser === 'string' && !p.remoteUser.trim())) delete R.passSealed;
+        if (typeof p.remoteFallback === 'boolean') R.fallback = p.remoteFallback;
+        const mode = ['local', 'remote'].includes(p.mode) ? p.mode : prevMode;
+        if (mode === 'remote') { if (!R.url) throw new Error('请填写服务器地址'); remoteBase(R.url, R.port); if (!R.tokenSealed) throw new Error('请填写鉴权密钥'); }
+        s.remote = R; s.mode = mode;
+        if (mode !== prevMode || JSON.stringify(R) !== prevRemote) { if (status === 'running' || status === 'starting' || child) await stop(); adapter = null; fellBack = false; cache.clear(); }
         await store.save?.(); notify();
+        store.log?.('已修改量化设置', mode === 'remote' ? `远程引擎 · ${remoteBase(R.url, R.port)}` : '本地引擎');
+        if (mode === 'remote') return {view: view(), remote: await testRemote()};
         let requires = [];
         try { requires = (await ensureAdapter()).engine.requires || []; } catch {}
         return {view: view(), python: probe(python(), requires)};
@@ -398,6 +497,7 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
         return {watch: normalizeWatch(s.watch), text: describeWatch(s.watch)};
       }
       if (a === 'scanNow') return scanAll('watch');
+      if (a === 'testRemote') return testRemote(); // [v0.55]
       if (a === 'probe') { let requires = []; try { requires = (await ensureAdapter()).engine.requires || []; } catch {} return probe(python(), requires); }
       if (a === 'log') return {text: await tail(p.bytes || 6000)};
       if (a === 'pool') return {pool: await pool()};

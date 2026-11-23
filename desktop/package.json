@@ -1,7 +1,7 @@
 {
   "name": "quank-desktop",
   "productName": "QuanK",
-  "version": "0.54.0",
+  "version": "0.55.0",
   "private": true,
   "description": "QuanK desktop AI workspace",
   "author": "Actwill",

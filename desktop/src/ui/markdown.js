@@ -8,14 +8,18 @@ import { renderInfographicBlocks } from "./infographic-block.js";
 import { renderMiniAppBlocks } from "./miniapp-block.js";
 import { Marked } from "../vendor/marked.js";
 import createDOMPurify from "../vendor/purify.js";
-export const escape = (v) =>
-  String(v ?? "").replace(
+export const escape = (v) => {
+  const raw = String(v ?? "");
+  // [v0.54.1] never render the JS default object string anywhere.
+  if (raw === "[object Object]") return "";
+  return raw.replace(
     /[&<>"']/g,
     (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
         c
       ],
   );
+};
 const parser = new Marked({ gfm: true, breaks: true });
 parser.use({
   renderer: {
@@ -302,8 +306,21 @@ export function createRich(window) {
     sanitizeHtml: sanitize,
   };
 }
+// [v0.54.1] Never expose internal tool names or "[object Object]" in rendered replies.
+// Applies to every rich() call (messages, previews) so it is central, not per-page.
+export function sanitizeDisplay(content) {
+  let out = String(content ?? "");
+  if (typeof out !== "string") return out;
+  out = out.replace(/\(\s*(?:app|connector|browser|document|office)_[A-Za-z0-9_]+\s*\)/g, ""); // (app_briefing_generate)
+  out = out.replace(/\uFF08\s*(?:app|connector|browser|document|office)_[A-Za-z0-9_]+\s*\uFF09/g, ""); // （app_xxx）
+  out = out.replace(/\[object Object\]/g, "");
+  return out;
+}
 let browserRenderer;
 export function rich(content) {
+  browserRenderer ??= createRich(window);
+  return browserRenderer.rich(sanitizeDisplay(content));
+
   browserRenderer ??= createRich(window);
   return browserRenderer.rich(content);
 }

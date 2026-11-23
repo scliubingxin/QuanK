@@ -207,9 +207,11 @@ const fmtMetric = (v, f) => typeof v === 'number' && Number.isFinite(v) ? (f ===
 const SUMMARY_TEXT_KEYS = ['text', 'summary', 'conclusion', 'headline', 'overall', 'verdict', 'message', 'note', 'desc', 'description'];
 export function summaryText(v, skip = []) {
   if (v === null || v === undefined || v === '') return '';
+  // [v0.54.1] old builds persisted the literal "[object Object]" as a summary string; never surface it.
+  if (typeof v === 'string') { const t = v.replace(/\[object Object\]/g, '').trim(); return t ? clip(t, 400) : ''; }
   if (typeof v !== 'object') return clip(v, 400);
   if (Array.isArray(v)) return clip(v.map(x => summaryText(x, skip)).filter(Boolean).join('；'), 400);
-  for (const k of SUMMARY_TEXT_KEYS) if (typeof v[k] === 'string' && v[k].trim()) return clip(v[k], 400);
+  for (const k of SUMMARY_TEXT_KEYS) if (typeof v[k] === 'string' && v[k].trim()) { const t = summaryText(v[k], skip); if (t) return t; }
   const parts = Object.entries(v).filter(([k, x]) => !skip.includes(k) && (typeof x === 'string' || typeof x === 'number' || typeof x === 'boolean')).slice(0, 6).map(([k, x]) => `${k}：${typeof x === 'number' && !Number.isInteger(x) ? Math.round(x * 1000) / 1000 : x}`);
   return clip(parts.join(' · '), 400);
 }

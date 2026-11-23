@@ -9,9 +9,10 @@ test('README introduces QuanK 0.45 with the DMG installer and the product video'
   const md = await read('../../README.md');
   for (const s of ['## 一分钟看懂 QuanK', '## 下载与安装', '## 核心能力', '## 界面一览', '## 隐私与安全', '## 常见问题', '## 更新记录', '**v0.45**', 'QuanK-0.45.0-arm64.dmg', 'macOS 12'])
     assert.ok(md.includes(s), s);
-  for (const f of ['docs/media/quank-demo.mp4', 'docs/images/quank-demo.gif', 'docs/images/app-home.png', 'docs/images/app-home-cards.png', 'docs/images/app-quant-holdings.png', 'docs/images/app-chat-research.png'])
+  // [v0.54.1] demo video/gif links were retired in v0.53; the README now uses current screenshots.
+  for (const f of ['docs/images/app-home.png', 'docs/images/app-home-cards.png', 'docs/images/app-quant-holdings.png', 'docs/images/app-chat-research.png'])
     assert.ok(md.includes(f), f);
-  for (const f of ['../../docs/media/quank-demo.mp4', '../../docs/images/quank-demo.gif', '../../docs/images/app-home.png', '../../docs/images/app-narrow.png'])
+  for (const f of ['../../docs/images/app-home.png', '../../docs/images/app-narrow.png'])
     assert.ok((await stat(new URL(f, import.meta.url))).size > 10000, f);
   assert.ok(md.indexOf('## 下载与安装') < md.indexOf('## 核心能力') && md.indexOf('## 核心能力') < md.indexOf('## 更新记录'));
 });
