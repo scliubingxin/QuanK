@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
   "brand": "QuanK",
-  "version": "0.55.0",
+  "version": "0.55.1",
   "packaged_date": "2026-11-22",
   "provenance": "Complete validated source snapshot; Git commits and deployment are tracked separately",
   "base_source_commit_sha": "0ce607437ef2c7814b295b43ec7b4ccd3c0b4a42",
   "release_status": {
     "schema_version": 2,
     "brand": "QuanK",
-    "version": "0.55.0",
+    "version": "0.55.1",
     "checked_date": "2026-11-16",
     "source_status": "m4_development_checkpoint_not_a_release",
     "original_web_release_record": "docs/WEB_RELEASE_STATUS_ORIGINAL.json",
@@ -1189,8 +1189,8 @@
     },
     {
       "path": "ITERATION_LOG.md",
-      "bytes": 25470,
-      "sha256": "7c6663a074d5cc2418c6e7860155d8c07f7b99fecd31920b084d941d84bf8104"
+      "bytes": 26394,
+      "sha256": "b81982c7d72b2f6b8de1a2913f50cb5089fbcbf3f4d2ef4c1962a14b2f86c497"
     },
     {
       "path": "ITERATION_PLAN.md",
@@ -1209,13 +1209,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 26194,
-      "sha256": "2860eb0167263b23568a1cd71fc089b7b2ce7254940d286ff7dfed49a0569c92"
+      "bytes": 26467,
+      "sha256": "28afda2a1f597e4cf73157659b5be834d0ca032ca310e5619a340d7392a36c94"
     },
     {
       "path": "RELEASE_STATUS.json",
       "bytes": 52425,
-      "sha256": "c862794c1ed62720efc81dcc15803a8008ea80d2d976c7ba58c49a488c5b969c"
+      "sha256": "8242e81dbcc81d11de88100e1ff28b901c37b1d9638cc3cc80993c857a4521f4"
     },
     {
       "path": "SELF_TEST_MATRIX.md",
@@ -1855,12 +1855,12 @@
     {
       "path": "desktop/package-lock.json",
       "bytes": 288404,
-      "sha256": "0bac44619a7adbc3010f16c3ba0b64e4c8e6c96c50ca452747a2a314758be0ee"
+      "sha256": "584558d6efc3265168e64570fdb5b781d22fe1a4d09d7b51061a4c36fd829b8e"
     },
     {
       "path": "desktop/package.json",
       "bytes": 3502,
-      "sha256": "f8d7a348f7c865aaa857d2deeaebb589d9fa2bfb1bc1b2320163114f5be54b45"
+      "sha256": "d18e0bed4d589ee1b4759db63f130622a76a5d1f08925236034dfd9fd398b965"
     },
     {
       "path": "desktop/ppt-probe.mjs",
@@ -2670,7 +2670,7 @@
     {
       "path": "desktop/services/cli/quank.cjs",
       "bytes": 26220,
-      "sha256": "a90cbe5d5aae50238fc04c191fd07e28fa2bf5b20d6d39d7806bba31af7ccab7"
+      "sha256": "6f4c8a4884df968348585edaebce2670f7b026aa5bcede8c892d946bc47ccd4d"
     },
     {
       "path": "desktop/services/code-projects.mjs",
@@ -2774,8 +2774,8 @@
     },
     {
       "path": "desktop/services/quant-engine.mjs",
-      "bytes": 40798,
-      "sha256": "866617612c0ab5c628292b8cd642d638987d1365d47ab52598cd8c5e6249110d"
+      "bytes": 41691,
+      "sha256": "9672c027088b77baa43b10dbfcbb77a8fd06c69a14ba1830a035d81498355f72"
     },
     {
       "path": "desktop/services/recovery.mjs",
@@ -2974,8 +2974,8 @@
     },
     {
       "path": "desktop/src/shared/quant.js",
-      "bytes": 20813,
-      "sha256": "98c363c8fe9d7d86328b287ae5aa8d91acbd998ddb8b84694114f1888f82442d"
+      "bytes": 20987,
+      "sha256": "96f7e8f66e535c4fc58797e07f34f6373aaebaeeb01dd627814ca93b4f6092be"
     },
     {
       "path": "desktop/src/styles.css",
@@ -3019,13 +3019,18 @@
     },
     {
       "path": "desktop/src/ui/composer.js",
-      "bytes": 8091,
-      "sha256": "22e751b043b4983b95d8a6382c50ae2e9e887f57fd3efc48e47cf57905b8e752"
+      "bytes": 9429,
+      "sha256": "aba743349dca479d8dc152af26516f2e56acf54417f8b3a8cfe116efac9f1b8d"
     },
     {
       "path": "desktop/src/ui/documents.js",
       "bytes": 5061,
       "sha256": "d21f50f9907e493af66957f43629eb64340ca144046f0008d64134c31aee4770"
+    },
+    {
+      "path": "desktop/src/ui/home-dashboard.js",
+      "bytes": 15133,
+      "sha256": "eb14a2f2b370af9cc45e21249111a1d03ccf2e0ecf20ebbccc8ff1dd2703a4f9"
     },
     {
       "path": "desktop/src/ui/html-preview.js",
@@ -3134,8 +3139,8 @@
     },
     {
       "path": "desktop/src/workbench.css",
-      "bytes": 167587,
-      "sha256": "d90f4c71b74e6fbd557d65b40fed021026646191204e8f3d1b71844bf8724a80"
+      "bytes": 168552,
+      "sha256": "52ff891be716ed7d06dd7a40c1cf0e3efc69795ef2c6eafad49df02353ce9501"
     },
     {
       "path": "desktop/tests/abortable-work-037112.test.mjs",
@@ -4146,6 +4151,11 @@
       "path": "desktop/tests/v055-remote.test.mjs",
       "bytes": 9299,
       "sha256": "940b332537b1486b90732087df33e14bce662764d1ec7b10f0a01a2fea4f5f0e"
+    },
+    {
+      "path": "desktop/tests/v0551-port-composer.test.mjs",
+      "bytes": 4667,
+      "sha256": "32f7ce27651da72f21321d045e988cd0ff3ec137bdbe9cd47ea96cd1b3c6491f"
     },
     {
       "path": "desktop/tests/v45-release.test.mjs",
