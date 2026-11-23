@@ -1,3 +1,8 @@
+import {documentPreviewMetadata} from './runtime/documents.mjs';
+import {execFile as execOfficePowerCommand} from 'node:child_process';
+import {availableParallelism, loadavg} from 'node:os';
+import {officeFontFingerprint} from './runtime/office-fonts.mjs';
+import {createOfficeEngine} from './runtime/office-engine.mjs';
 import {previewImageOcrEvidence} from './services/image-ocr-evidence-preview.mjs';
 import {createPdfImportControl} from './main/pdf-import-control.mjs';
 import {openOcrSource} from './services/ocr-source-open.mjs';
@@ -115,10 +120,11 @@ const approve = Object.assign(async (title, detail, signal, scope) => { // [F5 M
     auditLog?.record({ kind: 'approval', action: ok ? '已确认' : '已拒绝', target: String(title || '').slice(0, 60), detail: r?.alwaysAllow ? '选择了总是允许' : r?.browserTask ? '本任务本站点允许' : r?.documentTask ? '本任务允许此文档' : '' }).catch(() => {});
     return r;
 }, { cancelAll: () => approveNative.cancelAll() });
+let officeEngine, previewDiskTransitions = 0;
 let toolRuntime, genoffice, models, projects, libreoffice, officeWindows, connectors, graphService, dashboards, miniapps, quant, market, research, knowledge, portfolio, trade, dataset; // [p3-m1][p3-m5][p4-m1][p4-m4][q1][F1][F2][F3][F4]
 const pdfImports = createPdfImportControl({notify: notifyRuntime});
 const executeTool = (...args) => toolRuntime.execute(...args);
-const view = () => { if (security?.locked) return { locked: true, lock: security.lockState() }; const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,trade:_trade,research:_research,knowledge:_knowledge,portfolio:_portfolio,security:_security,quant:_quant,...publicData}=store.data; return { ...publicData, appVersion: app.getVersion(), pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, research: research?.view()||null, knowledge: knowledge?.view()||null, portfolio: portfolio?.view()||null, trade: trade?.view()||null, dataset: dataset?.view()||null, security: security?.summary()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
+const view = () => { if (security?.locked) return { locked: true, lock: security.lockState() }; const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,trade:_trade,research:_research,knowledge:_knowledge,portfolio:_portfolio,security:_security,quant:_quant,...publicData}=store.data; return { ...publicData, appVersion: app.getVersion(), pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeEngine:officeEngine?.state()||null,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, research: research?.view()||null, knowledge: knowledge?.view()||null, portfolio: portfolio?.view()||null, trade: trade?.view()||null, dataset: dataset?.view()||null, security: security?.summary()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
 function key() {
     if (sessionKey)
         return sessionKey;
@@ -138,7 +144,11 @@ const previewOcrSource = createOcrPreviewLimiter();
 const ocrPreviewAbort = new AbortController();
 app.on('before-quit',()=>ocrPreviewAbort.abort(Error('应用正在退出')));
 async function launch() {
-    win = new BrowserWindow({ width: 1380, height: 920, minWidth: 860, minHeight: 640, title: 'QuanK', icon: path.join(here, 'assets/icon-512.png'), backgroundColor: '#ffffff', titleBarStyle: 'hiddenInset', ...(process.platform === 'darwin' ? { trafficLightPosition: { x: 20, y: 20 } } : {}), webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true } });
+    win = new BrowserWindow({ show: false, width: 1380, height: 920, minWidth: 860, minHeight: 640, title: 'QuanK', icon: path.join(here, 'assets/icon-512.png'), backgroundColor: '#ffffff', titleBarStyle: 'hiddenInset', ...(process.platform === 'darwin' ? { trafficLightPosition: { x: 20, y: 20 } } : {}), webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true } });
+    win.once('ready-to-show', () => {
+        win.show();
+        officeEngine?.windowReady();
+    });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', e => e.preventDefault());
     protectPreviewNavigation(win.webContents);
@@ -211,11 +221,45 @@ else {
         const approvalRules = createApprovalRules({ store, notify: notifyRuntime }); // [p2-m2]
         toolRuntime = new ToolRuntime({ store, browser, approve, notify: notifyRuntime, convertDocument,beforeCli:(args,policy)=>projects?.validate(args,policy), rules: approvalRules });
         register('approvalRule', p => approvalRules.handle(p).then(() => view()));
-        const officeRuntime=async()=>({python:await bundledExecutable('python'),officeDirectory:path.dirname(await bundledExecutable('office'))});
-        if(runtimeRoot()){await bundledExecutable('python');await bundledExecutable('office');libreoffice=createLibreOffice({documents:toolRuntime.documents,directory:path.join(store.dir,'office-runtime'),executable:()=>bundledExecutable('office'),pdfRuntime:officeRuntime,approve,notify:notifyRuntime,previewPoolEnabled:store.data.settings.officePreviewPool!==false});}
+        const officeHome = path.join(store.dir, 'office');
+        const officeWarmEnabled = () => store.data.settings.officeStartupWarm !== false;
+        const deferOfficeWarm = async () => {
+            if (loadavg()[0] >= availableParallelism()) return true;
+            if (process.platform !== 'darwin' || !powerMonitor.isOnBatteryPower()) return false;
+            return new Promise(resolve => {
+                execOfficePowerCommand('/usr/bin/pmset', ['-g', 'batt'], {timeout: 2000}, (error, stdout) => {
+                    const charge = stdout?.match(/(\d+)%/);
+                    resolve(!error && !!charge && Number(charge[1]) <= 20);
+                });
+            });
+        };
+        const officeRuntime=async()=>({
+            python:await bundledExecutable('python'),
+            officeDirectory:path.dirname(await bundledExecutable('office')),
+            fontCacheDirectory:path.join(officeHome,'fontcache'),
+            onFontTiming: timing => officeEngine?.record('font',timing),
+            lowPriority:true,
+        });
+        if(runtimeRoot()){
+            await bundledExecutable('python');
+            const officeBinary = await bundledExecutable('office');
+            const officeDirectory = path.dirname(officeBinary);
+            const manifest = JSON.parse(await readFile(path.join(runtimeRoot(),'RUNTIMES.json'),'utf8'));
+            const officeBinaryStat = await stat(officeBinary);
+            const engineVersion = JSON.stringify([manifest.libreoffice,app.getVersion(),officeDirectory,officeBinaryStat.mtimeMs]);
+            libreoffice=createLibreOffice({
+                documents:toolRuntime.documents,directory:path.join(store.dir,'office-runtime'),
+                executable:()=>bundledExecutable('office'),pdfRuntime:officeRuntime,approve,notify:notifyRuntime,
+                previewPoolEnabled:store.data.settings.officePreviewPool!==false,
+                previewCacheDirectory:path.join(officeHome,'preview-cache'),
+                allowPreviewDisk:()=>!vault?.encrypted&&!previewDiskTransitions,
+                previewIdentity:async()=>({engineVersion,fontFingerprint:await officeFontFingerprint(officeDirectory)}),
+                waitForEngine:()=>officeEngine?.wait(),
+                onPreviewTiming:timing=>officeEngine?.record('lastPreview',timing),
+            });
+            if(vault?.encrypted) await libreoffice.clearPreviewDisk().catch(error=>console.warn('[Office] 缓存清理失败',error.code||error.name));
+        }
         genoffice=createGenOfficeBridge({documents:toolRuntime.documents,approve});
-        // [p2-ux2] start the preview engine with the app and keep one worker warm
-        if(libreoffice){setTimeout(()=>void libreoffice.warmPreview?.(),2500).unref?.();setInterval(()=>void libreoffice.warmPreview?.(),240000).unref?.();}
         recoverInterruptedWork(store.data);
         commands = createCommandService({ store, active, executeTool, notify: notifyRuntime });
         projects=createCodeProjects({store,directory:path.join(app.getPath('userData'),'code-projects'),approve,commands});
@@ -253,14 +297,22 @@ else {
             openConnectorForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'connectors', connector: p }); }, web: createWebLookup(), // [ux9]
             openMcpForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'agents', mcp: p }); }, get capabilities() { return capabilityLibrary; }, // [mcp2]
             runTask: (id, o) => runTask(id, o), get workspace() { try { return workspace; } catch { return null; } },
-            get connectors() { return connectors; }, get dashboards() { return dashboards; }, get briefing() { return briefing; }, get miniapps() { return miniapps; }, get quant() { return quant; }, get market() { return market; }, get research() { return research; }, get knowledge() { return knowledge; }, get portfolio() { return portfolio; }, get trade() { return trade; }, get dataset() { return dataset; }, get security() { return security; }, get audit() { return auditLog; }, privacy: () => store.data.security?.privacy, openDocument: id => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'library', document: id }); }, openMarket: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'market', code }); }, openQuant: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'quant', code }); } };
+            get connectors() { return connectors; }, get dashboards() { return dashboards; }, get briefing() { return briefing; }, get miniapps() { return miniapps; }, get quant() { return quant; }, get market() { return market; }, get research() { return research; }, get knowledge() { return knowledge; }, get portfolio() { return portfolio; }, get trade() { return trade; }, get dataset() { return dataset; }, get security() { return security; }, get audit() { return auditLog; }, privacy: () => store.data.security?.privacy, openDocument: id => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'library', document: id }); }, openMarket: (code, period, name) => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'market', code, period, name }); }, openQuant: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'quant', code }); } };
         conversations = createConversationService({ appTools: appDeps, approve, rules: approvalRules, models, secrets:mcpSecrets, images, queue:runs, store, active, key, view, executeTool, releaseToolGrants:id=>toolRuntime.releaseGrants(id), notify: notifyRuntime,notifyStream:event=>{if(win&&!win.isDestroyed())win.webContents.send('actwill:stream',event);cliAsk?.stream(event);},onCompleted:e=>{conversationFinished(e);cliAsk?.finished(e);} });
         if(runtimeRoot()){
-            const kit=createOfficeWorkspace({documents:toolRuntime.documents,directory:path.join(store.dir,'office-kit'),runtime:officeRuntime,approve,notify:notifyRuntime,audit:async event=>{const prev=store.data.executions;store.data.executions=[event,...prev.filter(e=>e.id!==event.id)].slice(0,300);try{await store.save();}catch(e){store.data.executions=prev;throw e;}notifyRuntime();}});
+            const kit=createOfficeWorkspace({documents:toolRuntime.documents,directory:path.join(store.dir,'office-kit'),runtime:officeRuntime,approve,notify:notifyRuntime,
+                waitForEngine:()=>officeEngine?.wait(),
+                allowStandby:()=>officeWarmEnabled()&&!closing,
+                onStandbyTiming:timing=>officeEngine?.record('editorWorker',timing),
+                audit:async event=>{const prev=store.data.executions;store.data.executions=[event,...prev.filter(e=>e.id!==event.id)].slice(0,300);try{await store.save();}catch(e){store.data.executions=prev;throw e;}notifyRuntime();}});
             const officeChat=createOfficeChat({store,kit,models,key,approve,queue:runs,notify:notifyRuntime});
             officeWindows=createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat:officeChat,models,documents:toolRuntime.documents,dialog});
             register('officeOpen',p=>officeWindows.open(p.id,p.revision));
-            setTimeout(()=>void kit.prewarm?.(),4000).unref?.(); // [p2-ux2] standby editor engine
+            officeEngine=createOfficeEngine({
+                enabled:officeWarmEnabled, defer:deferOfficeWarm, notify:notifyRuntime,
+                warmPreview:()=>libreoffice.warmPreview(), warmEditor:()=>kit.prewarm(),
+            });
+            powerMonitor.on('on-ac', () => officeEngine?.settingsChanged());
         }
         tasks = createTaskService({ models, queue:runs, notify:notifyRuntime, store, active, key, view, conversations, rules: approvalRules, notifyCompleted: task => {
                 if (Notification.isSupported())
@@ -375,7 +427,15 @@ else {
             cliInstaller.refresh().catch(() => {});
             app.on('will-quit', () => { cliServer.stop().catch(() => {}); });
         }
-        register('security', async p => { const result = await security.handle(p); return ['view', 'egressList', 'auditList', 'auditVerify', 'review', 'secrets', 'testModel'].includes(p?.action) ? { result } : { result, state: view() }; });
+        register('security', async p => {
+            const enabling = p?.action === 'encrypt' && p.enabled && !security.locked;
+            if (enabling) previewDiskTransitions++;
+            try {
+                if (enabling) await libreoffice?.clearPreviewDisk();
+                const result = await security.handle(p);
+                return ['view', 'egressList', 'auditList', 'auditVerify', 'review', 'secrets', 'testModel'].includes(p?.action) ? { result } : { result, state: view() };
+            } finally { if (enabling) previewDiskTransitions--; }
+        });
         powerMonitor.on('lock-screen', () => security?.onSleep()); powerMonitor.on('suspend', () => security?.onSleep());
         trade = createTradeService({ store, quant, market, portfolio, broker: createBrokerBrowser({ BrowserWindow }), notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'tasks', tab: 'trade' }); }); n.show(); } catch {} } }); // [v0.52]
         register('dataset', async p => { const result = await dataset.handle(p); return p?.action === 'view' ? { result } : { result, state: view() }; }); // [v0.53]
@@ -412,6 +472,19 @@ else {
         register('state', () => view());
         const updateLegacySettings=createLegacyModelSettings({store,safeStorage,getSessionKey:()=>sessionKey,setSessionKey:value=>{sessionKey=value;},isBusy:()=>active.size>0||runs.hasPending()});
         register('settings',async p=>{await updateLegacySettings(p);return view();});
+        register('officeEngine', async p => {
+            if (!officeEngine) throw Error('当前环境没有内置 Office 引擎');
+            if (typeof p?.enabled === 'boolean') {
+                const previous = store.data.settings.officeStartupWarm;
+                store.data.settings.officeStartupWarm = p.enabled;
+                try { await store.save(); }
+                catch (error) { store.data.settings.officeStartupWarm = previous; throw error; }
+                officeEngine.settingsChanged();
+                notifyRuntime();
+            }
+            if (p?.retry === true) void officeEngine.retry();
+            return view();
+        });
         register('pickFolder', async () => {
             const result = await dialog.showOpenDialog(win, { title: '选择授权给 QuanK 的文件夹', properties: ['openDirectory'] });
             if (!result.canceled) {
@@ -464,7 +537,15 @@ else {
         register('documentSelectionReplace', p=>{const selected=resolveDocumentSelection(store,p);return toolRuntime.documents.updateEditor(selected.documentId,selected.revision,{patches:selectionPatches(selected,p.replacement)},approve);});
         register('officeEdit',p=>{if(!libreoffice)throw Error('源码开发环境没有内置文档引擎');return libreoffice.edit(p.id,p.revision);});
         register('officeCollect',p=>{if(!libreoffice)throw Error('源码开发环境没有内置文档引擎');return libreoffice.collect(p.id);});
-        register('documentPreview',p=>libreoffice?libreoffice.preview(p.id,p.revision):toolRuntime.documents.preview(p.id,p.revision));
+        register('documentPreview', async p => {
+            const d = toolRuntime.documents.bytes(p.id, p.revision);
+            if (d.format === 'pdf') return {id: d.id, revision: d.revision, sha256: d.sha256, format: 'pdf', base64: d.bytes.toString('base64')};
+            if (!libreoffice || !['docx','xlsx','pptx'].includes(d.format)) return toolRuntime.documents.preview(p.id, p.revision);
+            const result = await libreoffice.preview(p.id, p.revision);
+            if (!p.panel) return result;
+            try { return {...result, ...documentPreviewMetadata(d.format, d.bytes)}; }
+            catch { return {...result, sourceFormat: d.format}; }
+        });
         register('documentEditor', p => toolRuntime.documents.editor(p.id,p.mode));
         register('documentSaveEditor', p => toolRuntime.documents.updateEditor(p.id,p.revision,p.patch,approve));
         register('documentRead', p => toolRuntime.documents.read(p.id));
@@ -512,7 +593,7 @@ else {
             finally { await fsp.rm(dir, { recursive: true, force: true }).catch(() => {}); }
         });
         register('documentImport', async () => {
-            const result=await dialog.showOpenDialog(win,{title:'导入可编辑文档（原文件不变）',properties:['openFile'],filters:[{name:'文档',extensions:['docx','xlsx','pptx','md','html']}]});
+            const result=await dialog.showOpenDialog(win,{title:'导入文档（原文件不变）',properties:['openFile'],filters:[{name:'文档',extensions:['docx','xlsx','pptx','pdf','md','html']}]});
             if(result.canceled)return false;
             const source=result.filePaths[0],bytes=await readDocumentSource(source);
             return toolRuntime.documents.importFile(path.basename(source,path.extname(source)),path.extname(source).slice(1).toLowerCase(),bytes);
@@ -520,12 +601,16 @@ else {
         register('documentExportPdf',async p=>exportDocumentPdf({id:p.id,revision:p.revision,documents:toolRuntime.documents,office:libreoffice,chooseDestination:async defaultPath=>{const result=await dialog.showSaveDialog(win,{title:'导出为 PDF',defaultPath,filters:[{name:'PDF',extensions:['pdf']}]});return result.canceled?null:result.filePath;},writeDestination:writeDocumentDestination}));
         register('documentExport', async p => {
             const selected=toolRuntime.documents.bytes(p.id,p.revision);
-            const result=await dialog.showSaveDialog(win,{title:'导出文档',defaultPath:selected.name.replace(/[\\/:*?"<>|]/g,'_')+'.'+selected.format,filters:[{name:selected.format.toUpperCase(),extensions:[selected.format]}]});
+            const result=await dialog.showSaveDialog(win,{title:p.openWithSystem?'保存并用系统应用打开':'导出文档',defaultPath:selected.name.replace(/[\\/:*?"<>|]/g,'_')+'.'+selected.format,filters:[{name:selected.format.toUpperCase(),extensions:[selected.format]}]});
             if(result.canceled)return false;
             // Dialog explicitly authorizes the destination; recheck version after user interaction.
             toolRuntime.documents.bytes(p.id,p.revision);
             const written=await writeDocumentDestination(result.filePath,selected.bytes);
             store.log('已导出文档',path.basename(result.filePath));await store.save();
+            if (p.openWithSystem) {
+                const error = await shell.openPath(result.filePath);
+                if (error) throw Error(error);
+            }
             return {saved:true,sha256:selected.sha256,bytes:written};
         });
         register('exportText', async (p) => {
@@ -589,6 +674,7 @@ else {
         pdfImports.close();
         if(officeWindows?.hasUnsaved()){event.preventDefault();dialog.showMessageBoxSync({type:'warning',message:'QuanK Office有尚未保存的修改',detail:'请在文档窗口重试保存后退出；不会丢弃未保存内容。'});return;}
         if(libreoffice?.sessions().length){const choice=dialog.showMessageBoxSync(win,{type:'warning',message:'有文档编辑副本尚未收回',detail:'请先保存并退出内置编辑窗口，再返回收回新版本。放弃退出会清理尚未回收的副本。',buttons:['返回处理','放弃副本并退出'],defaultId:0,cancelId:0});if(choice===0){event.preventDefault();return;}}
+        officeEngine?.close();
         officeWindows?.close().catch(()=>{});
         libreoffice?.close().catch(()=>{});
         genoffice?.close().catch(()=>{});

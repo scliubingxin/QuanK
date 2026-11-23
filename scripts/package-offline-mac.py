@@ -13,6 +13,7 @@ import shutil
 import stat
 import struct
 import subprocess
+import sys
 import zipfile
 import importlib.util
 from offline_bundle import copy_source_tree, clean_residue, inventory, write_archive, capture_staging_paths, verify_staging_paths
@@ -42,6 +43,39 @@ def extract_runtime(archive,target):
                 with z.open(info) as source,open(dst,'wb') as out:shutil.copyfileobj(source,out)
                 dst.chmod(mode&0o777 or 0o644)
 
+def verify_native_runtimes(native):
+    native_manifest = json.loads((native/'RUNTIMES.json').read_text())
+    from importlib.machinery import SourceFileLoader
+    pins = SourceFileLoader('native_pins', str(ROOT/'scripts/prepare-native-runtimes.py')).load_module().PINS
+    manifest_pins = native_manifest.get('pins', {})
+    if native_manifest.get('schema') != 1 or native_manifest.get('architecture') != 'arm64':
+        raise ValueError('Unsupported native runtime manifest')
+    if any(manifest_pins.get(name, {}).get('sha256') != sha for name, (sha, _) in pins.items()):
+        raise ValueError('native runtime lock mismatch')
+    wheel_lock = json.loads((ROOT/'desktop/python-wheels.lock.json').read_text())
+    if native_manifest.get('python_packages') != wheel_lock['wheels']:
+        raise ValueError('Python wheel lock mismatch')
+
+    native_paths = {
+        str(file.relative_to(native)) for file in native.rglob('*')
+        if (file.is_file() or file.is_symlink()) and file != native/'RUNTIMES.json'
+    }
+    if native_paths != set(native_manifest['files']):
+        raise ValueError('native payload path inventory changed')
+    for relative, entry in native_manifest['files'].items():
+        file = native/relative
+        if 'link' in entry:
+            if not file.is_symlink() or os.readlink(file) != entry['link']:
+                raise ValueError(f'native payload link changed: {relative}')
+        elif file.is_symlink() or digest(file) != entry['sha256'] or stat.S_IMODE(file.stat().st_mode) != entry['mode']:
+            raise ValueError(f'native payload bytes/mode changed: {relative}')
+
+    engine = native/ENGINE
+    if native_manifest.get('office_core_manifest_sha256') != digest(engine/'OFFICE-CORE.json'):
+        raise ValueError('Office core manifest lock mismatch')
+    subprocess.run([sys.executable, str(ROOT/'scripts/build-office-core.py'), '--verify', str(engine)], check=True)
+    return native_manifest
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--native-runtimes',type=Path,required=True);p.add_argument('--runtime',type=Path,required=True);p.add_argument('--checksums',type=Path,required=True);p.add_argument('--work-dir',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--signing-tool',type=Path,required=True);args=p.parse_args()
     metadata=json.loads((ROOT/'desktop/package.json').read_text());version=metadata['version'];electron=metadata['devDependencies']['electron']
@@ -50,6 +84,8 @@ def main():
     checks={line.split()[1].lstrip('*'):line.split()[0] for line in args.checksums.read_text().splitlines() if len(line.split())==2}
     runtime_sha=digest(args.runtime)
     if checks.get(expected_name)!=runtime_sha:raise ValueError('Electron release checksum mismatch')
+    native=args.native_runtimes.resolve()
+    native_manifest=verify_native_runtimes(native)
     stage=args.work_dir.resolve()
     if stage.exists():raise ValueError('choose a new, empty work directory')
     stage.mkdir(parents=True,mode=0o700);extracted=stage/'runtime';extracted.mkdir();extract_runtime(args.runtime,extracted)
@@ -60,19 +96,6 @@ def main():
     info_path.write_bytes(plistlib.dumps(info,fmt=plistlib.FMT_XML))
     resources=app/'Contents/Resources';shutil.copy2(ROOT/'desktop/assets/app.icns',resources/'QuanK.icns')
     (resources/'default_app.asar').unlink(missing_ok=True)
-    native=args.native_runtimes.resolve()
-    native_manifest=json.loads((native/'RUNTIMES.json').read_text())
-    from importlib.machinery import SourceFileLoader
-    pins=SourceFileLoader('native_pins',str(ROOT/'scripts/prepare-native-runtimes.py')).load_module().PINS
-    if native_manifest.get('architecture')!='arm64' or any(native_manifest.get('pins',{}).get(n,{}).get('sha256')!=h for n,(h,u) in pins.items()):raise ValueError('native runtime lock mismatch')
-    if native_manifest.get('python_packages')!=json.loads((ROOT/'desktop/python-wheels.lock.json').read_text())['wheels']:raise ValueError('Python wheel lock mismatch')
-    native_paths={str(f.relative_to(native)) for f in native.rglob('*') if (f.is_file() or f.is_symlink()) and f.name!='RUNTIMES.json'}
-    if native_paths!=set(native_manifest['files']):raise ValueError('native payload path inventory changed')
-    for rel,entry in native_manifest['files'].items():
-        f=native/rel
-        if 'link' in entry:
-            if not f.is_symlink() or os.readlink(f)!=entry['link']:raise ValueError('native payload link changed')
-        elif f.is_symlink() or digest(f)!=entry['sha256'] or f.stat().st_mode&0o777!=entry['mode']:raise ValueError('native payload bytes/mode changed')
     shutil.copytree(native,resources/'runtimes',symlinks=True)
     for f in (resources/'runtimes').rglob('*'):
         if f.is_symlink() and (not f.resolve().is_relative_to(resources/'runtimes') or not f.exists()):raise ValueError('native runtime link escape')
@@ -133,6 +156,13 @@ def main():
     manifest={'product':'QuanK','version':version,'architecture':'arm64','minimum_macos':info.get('LSMinimumSystemVersion'),'runtime':'Electron '+electron,'runtime_sha256':runtime_sha,'app_asar_sha256':app_sha,'signature':'ad-hoc; no Developer ID or notarization','native_mac_tested':False,'signature_validation':'Mach-O hash verification; macOS resource-seal and Gatekeeper verification pending','verified_macho_binaries':verified_binaries,'verified_code_pages':verified_pages,'files':[]}
     manifest['native_runtimes']=native_manifest
     manifest['files']=inventory(stage,app)
+    engine=resources/'runtimes'/ENGINE
+    core=json.loads((engine/'OFFICE-CORE.json').read_text())
+    manifest['empty_directories']=[
+        {'path': (engine/relative).relative_to(stage).as_posix(), 'mode': entry['mode']}
+        for relative, entry in core['files'].items()
+        if entry.get('directory') and not any((engine/relative).iterdir())
+    ]
     verify_staging_paths(app,expected_paths)
     manifest['archive_policy']='closed inventory; reject .BC.*, AppleDouble, case collisions, missing and extra files'
     manifest['removed_staging_residues']={'before_sign':removed_before_sign,'after_sign':removed_after_sign}
@@ -144,7 +174,7 @@ def main():
     for name in ['LICENSES.chromium.html']:
         if (extracted/name).exists():shutil.copy2(extracted/name,stage/name)
     args.output.parent.mkdir(parents=True,exist_ok=True)
-    archive_check=write_archive(stage,manifest['files'],args.output.resolve())
+    archive_check=write_archive(stage,manifest['files'],args.output.resolve(),manifest['empty_directories'])
     print(json.dumps({'file':str(args.output.resolve()),'version':version,'bytes':args.output.stat().st_size,'sha256':digest(args.output),'app_asar_sha256':app_sha,'architecture':'arm64','signature':'ad-hoc','verified':True,'archive_check':archive_check}))
 
 if __name__=='__main__':main()

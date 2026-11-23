@@ -1,6 +1,7 @@
 // [ux5] App tools: everything a user can do in the QuanK UI can also be asked for in chat.
 // Reads run directly; anything that changes the app (create / edit / pause / delete / run a scheduled task) shows a native
 // confirmation first. In unattended scheduled runs the approval gate defers those to 「待你确认」, so tasks cannot spawn tasks.
+import { MINUTE_KLINE_INTENT, PERIODS, minuteKlineCommand } from '../src/shared/market.js';
 import { APP_PAGE_INTENT } from '../src/shared/page-command.js';
 import { uid } from '../core.mjs';
 import { normalizeSchedule, nextRunAt, describeSchedule, WEEKDAY_NAMES } from '../src/shared/schedule.js';
@@ -58,7 +59,7 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_market_sectors', '行业或概念板块按涨跌幅排行（含领涨股、涨跌家数）。只读。', {kind: {type: 'string', enum: ['industry', 'concept']}, order: {type: 'string', enum: ['up', 'down']}, limit: {type: 'integer'}}),
     def('app_market_sector_stocks', '某个板块（名称如「半导体」或代码 BKxxxx）的成分股按涨幅排行。只读。', {sector: {type: 'string'}, limit: {type: 'integer'}}, ['sector']),
     def('app_market_quote', '个股实时行情（现价、涨跌幅、开高低、昨收、成交额、换手）。query 是公司名称或代码，多只用逗号分隔。只读。', {query: {type: 'string'}}, ['query']),
-    def('app_market_kline', '个股 K 线与技术指标（日 / 周 / 月 / 60 分钟 / 分时；均线、MACD、KDJ、近 20 根高低点），并在 QuanK 里打开这只股票的 K 线图。', {query: {type: 'string'}, period: {type: 'string', enum: ['day', 'week', 'month', 'm60', 'intraday']}, open: {type: 'boolean'}}, ['query']),
+    def('app_market_kline', '个股 K 线与技术指标（日 / 周 / 月 / 1、5、15、30、60 分钟 / 分时；均线、MACD、KDJ、近 20 根高低点），并在 QuanK 里打开这只股票的 K 线图。', {query: {type: 'string'}, period: {type: 'string', enum: Object.keys(PERIODS)}, open: {type: 'boolean'}}, ['query']),
     def('app_market_alert_add', '设置价格提醒：涨幅或跌幅达到某个百分比，或价格涨到 / 跌到某个值；交易时段触发后进入「动态」并发系统通知。会弹出确认框。', {query: {type: 'string'}, kind: {type: 'string', enum: ['up', 'down', 'above', 'below']}, value: {type: 'number'}}, ['query', 'kind', 'value']),
     def('app_market_alert_list', '列出已设置的价格提醒。只读。'),
     def('app_market_alert_remove', '删除一条价格提醒（先用 app_market_alert_list 查 id）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
@@ -107,6 +108,7 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_web_read', '读取一个公网网页的正文（纯文本，最多约 12000 字）。先 app_web_search 找到链接再读取。', {url: {type: 'string'}}, ['url']),
     def('app_dashboard_create', '用成果中心里的 Excel 表格生成可交互仪表盘（保存在「创作」页）。数值由本机计算。', {documentId: {type: 'string'}, prompt: {type: 'string', description: '想看什么，例如「按月看各区域销售额」'}}, ['documentId']),
     def('app_briefing_generate', '立即生成今日简报（需要你处理的事、完成的工作、今日日程、新邮件等），返回各板块要点。'),
+    def('app_open_document', '在对话右侧预览成果中心的文件。优先传已知文档 id；也可传文件名或关键词。用户说刚才的研报时传关键词「研报」。', {id: {type: 'string'}, query: {type: 'string'}}, []),
     def('app_open_page', '在 QuanK 窗口中打开某个页面，方便用户查看结果（「查看我的自选」用 app_quant_open）。research（投研资料）可带 stock（6 位代码）和 kind（report/notice/note/doc/export/quant）筛选；quant（量化）可带 stock（公司名称或 6 位代码）和 tab: graph 直接查看公司关系图；tasks（自动化）可带 tab：trade（半自动委托）/ tasks / runs。', {page: {type: 'string', enum: Object.keys(APP_PAGES)}, stock: {type: 'string'}, kind: {type: 'string'}, tab: {type: 'string', enum: ['trade', 'tasks', 'runs', 'graph']}}, ['page']),
     ...(incognito ? [] : [
       def('app_memory_add', '把用户明确要求记住的偏好或事实存入长期记忆（不要存密码、密钥等敏感信息）。', {text: {type: 'string'}, kind: {type: 'string', enum: ['preference', 'fact', 'profile']}}, ['text']),
@@ -117,7 +119,7 @@ export function appToolDefinitions({incognito = false} = {}) {
 const MARKET_NOTE = '行情来自公开行情接口，可能有延迟；仅供研究，不构成投资建议。'; // [F1]
 export const APP_TOOL_NAMES = new Set(appToolDefinitions().map(d => d.function.name));
 /** Requests that only make sense through app tools: offered even when the composer's 「允许使用工具」 is off (app tools only). */
-export const APP_INTENT = new RegExp(APP_PAGE_INTENT.source + "|" + /委托单|委托|下单|模拟盘|半自动|挂单|撤单|合规|免责声明|审计日志|操作记录|外发记录|离线模式|能不能发|违规(用语|表述|词)|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/.source);
+export const APP_INTENT = new RegExp(APP_PAGE_INTENT.source + "|" + /(?:预览|打开).{0,48}(?:文件|研报|报告|\.(?:docx|xlsx|pptx|pdf))/.source + "|" + MINUTE_KLINE_INTENT.source + "|" + /委托单|委托|下单|模拟盘|半自动|挂单|撤单|合规|免责声明|审计日志|操作记录|外发记录|离线模式|能不能发|违规(用语|表述|词)|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/.source);
 
 function f_isSelectInvalid(info, config) { // [ux9]
   return (info.fields || []).some(f => f.type === 'select' && config[f.name] !== undefined && !f.options.some(([v]) => v === config[f.name]));
@@ -125,7 +127,7 @@ function f_isSelectInvalid(info, config) { // [ux9]
 
 export function appToolContext(now = Date.now()) {
   const d = new Date(now);
-  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；用户问委托单、要下单、撤单、回填成交时用 app_trade_*（每一笔都要用户确认；真实下单时 QuanK 只在券商页面填好，提交由用户亲自完成，绝不能说已经替用户下单）；检查文章或研报是否合规用 app_compliance_check，问操作记录用 app_audit_list，问数据发去了哪里用 app_egress_list，问安全设置用 app_sec_status；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
+  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要求预览文件或打开刚才的研报时，调用 app_open_document。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；用户问委托单、要下单、撤单、回填成交时用 app_trade_*（每一笔都要用户确认；真实下单时 QuanK 只在券商页面填好，提交由用户亲自完成，绝不能说已经替用户下单）；检查文章或研报是否合规用 app_compliance_check，问操作记录用 app_audit_list，问数据发去了哪里用 app_egress_list，问安全设置用 app_sec_status；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
 }
 
 const taskView = t => ({id: t.id, name: t.name, schedule: describeSchedule(t.schedule), enabled: !!t.enabled, status: t.status || 'ready',
@@ -286,7 +288,8 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
       return {status: 'succeeded', sector: r.sector, stocks: (r.stocks || []).map(q => ({code: q.code, name: q.name, price: q.price, pct: q.pct, amount: q.amount})), note: MARKET_NOTE};
     }
     case 'app_market_quote': case 'app_market_kline': case 'app_market_alert_add': {
-      const m = need('market'), terms = name === 'app_market_quote' ? String(args.query || '').split(/[,，、;；\s]+/).filter(Boolean).slice(0, 10) : [String(args.query || '').trim()];
+      const command = name === 'app_market_kline' && minuteKlineCommand(args.query);
+      const m = need('market'), terms = name === 'app_market_quote' ? String(args.query || '').split(/[,，、;；\s]+/).filter(Boolean).slice(0, 10) : [command?.query || String(args.query || '').trim()];
       if (!terms.length || !terms[0]) return {status: 'failed', error: '请提供公司名称或 6 位代码'};
       const found = [];
       for (const q of terms) {
@@ -299,9 +302,9 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
       }
       const {code, name: label} = found[0];
       if (name === 'app_market_kline') {
-        const period = ['day', 'week', 'month', 'm60', 'intraday'].includes(args.period) ? args.period : 'day';
+        const period = Object.hasOwn(PERIODS, args.period) ? args.period : command?.period || 'day';
         const k = await m.handle({action: 'kline', code, period, summary: true});
-        if (args.open !== false) deps.openMarket?.(code);
+        if (args.open !== false) deps.openMarket?.(code, period, label);
         return {status: 'succeeded', kline: k, opened: args.open !== false && !!deps.openMarket, note: MARKET_NOTE};
       }
       const kinds = {up: '涨幅达到', down: '跌幅达到', above: '价格涨到', below: '价格跌到'}, v = Number(args.value);
@@ -655,6 +658,15 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
     case 'app_briefing_generate': {
       const b = await need('briefing').generate({manual: true});
       return {status: 'succeeded', summary: b.summary || '', sections: b.sections.map(s => ({title: s.title, items: s.items.slice(0, 8).map(i => i.text)}))};
+    }
+    case 'app_open_document': {
+      const docs = store.data.documents || [];
+      const query = clip(args.query, 200).trim().toLowerCase();
+      const document = args.id ? docs.find(d => d.id === args.id) : query
+        ? docs.filter(d => (d.name + '.' + d.format).toLowerCase().includes(query) || (query === '研报' && /研究报告/.test(d.name))).sort((a, b) => b.time - a.time)[0] : null;
+      if (!document) return {status: 'failed', error: '请提供成果中心的文件名或文档 ID'};
+      need('openDocument')(document.id);
+      return {status: 'succeeded', opened: document.name + '.' + document.format};
     }
     case 'app_open_page': {
       if (!APP_PAGES[args.page]) throw new Error('页面不存在');

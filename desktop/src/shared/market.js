@@ -18,7 +18,39 @@ export function secid(code) {
   return (/^(5|6|9)/.test(c) ? '1.' : '0.') + c;
 }
 export const INDICES = [['1.000001', '上证指数'], ['0.399001', '深证成指'], ['0.399006', '创业板指'], ['1.000300', '沪深300'], ['1.000688', '科创50']];
-export const PERIODS = {day: [101, '日K'], week: [102, '周K'], month: [103, '月K'], m60: [60, '60分'], m30: [30, '30分'], intraday: [0, '分时']};
+export const PERIODS = {day: [101, '日K'], week: [102, '周K'], month: [103, '月K'], m1: [1, '1分'], m5: [5, '5分'], m15: [15, '15分'], m30: [30, '30分'], m60: [60, '60分'], intraday: [0, '分时']};
+
+export const MINUTE_KLINE_INTENT = /(?:1|5|15|30|60)\s*分(?:钟)?\s*(?:K\s*)?线/i;
+
+export function minuteKlineCommand(text) {
+  const m = /^(?:请\s*)?(?:(?:打开|查看|看看|看下|看)\s*)?([^\s，。！？,!?]{1,40}?)\s*(?:的\s*)?(1|5|15|30|60)\s*分(?:钟)?\s*(?:K\s*)?线[。！？.!?]?$/i.exec(String(text || '').trim());
+  return m ? {query: m[1], period: 'm' + m[2]} : null;
+}
+
+/** Update a daily bar or a minute bar labeled by the end of its exchange interval. */
+export function updateLiveBars(bars, period, quote, at, previous) {
+  const last = bars.at(-1), minutes = /^m\d+$/.test(period) && PERIODS[period]?.[0];
+  if (!last || !(quote.price > 0) || session(at) !== 'open' || (!minutes && period !== 'day')) return null;
+  const clock = new Date(at + 8 * 3600e3).toISOString(), day = clock.slice(0, 10);
+  const stamp = /^\d{14}$/.test(quote.time || '') ? quote.time : '';
+  if (stamp && stamp.slice(0, 8) !== day.replaceAll('-', '')) return null;
+  const minute = stamp ? Number(stamp.slice(8, 10)) * 60 + Number(stamp.slice(10, 12)) : Number(clock.slice(11, 13)) * 60 + Number(clock.slice(14, 16));
+  const start = minute >= 780 ? 780 : 570;
+  const end = Math.min(start + 120, start + (Math.floor((minute - start) / minutes) + 1) * minutes);
+  const date = minutes ? day + ' ' + String(Math.floor(end / 60)).padStart(2, '0') + ':' + String(end % 60).padStart(2, '0') : day;
+  if (date < last.date || (minutes && (minute < 570 || (minute > 690 && minute < 780) || minute > 900))) return null;
+  const same = date === last.date;
+  const delta = key => fin(quote[key]) && previous?.day === day && fin(previous[key]) ? Math.max(0, quote[key] - previous[key]) : 0;
+  const open = minutes ? (same ? last.open : quote.price) : (quote.open || (same ? last.open : quote.price));
+  const high = Math.max(quote.price, open, same ? last.high : open, minutes ? open : quote.high || open);
+  const low = Math.min(quote.price, open, same ? last.low : open, minutes ? open : quote.low || open);
+  const total = key => minutes ? (same ? last[key] || 0 : 0) + delta(key) : quote[key] ?? (same ? last[key] : null);
+  const prior = same ? bars.at(-2)?.close : last.close;
+  const bar = {date, open, high, low, close: quote.price, volume: total('volume'), amount: total('amount'),
+    pct: minutes ? (prior ? (quote.price / prior - 1) * 100 : null) : quote.pct};
+  return {bars: [...(same ? bars.slice(0, -1) : bars.slice(-319)), bar], previous: {day, volume: quote.volume, amount: quote.amount},
+    changed: !same || Object.keys(bar).some(k => bar[k] !== last[k])};
+}
 
 // ---------- indicators ----------
 export function sma(values, n) {
@@ -101,7 +133,7 @@ export function klineSvg(all, {w = 960, h = 460, ma = [5, 10, 20, 60], sub = 'ma
   s += GRID(padL, w - padR, vTop + volH) + GRID(padL, w - padR, subTop0 + subH / 2);
   // date axis: about 6 labels
   const step = Math.max(1, Math.ceil(view.length / 6));
-  for (let i = 0; i < view.length; i += step) s += `<line x1="${x(i)}" x2="${x(i)}" y1="${top}" y2="${top + mainH}" style="stroke:#f1f4f9;stroke-width:1"/>` + T(x(i), top + mainH + 16, fmtDate(view[i].date).slice(2), {anchor: 'middle'});
+  for (let i = 0; i < view.length; i += step) s += `<line x1="${x(i)}" x2="${x(i)}" y1="${top}" y2="${top + mainH}" style="stroke:#f1f4f9;stroke-width:1"/>` + T(x(i), top + mainH + 16, (view[i].date.length > 10 ? esc(view[i].date.slice(5, 16)) : fmtDate(view[i].date).slice(2)), {anchor: 'middle'});
   view.forEach((b, i) => {
     const c = b.close >= b.open ? UP : DOWN, xx = x(i), yo = y(b.open), yc = y(b.close);
     s += `<line x1="${xx}" x2="${xx}" y1="${y(b.high)}" y2="${y(b.low)}" style="stroke:${c};stroke-width:1"/>`;
@@ -138,7 +170,7 @@ export function klineSvg(all, {w = 960, h = 460, ma = [5, 10, 20, 60], sub = 'ma
   s += T(padL, vTop - 8, `<tspan style="fill:#4c5a85;font-weight:600">成交量</tspan>  ${bigNum(view.at(-1).volume)}`, {size: 11.5});
   s += T(padL, 15, ma.map(n => `<tspan style="fill:${MA_COLORS[n] || '#64748b'}">MA${n} ${num(maAll[n].at(-1))}</tspan>`).join('   '), {size: 11.5});
   // hover columns (filled by mountKlineBoxes): transparent hit areas carrying the bar's numbers
-  view.forEach((b, i) => { const mk = (markAt.get(i) || []).map(m => (m.type === 'buy' ? '【买】' : '【卖】') + (m.text || '')).join('　'); s += `<rect class="mk-hit" data-i="${i}" data-t="${esc(`${fmtDate(b.date)}　开 ${num(b.open)}　收 ${num(b.close)}　高 ${num(b.high)}　低 ${num(b.low)}${fin(b.pct) ? '　' + pct(b.pct) : ''}　量 ${bigNum(b.volume)}${mk ? '　' + mk : ''}`)}" x="${(padL + cw * i).toFixed(1)}" y="${top}" width="${cw.toFixed(2)}" height="${h - top - 20}" style="fill:transparent;stroke:none"/>`; });
+  view.forEach((b, i) => { const mk = (markAt.get(i) || []).map(m => (m.type === 'buy' ? '【买】' : '【卖】') + (m.text || '')).join('　'); s += `<rect class="mk-hit" data-i="${i}" data-t="${esc(`${String(b.date).slice(0, 16)}　开 ${num(b.open)}　收 ${num(b.close)}　高 ${num(b.high)}　低 ${num(b.low)}${fin(b.pct) ? '　' + pct(b.pct) : ''}　量 ${bigNum(b.volume)}${mk ? '　' + mk : ''}`)}" x="${(padL + cw * i).toFixed(1)}" y="${top}" width="${cw.toFixed(2)}" height="${h - top - 20}" style="fill:transparent;stroke:none"/>`; });
   s += `<line class="mk-cross" x1="0" x2="0" y1="${top}" y2="${h - 20}" style="stroke:#2f62f5;stroke-width:1;stroke-dasharray:3 3;opacity:0"/>`;
   return s + '</svg>';
 }

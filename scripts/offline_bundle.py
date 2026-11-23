@@ -79,10 +79,10 @@ def inventory(stage,app):
         elif not stat.S_ISDIR(mode):raise ValueError('unsupported bundle entry')
     return entries
 
-def write_archive(stage,entries,output):
+def write_archive(stage,entries,output,empty_directories=()):
     # Regular targets first; framework links last. No symlink-directory traversal,
     # duplicate directory entries, AppleDouble or post-snapshot files can be added.
-    names=[e['path'] for e in entries]+sorted(EXTRAS)
+    names=[e['path'] for e in entries]+sorted(EXTRAS)+[e['path'] for e in empty_directories]
     ordered=sorted(names,key=lambda name:(int((stage/name).is_symlink()),-len(PurePosixPath(name).parts) if (stage/name).is_symlink() else 0,name))
     seen=set()
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
@@ -98,7 +98,10 @@ def write_archive(stage,entries,output):
                 with p.open('rb') as source,z.open(info,'w') as dest:
                     import shutil
                     shutil.copyfileobj(source,dest)
-            else:raise ValueError('archive inventory is not a regular file or symlink')
+            elif stat.S_ISDIR(mode) and not any(p.iterdir()):
+                info.filename+='/';info.external_attr|=0x10
+                z.writestr(info,b'')
+            else:raise ValueError('archive inventory contains an unsupported entry')
     return validate_archive(output)
 
 def validate_archive(archive):
@@ -113,6 +116,19 @@ def validate_archive(archive):
         expected={e['path'] for e in entries}|EXTRAS
         actual={i.filename for i in z.infolist() if not i.is_dir()}
         if actual!=expected or len(entries)!=len({e['path'] for e in entries}):raise ValueError('ZIP has missing, unexpected or duplicate manifest entries')
+        if 'empty_directories' in manifest:
+            directories=manifest['empty_directories']
+            expected_dirs={e['path']+'/' for e in directories}
+            actual_dirs={i.filename for i in z.infolist() if i.is_dir()}
+            if actual_dirs!=expected_dirs or len(directories)!=len(expected_dirs):
+                raise ValueError('ZIP has missing or unexpected directory entries')
+            for e in directories:
+                name=e['path'];safe_name(name)
+                if not name.startswith('QuanK.app/') or any(p.startswith(name+'/') for p in actual):
+                    raise ValueError('invalid empty directory: '+name)
+                info=z.getinfo(name+'/');mode=info.external_attr>>16
+                if not stat.S_ISDIR(mode) or mode&0o777!=e['mode'] or info.file_size:
+                    raise ValueError('directory mode or payload mismatch: '+name)
         for e in entries:
             name=e['path'];safe_name(name)
             if not name.startswith('QuanK.app/'):raise ValueError('manifest entry outside app')

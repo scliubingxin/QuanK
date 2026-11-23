@@ -472,6 +472,36 @@ export function inspectDocument(format, bytes) {
   if (extracted.length > 100000) throw Error("文档文字超限");
   return { text: extracted, sha256: sha256(bytes), size: bytes.length };
 }
+export function documentPreviewMetadata(format, bytes) {
+  if (!['docx', 'xlsx', 'pptx'].includes(format)) return {};
+  const files = openPackage(bytes);
+  const read = name => files[name] && parse(decoder.decode(files[name]));
+  if (format === 'xlsx') {
+    const sheets = Array.from(read('xl/workbook.xml')?.getElementsByTagNameNS(S, 'sheet') || [], element => element.getAttribute('name'));
+    return {sourceFormat: format, sheets};
+  }
+  if (format === 'pptx') return {sourceFormat: format};
+  const body = read('word/document.xml').getElementsByTagNameNS(W, 'body')[0];
+  const styles = read('word/styles.xml');
+  const levels = new Map();
+  for (const style of Array.from(styles?.getElementsByTagNameNS(W, 'style') || [])) {
+    const id = style.getAttributeNS(W, 'styleId');
+    const level = style.getElementsByTagNameNS(W, 'outlineLvl')[0]?.getAttributeNS(W, 'val');
+    if (level && /^[0-8]$/.test(level)) levels.set(id, Number(level) + 1);
+  }
+  const headings = [];
+  for (const para of Array.from(body.getElementsByTagNameNS(W, 'p'))) {
+    const properties = Array.from(para.childNodes).find(node => node.localName === 'pPr');
+    const style = properties?.getElementsByTagNameNS(W, 'pStyle')[0]?.getAttributeNS(W, 'val');
+    const direct = properties?.getElementsByTagNameNS(W, 'outlineLvl')[0]?.getAttributeNS(W, 'val');
+    const level = /^[0-8]$/.test(direct) ? Number(direct) + 1 : levels.get(style) || Number(style?.match(/^Heading([1-9])$/i)?.[1]);
+    const title = Array.from(para.getElementsByTagNameNS(W, 't'), node => node.textContent).join('').trim();
+    if (level && title) headings.push({title, level});
+  }
+  const content = Array.from(body.getElementsByTagNameNS(W, 't'), node => node.textContent).join(' ');
+  const wordCount = Array.from(content.replace(/\s/g, '')).length;
+  return {sourceFormat: format, wordCount, headings: headings.slice(0, 100)};
+}
 export function pptLayerView(bytes){return pptLayerInventory(openPackage(bytes));}
 export function editDocument(format, bytes, { replacements = [], cells = [], pptLayer }) {
   array(replacements, 30);

@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
   "brand": "QuanK",
-  "version": "0.55.2",
-  "packaged_date": "2026-11-22",
+  "version": "0.56.0",
+  "packaged_date": "2026-11-23",
   "provenance": "Complete validated source snapshot; Git commits and deployment are tracked separately",
-  "base_source_commit_sha": "0ce607437ef2c7814b295b43ec7b4ccd3c0b4a42",
+  "base_source_commit_sha": "59c116ee4ec40ec88a04280820a72fd4ce228539",
   "release_status": {
     "schema_version": 2,
     "brand": "QuanK",
-    "version": "0.55.2",
+    "version": "0.56.0",
     "checked_date": "2026-11-16",
     "source_status": "m4_development_checkpoint_not_a_release",
     "original_web_release_record": "docs/WEB_RELEASE_STATUS_ORIGINAL.json",
@@ -1154,8 +1154,8 @@
   "files": [
     {
       "path": ".github/workflows/quank-mac-arm64.yml",
-      "bytes": 3110,
-      "sha256": "a6549c3c87bfcb5c1756e4c45d302c82af1cea53d91c33de1391ebfe197cc3e6"
+      "bytes": 3305,
+      "sha256": "29b80f0a692f76cfd78cf8cce394239dde4b6fc1a681b4321830d2bbc7353825"
     },
     {
       "path": ".gitignore",
@@ -1189,8 +1189,8 @@
     },
     {
       "path": "ITERATION_LOG.md",
-      "bytes": 28358,
-      "sha256": "fc794ee888ca7f675181d01fd48537da09d48f0624197845e885775c1fbac507"
+      "bytes": 29154,
+      "sha256": "11064d6a8ee03f578fd5fd946961050890571446eb2a4bf9ebd2058b76d20efb"
     },
     {
       "path": "ITERATION_PLAN.md",
@@ -1209,13 +1209,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 26913,
-      "sha256": "3bb6004d941c28e6b0de4fe0dbefbc972ea2934d22a9d76ede761486621a61b8"
+      "bytes": 27166,
+      "sha256": "09ad34b05ce0b453dd4a2bb36ef7a5c638e9d6582bf8565ae51b8840ce76ec60"
     },
     {
       "path": "RELEASE_STATUS.json",
       "bytes": 52425,
-      "sha256": "793b688b0b4152c413b373f47fc092202bf13c9f0cd07018de441abe283d91de"
+      "sha256": "b68574223fa484558cdf7ae0b8ea1a2b4a312dd785dd9c2f675e1417f6d7c1e8"
     },
     {
       "path": "SELF_TEST_MATRIX.md",
@@ -1774,8 +1774,8 @@
     },
     {
       "path": "desktop/main.mjs",
-      "bytes": 28279,
-      "sha256": "120fe475b87f3e0be48e7e9ba50102ff499a911d5606d904258785a0f5199d05"
+      "bytes": 74058,
+      "sha256": "82c68483eee6f7e45ba42eefc68e3bc1e99f8d623eb0fa25b2d5d923ac8e7267"
     },
     {
       "path": "desktop/main/approval.mjs",
@@ -1855,12 +1855,12 @@
     {
       "path": "desktop/package-lock.json",
       "bytes": 288404,
-      "sha256": "c1e7b23f47862e66a003a95a9c7974a328c6ebeb97a3247fb3f58428641b8939"
+      "sha256": "c2a313e51fdde53830b7bbf74468d08f7afbae37d183707dbe21669e6a1eec31"
     },
     {
       "path": "desktop/package.json",
       "bytes": 3502,
-      "sha256": "06a01c1e1afef842aa4820027dd133ea7dcfa42161e55f38ef6ba69f4afaf2c2"
+      "sha256": "f6c693a816044cbad4276fdf1a65f1a505f7b442ae524a285a48e825cb9ec673"
     },
     {
       "path": "desktop/ppt-probe.mjs",
@@ -1869,18 +1869,18 @@
     },
     {
       "path": "desktop/preload.cjs",
-      "bytes": 1806,
-      "sha256": "871fb66be88bbdb03881d8cc0dbe6d0673b5e48496d8b9c7fbe200b2e367bd5a"
+      "bytes": 2732,
+      "sha256": "d2772712154939e22c7ed71a86dea0c0582766874ec68095f0faddd6c6a1d0fd"
     },
     {
       "path": "desktop/python-wheels.lock.json",
-      "bytes": 4185,
-      "sha256": "92eb7a713f4c4ea7bfc5bf57173d852b47fc78c8a45e5b434a345a325c275caa"
+      "bytes": 303,
+      "sha256": "72401ba378c291fe372f74d9740c48a05250f75086f9199f292d23ff483a369e"
     },
     {
       "path": "desktop/requirements-native-python.txt",
-      "bytes": 1938,
-      "sha256": "a3ea25d149bfe9a7213764ffada80982314a4d34ac70d21c86d6217403eac0f5"
+      "bytes": 94,
+      "sha256": "fd06673ce6578050b2746d727141c764fd4ac2ba28591a741c0dbad47c629417"
     },
     {
       "path": "desktop/runtime/abortable-work.mjs",
@@ -1929,8 +1929,8 @@
     },
     {
       "path": "desktop/runtime/command.mjs",
-      "bytes": 9418,
-      "sha256": "4ebaa4ff52c6040a2fbda9b687f7e524ca7fa22bd0e81528231867ed49273559"
+      "bytes": 10345,
+      "sha256": "09f42d8da7981ed8ff631cfce4346e43812aec6bc919ce2b0aaf7c99b8c3eafb"
     },
     {
       "path": "desktop/runtime/conversion-sanitizer.js",
@@ -1944,8 +1944,8 @@
     },
     {
       "path": "desktop/runtime/documents.mjs",
-      "bytes": 30770,
-      "sha256": "4e3b7652f013d1714f4b4f4c2a659c89ab19ec47ac5985a40784e184cf9c12d3"
+      "bytes": 33785,
+      "sha256": "e7ca6f98e90eede377634aaf144028c38552d662a66f78bcfe85a44825f6410c"
     },
     {
       "path": "desktop/runtime/identity.mjs",
@@ -1959,8 +1959,8 @@
     },
     {
       "path": "desktop/runtime/isolated-worker-pool.mjs",
-      "bytes": 6361,
-      "sha256": "bfa91bb7ea2696a72dcd58b01f2b0b26efb472a9af1b7543a8090272b50a57c8"
+      "bytes": 6418,
+      "sha256": "6bcb9a7cefb8b8983703c0db25dcac8e61b3689f82a98f1101b2e2d216c5767c"
     },
     {
       "path": "desktop/runtime/knowledge-index.mjs",
@@ -2018,9 +2018,14 @@
       "sha256": "ddc8a0642280aea9246a3d0ca0b8a7185df8d396e942b0edae8a69c12816af2e"
     },
     {
+      "path": "desktop/runtime/office-engine.mjs",
+      "bytes": 2764,
+      "sha256": "d8b4e5300b4150cf2f80a35d7fcc8a8d520c31bf580e61386df4611f9c44b381"
+    },
+    {
       "path": "desktop/runtime/office-fonts.mjs",
-      "bytes": 1358,
-      "sha256": "20fc63eb7c453b88708b450101fb97842e864f7605100881a656d3304cdbc3ca"
+      "bytes": 6412,
+      "sha256": "1904f904c3529113b5f235a7cf8745e7dec126dfc13ebed34beacbce497dfa57"
     },
     {
       "path": "desktop/runtime/office-format.mjs",
@@ -2034,8 +2039,8 @@
     },
     {
       "path": "desktop/runtime/office-kit.mjs",
-      "bytes": 5578,
-      "sha256": "dc789fb77f9b0367ffe571cbb38a2372228505c23a721249f49f4555ce6be278"
+      "bytes": 5843,
+      "sha256": "a32340aa2df7a90ae4514ed4ee934ba56cfdd93d5494bf6c3430e471de199f84"
     },
     {
       "path": "desktop/runtime/office-kit/ABI.json",
@@ -2054,8 +2059,8 @@
     },
     {
       "path": "desktop/runtime/office-kit/worker.py",
-      "bytes": 25479,
-      "sha256": "65a83fd916deba2149797b0350211924984158b71e710a07e5be2e5cd2b31aa8"
+      "bytes": 56638,
+      "sha256": "1258c34979db6327e771af6b68758be8ebb9601f1d1741153c7360e6fa3f1118"
     },
     {
       "path": "desktop/runtime/office-pdf.mjs",
@@ -2068,9 +2073,14 @@
       "sha256": "f0c99f1f6fcd09b9916008b37b97bb43714ba7c24749c9265fc430ec8d1615f1"
     },
     {
+      "path": "desktop/runtime/office-preview-cache.mjs",
+      "bytes": 2358,
+      "sha256": "bc44239afb487af2f52fb88995ce7038298934e2351e0c1e31b0930c6765d4b7"
+    },
+    {
       "path": "desktop/runtime/office-preview-pool.mjs",
-      "bytes": 6267,
-      "sha256": "069f668bf5ca13a8a9c1d12d541061a770621a6bc1902bb99f345b8ae6ee0c5f"
+      "bytes": 6992,
+      "sha256": "d0091ae54b550effde0c5f1acc86dbe270c3b08fd8a7b1452e65854c608e68ca"
     },
     {
       "path": "desktop/runtime/office-table-grid.mjs",
@@ -2089,8 +2099,8 @@
     },
     {
       "path": "desktop/runtime/office-worker-bundle.mjs",
-      "bytes": 32509,
-      "sha256": "ca514419424feda31cf91bd1d10aa690411d116293c67d3385a0c62021e72351"
+      "bytes": 64987,
+      "sha256": "889ed9f2f0dd339b2356eea5dc17fa427f3ec16ee729e57b668568412f35cd42"
     },
     {
       "path": "desktop/runtime/pdf-ocr.mjs",
@@ -2659,8 +2669,8 @@
     },
     {
       "path": "desktop/services/app-tools.mjs",
-      "bytes": 90522,
-      "sha256": "1af6c55766bf59379baa51fc1ccf77512a7d1c4f372bad99fca638f5f63da0f4"
+      "bytes": 91802,
+      "sha256": "3939903a112ac7f84a3fb3e55d533dabd8ca33b3b1a6fc2552f94dfbd9bbe7e7"
     },
     {
       "path": "desktop/services/capability-library.mjs",
@@ -2675,7 +2685,7 @@
     {
       "path": "desktop/services/cli/quank.cjs",
       "bytes": 26220,
-      "sha256": "f4c0f7cbf4bded72a0903df6306684689868eabeb73678f15919868bbf7a8fb3"
+      "sha256": "4a2be8ae2dee48e08547537191eed2329365aa8b63b8a680f8b8264d569d1ab0"
     },
     {
       "path": "desktop/services/code-projects.mjs",
@@ -2689,8 +2699,8 @@
     },
     {
       "path": "desktop/services/conversation.mjs",
-      "bytes": 28194,
-      "sha256": "f473bacaca7c6d55adbdf31b6168f7f7fd46a894eb85baade222a2cd980dd942"
+      "bytes": 30177,
+      "sha256": "c1fffd140d2421a5560a14575e4849ee694530c3f86da3d416340faf6084ffbf"
     },
     {
       "path": "desktop/services/document-selection.mjs",
@@ -2699,8 +2709,8 @@
     },
     {
       "path": "desktop/services/documents.mjs",
-      "bytes": 19833,
-      "sha256": "40392b839c7daae9909024e3ac93b261951da67e476f43aabb84b6eaeb1e1f6e"
+      "bytes": 20204,
+      "sha256": "5ab5aeb1fa60651247b1826b39b6c96435ca60ea56deb3ddbf0d0bad27c9b2d8"
     },
     {
       "path": "desktop/services/file-preview.mjs",
@@ -2739,8 +2749,13 @@
     },
     {
       "path": "desktop/services/libreoffice.mjs",
-      "bytes": 8795,
-      "sha256": "d4b505ae621930593b56dcac5577bcde9b41d6c80447a61bd7de3ed9a72552de"
+      "bytes": 10547,
+      "sha256": "bc984f2d84c6725f8e6d8ef4c1608aca6341076dd5aff604e675d52b10d90754"
+    },
+    {
+      "path": "desktop/services/market.mjs",
+      "bytes": 34341,
+      "sha256": "1d08734d7c3fdf01b9286ee75453d4ba4b92179be81c1c8140ce0c995c39f540"
     },
     {
       "path": "desktop/services/mcp-access.mjs",
@@ -2769,8 +2784,8 @@
     },
     {
       "path": "desktop/services/office-workspace.mjs",
-      "bytes": 30179,
-      "sha256": "eb91c6f69aa94f70048b94564c78e4ec7c7bafe0a4a50fbb2350a22152c92e5a"
+      "bytes": 38254,
+      "sha256": "764acc4ca096582fefd017a19a56fad86310b552339d931bba16f7147293a498"
     },
     {
       "path": "desktop/services/pdf-chat-import.mjs",
@@ -2809,8 +2824,8 @@
     },
     {
       "path": "desktop/src/app.js",
-      "bytes": 189142,
-      "sha256": "a26dc5769a3c4141dda7cb77b3b15bd19ed5081632d28392654e228e370b65c5"
+      "bytes": 194493,
+      "sha256": "608c758d0e20b7d16bfd335d3a1631f928d72e6c136be36bb5b8f34573f2a48f"
     },
     {
       "path": "desktop/src/assets/logo.png",
@@ -2870,7 +2885,7 @@
     {
       "path": "desktop/src/pdf/PDF-MANIFEST.json",
       "bytes": 154,
-      "sha256": "b543aa112b1bdbd1b201a75a19706c18cea12d775906643ccd4f77e51d14f8f6"
+      "sha256": "ea3262d71a01604dd8acd711a0048285a89df06e2cf1dd6799465c57d9120261"
     },
     {
       "path": "desktop/src/pdf/PDFJS-LICENSE.txt",
@@ -2889,18 +2904,23 @@
     },
     {
       "path": "desktop/src/pdf/engine.js",
-      "bytes": 4187046,
-      "sha256": "e65ce1bba2b94758171f160e4471f284f8d4e43bd98298277ca30bea546b7eb5"
+      "bytes": 4191935,
+      "sha256": "c10a3f203b1a78ce0e156de87ef69ae486b1b24bae48621fd9e3358f83f67d30"
     },
     {
       "path": "desktop/src/pdf/frame-source.js",
-      "bytes": 2961,
-      "sha256": "440d9721ae9384e4e8cf2c3a6a25f317b7825ee8d57643316cf81053f87144ef"
+      "bytes": 4147,
+      "sha256": "946d34401c17a99c4636c7828a0a4565062bfca7d0bffb561ef0d8cacd8934d5"
     },
     {
       "path": "desktop/src/pdf/index.html",
-      "bytes": 851,
-      "sha256": "47caf324dcb58ca5485e235516b4e212dc09ecc7fb50065e6829aebc02880b67"
+      "bytes": 1500,
+      "sha256": "fa1de08b2419a1ea5d31000bf4a809dccf813bcc50291c0b73bbc607859097a1"
+    },
+    {
+      "path": "desktop/src/pdf/panel-frame.js",
+      "bytes": 7135,
+      "sha256": "9168f99149ab35a44cf83b222b2ce9629587eb3ffa802766d82fc5b40a054468"
     },
     {
       "path": "desktop/src/pdf/standard_fonts-LICENSE_FOXIT.txt",
@@ -2958,6 +2978,11 @@
       "sha256": "0dceb53e19340c7fc6436fa01515374c9a7345450f771cb975785620ef676fb0"
     },
     {
+      "path": "desktop/src/shared/market.js",
+      "bytes": 19897,
+      "sha256": "50ee77217e5f4d79400bf9a329ecd76c55c550910ee8187b77f94f25190f4cc6"
+    },
+    {
       "path": "desktop/src/shared/office-history.js",
       "bytes": 443,
       "sha256": "ba8b3dd0bb562bcee287623a35ccda37b6702d72a68d79364255cef2428ce473"
@@ -2984,8 +3009,8 @@
     },
     {
       "path": "desktop/src/shared/page-command.js",
-      "bytes": 1489,
-      "sha256": "1466ad079bdeedae56868bed7afc1d7ac38747e64b13b6d17d9ce8b4ca47aadd"
+      "bytes": 1570,
+      "sha256": "df32ef0eec9fa0365803c0e0d0d66c758bac7654599b629271703938b4cf23c1"
     },
     {
       "path": "desktop/src/shared/quant.js",
@@ -3039,8 +3064,8 @@
     },
     {
       "path": "desktop/src/ui/documents.js",
-      "bytes": 5061,
-      "sha256": "d21f50f9907e493af66957f43629eb64340ca144046f0008d64134c31aee4770"
+      "bytes": 7010,
+      "sha256": "bd3c21a8c9f78749b366e0c15e5dfa6cdf4b46d92d8f7fd103c00fb5c48d257b"
     },
     {
       "path": "desktop/src/ui/graph-view.js",
@@ -3088,6 +3113,11 @@
       "sha256": "0d5613317fea05b5db14056ae0af6c3669f8d7fce91587b0f966f6cc166f7e15"
     },
     {
+      "path": "desktop/src/ui/market.js",
+      "bytes": 24331,
+      "sha256": "3ad09f01e2fd805c3657c622709336e83bc4175eb88fcea5d792bab96d121861"
+    },
+    {
       "path": "desktop/src/ui/media-policy.js",
       "bytes": 863,
       "sha256": "ba0eae59336ae7d42ad945192751cfb4dfabcf143088871a557901dfb5030a7f"
@@ -3104,8 +3134,8 @@
     },
     {
       "path": "desktop/src/ui/office-preview.js",
-      "bytes": 3825,
-      "sha256": "2ae0e4d97713dd4484182876190b012d657c14036b04cd2a31ed3815f4167dd3"
+      "bytes": 13434,
+      "sha256": "3343dbf54e4900fc90207102a38214a2b63b661a6c40ff046fa0d542175a4239"
     },
     {
       "path": "desktop/src/ui/office-workspace.js",
@@ -3114,8 +3144,8 @@
     },
     {
       "path": "desktop/src/ui/page-panel.js",
-      "bytes": 4890,
-      "sha256": "d83f2afc93d0e528fd5374d580f672c332678661e8b7eedb1d71ba2219b2114a"
+      "bytes": 5611,
+      "sha256": "a425aeb9957160f7b393adf34ec8f9681bd197873888e8e32efb874369c1e70c"
     },
     {
       "path": "desktop/src/ui/preset-catalog.js",
@@ -3134,8 +3164,8 @@
     },
     {
       "path": "desktop/src/ui/search-field.js",
-      "bytes": 471,
-      "sha256": "1ada973ded6709bb0b51c0b0c9ea3aa02e80e034c415dc05d0a1566043d11adf"
+      "bytes": 486,
+      "sha256": "ef874dab42c8dc4c141670ddf4b041c14314b2e54ae68ad3301dc3cefdc7e079"
     },
     {
       "path": "desktop/src/ui/slash.js",
@@ -3159,8 +3189,8 @@
     },
     {
       "path": "desktop/src/ui/workspace.js",
-      "bytes": 11968,
-      "sha256": "cfbb5624c05ee98ae001b065ea9e31177e1119924af77c8c099b1089fbe7d0f9"
+      "bytes": 12798,
+      "sha256": "883fcde847388735378225e9465d0ebcdf027fc6cbad87c87fc6eed8d13e5f50"
     },
     {
       "path": "desktop/src/vendor/MANIFEST.json",
@@ -3189,8 +3219,8 @@
     },
     {
       "path": "desktop/src/workbench.css",
-      "bytes": 170264,
-      "sha256": "ff18dbb5499149d5e76b9858815b664f66f212167dc6f799c32f33c20a4b8124"
+      "bytes": 176794,
+      "sha256": "74aa62a35a4360db86b1fbbb6bc72d29c81c186a68e2bb5a45b46ce5b72d4c44"
     },
     {
       "path": "desktop/tests/abortable-work-037112.test.mjs",
@@ -3259,8 +3289,8 @@
     },
     {
       "path": "desktop/tests/acceptance/native-office-live.mjs",
-      "bytes": 4165,
-      "sha256": "e5483fea751d74ffa417d8677969706e0ad6145db351e1c9df1eb7c006664ebd"
+      "bytes": 4417,
+      "sha256": "77ca5cc1b963586b3520f676b26117b1bfe6c3303ca99179a6059299b96a2672"
     },
     {
       "path": "desktop/tests/acceptance/ocr-multipage-live.mjs",
@@ -3269,78 +3299,93 @@
     },
     {
       "path": "desktop/tests/acceptance/office-cell-format-live.mjs",
-      "bytes": 5287,
-      "sha256": "de25bb2a05c3770a9eeb013b84db27037e7073e2ecfe2be22e9216f7e22f6bcf"
+      "bytes": 5453,
+      "sha256": "276f095e9479747fb38e424149ab210875f35872d2e61328d2190ec16a2ec41a"
     },
     {
       "path": "desktop/tests/acceptance/office-cells-live.mjs",
-      "bytes": 5083,
-      "sha256": "6323383d9270f51e1bf0cfb5c8ee1da6566050bc01b56dcc43f967b2d73fe9a7"
+      "bytes": 5314,
+      "sha256": "506281cc61b1a57fd950d55e587885072b091ed4765f51abff7aa35b7be28c37"
     },
     {
       "path": "desktop/tests/acceptance/office-cjk-live.mjs",
-      "bytes": 4924,
-      "sha256": "c612a74b5cab3cc918024f15ee561f0fdc6565ea0d85b31744f8bf06c59fbf81"
+      "bytes": 5107,
+      "sha256": "71e07c03b1d588fdfd18e54a1212fccfc5b98f4e2c24572310c8f971bd17d120"
     },
     {
       "path": "desktop/tests/acceptance/office-colors-live.mjs",
-      "bytes": 6194,
-      "sha256": "3e42a341a3d152c9939a7672b8f3c640d014d8eed3d8df128813479dc89ebe7a"
+      "bytes": 6466,
+      "sha256": "a02fd3d9a11e98be598ffe979232e9dc47fa3e173393f5c85eb1649d00920fc9"
+    },
+    {
+      "path": "desktop/tests/acceptance/office-doc-live.mjs",
+      "bytes": 10312,
+      "sha256": "7233bb808004466fe53c56b019bfe600a416d253fb70e5c2b4c6aecab5d07383"
     },
     {
       "path": "desktop/tests/acceptance/office-entry-live.mjs",
-      "bytes": 4622,
-      "sha256": "8f380cdcb350326d4db364e42ac4ff1a2647838323a8889c07ad067382e64464"
+      "bytes": 4761,
+      "sha256": "00aa45c95c0db9aa76fb9e6428733f59f28e795d905caa34868ecfd05947ce6d"
     },
     {
       "path": "desktop/tests/acceptance/office-formula-live.mjs",
-      "bytes": 5155,
-      "sha256": "663a11e1a99c40a8f784b327585ab871d359119190eec41e0a3ec50c22c4bb91"
+      "bytes": 5321,
+      "sha256": "6c2d1406858084be0a9f597441ee7c52606d502d6d99c89cbf56f7ec038ab899"
     },
     {
       "path": "desktop/tests/acceptance/office-grid-live.mjs",
-      "bytes": 5426,
-      "sha256": "27659d072f633f4a7c1831c8cfc37a72aa433725e443c0b201edb00b7b1944d3"
+      "bytes": 5680,
+      "sha256": "e305448a497b0e4cda3631665f1afff7a6d9f8f800b3ddebc3fc1d3bae6c26b2"
     },
     {
       "path": "desktop/tests/acceptance/office-history-live.mjs",
-      "bytes": 4058,
-      "sha256": "3ffd2f5aacba98a2767b3c448067a33b17734a7e6be8da7921e30310699433bb"
+      "bytes": 3916,
+      "sha256": "f4aedfaf8d782f3fa1f49f992bcbfd5eddcfdcae2ebed0a425a45ab61a06163b"
     },
     {
       "path": "desktop/tests/acceptance/office-kit-live.mjs",
-      "bytes": 6813,
-      "sha256": "fb8b4df5ca4966e1e0d9d5d2165b945adbd6eaa4f31fe966cb87a3124fe86f09"
+      "bytes": 7249,
+      "sha256": "1cedab29bb20121209e5ad148f736a08eb1025d06c24e3994120c28c5b410fdb"
+    },
+    {
+      "path": "desktop/tests/acceptance/office-large-deck-live.mjs",
+      "bytes": 2838,
+      "sha256": "f4ee3c4a87eec4850c537adbaf6f5b135789ca11607e7ecd0ce9a5261006e08a"
     },
     {
       "path": "desktop/tests/acceptance/office-literal-live.mjs",
-      "bytes": 5362,
-      "sha256": "8063fc966eb52be16d29310b4145fdabdb7dc547e9194224496d9a02db312484"
+      "bytes": 5528,
+      "sha256": "594291c1d31354ce74512b1bc13ea6c4651b49a96448d3f4821f1a204bb20c99"
     },
     {
       "path": "desktop/tests/acceptance/office-manual-selection-live.mjs",
-      "bytes": 2847,
-      "sha256": "e9b4711e009a58d49c29e9a712023fd98e3c2e4578c13f9113c0a3bacac6ffcf"
+      "bytes": 3276,
+      "sha256": "b7adb291bec327730b0843b4dff576c7586b438cf1a5ff2df82ed3eb17511948"
     },
     {
       "path": "desktop/tests/acceptance/office-navigation-live.mjs",
-      "bytes": 6000,
-      "sha256": "d0dae4e3ef0a074113481e435e7fb8e7476b3d27276f7486a5f99b08a7e728e8"
+      "bytes": 6272,
+      "sha256": "872fb9c4e919e7afe25b77ec537eb3ca4aaed9c261e5c11f09185e19a661e388"
     },
     {
       "path": "desktop/tests/acceptance/office-outline-live.mjs",
-      "bytes": 5221,
-      "sha256": "ed0e112b747f7e8a756f764502077c2d2fd6e0145c77c2a188478ac933206b05"
+      "bytes": 5475,
+      "sha256": "57f1685703cff83e76f46085378499693887ca9bd16ed940a70a892bdaf72949"
+    },
+    {
+      "path": "desktop/tests/acceptance/office-pages-live.mjs",
+      "bytes": 2940,
+      "sha256": "a44710a7da33ffa8636321a96a04f052e2e2dd0953c86fb5b751926b88a3230c"
     },
     {
       "path": "desktop/tests/acceptance/office-pdf-kit-live.mjs",
-      "bytes": 4140,
-      "sha256": "28c409fead8e24d9e7ed21f98623d9a7f4f9c9eecbc1056c85e41940a4862ccd"
+      "bytes": 4430,
+      "sha256": "5e1e9748520b67ca516c0c8f4a5302bf11055249572b9c16ea0683f57aae1749"
     },
     {
       "path": "desktop/tests/acceptance/office-perimeter-live.mjs",
-      "bytes": 5685,
-      "sha256": "9f17c84ce3be0247cb663e1d515d17de8bd87a93b8ce93576c3caf81292ec3d8"
+      "bytes": 5939,
+      "sha256": "e9ca364f255c22bef8a68874622befc58237d6d26af5fc9e65d7330d06547ee3"
     },
     {
       "path": "desktop/tests/acceptance/office-pool-endurance.mjs",
@@ -3354,43 +3399,53 @@
     },
     {
       "path": "desktop/tests/acceptance/office-ppt-direct-format-live.mjs",
-      "bytes": 6163,
-      "sha256": "9f73c8a1f93206be6994c35357f5e2c1aa5816ebd9e2f6959460457a248d5338"
+      "bytes": 6571,
+      "sha256": "1127e0139c1142d09fdad29df7914aa7173d4e3e130a0726954125683c93be28"
     },
     {
       "path": "desktop/tests/acceptance/office-ppt-format-live.mjs",
-      "bytes": 5931,
-      "sha256": "38a02e7932f333c36ed850091576de8d2773f6c31171a22a1ac3b6cb0669a4b4"
+      "bytes": 6339,
+      "sha256": "03593bf530666bf4fa34adf7f843ff2431aa104d6f47cbb9f8d3b462945d57e5"
     },
     {
       "path": "desktop/tests/acceptance/office-presentation-live.mjs",
-      "bytes": 5650,
-      "sha256": "17fa3fd701770558547fe0b7df5f758608a4b4f4687708d0938af018fff9bfba"
+      "bytes": 6058,
+      "sha256": "df4ad5da651093751375c13bc2fb285588133517884fb79a1a8781148047af4b"
     },
     {
       "path": "desktop/tests/acceptance/office-presentation-manual-live.mjs",
-      "bytes": 5276,
-      "sha256": "3dde739d93cae25236475b802bbbafcd2e8d40f77237658d54c8f049e215101d"
+      "bytes": 5666,
+      "sha256": "62414b5c90f36644aa92b1666b3989a7c67dc31f9b7075f6f07591e6350c0843"
     },
     {
       "path": "desktop/tests/acceptance/office-preview-live.mjs",
-      "bytes": 12076,
-      "sha256": "11d770ee4987c41b37d35442fc2be19dc6272eeb31e979d18af89e57d3ee7fc9"
+      "bytes": 12227,
+      "sha256": "68d84ef38d31aebea3102401a0f2eb2b366d25bc5c0d96381eeadfd3b7560557"
+    },
+    {
+      "path": "desktop/tests/acceptance/office-ribbon-live.mjs",
+      "bytes": 4451,
+      "sha256": "58e3dee23200e9eabf3ff53ca0e84a687720041c92690d966b4006f0762c634b"
     },
     {
       "path": "desktop/tests/acceptance/office-selection-live.mjs",
-      "bytes": 7351,
-      "sha256": "5eeaa27a0ae6c502f2325c20aa02875958269165360a3ee843c119bbde0b0d09"
+      "bytes": 7794,
+      "sha256": "0b1d36e2fe545ef90e24af1771239ec41a5dd7777015875c7b45407cdc760f8a"
+    },
+    {
+      "path": "desktop/tests/acceptance/office-sheet-live.mjs",
+      "bytes": 12356,
+      "sha256": "7d384296b91e9987f8b2e9982485642245516ad051bd7ca5d4ffd244bef0d58e"
     },
     {
       "path": "desktop/tests/acceptance/office-viewport-live.mjs",
-      "bytes": 3424,
-      "sha256": "af5421e3adf88ea745d65a6746a82d36933f7ecb27e7c4ae1b01e025064325b8"
+      "bytes": 3815,
+      "sha256": "c85f27743b00db0d6d5b68f751c6a259388fcd9af9f47b43818e4d6bb0b495b4"
     },
     {
       "path": "desktop/tests/acceptance/office-word-format-live.mjs",
-      "bytes": 5236,
-      "sha256": "0347a35f3a90675a299aaf1f5b42a5cf5a7b1db0b5ce5b0183b20e061ae7492f"
+      "bytes": 5484,
+      "sha256": "ac7357e417b79a59146cb86aedc92b3d59f36576bd6e76d859fed146c032c332"
     },
     {
       "path": "desktop/tests/acceptance/pdf-cjk-live.mjs",
@@ -3411,6 +3466,11 @@
       "path": "desktop/tests/acceptance/projects-live.mjs",
       "bytes": 4740,
       "sha256": "d196d523e38d79e5b50498e3807b8354a1584a862263518383fac471c9c1250a"
+    },
+    {
+      "path": "desktop/tests/acceptance/run-office-live.mjs",
+      "bytes": 3683,
+      "sha256": "848bae699a27e0c079c8005d598729bd5e2cde2bbcfd80a033a74a4f6c803a81"
     },
     {
       "path": "desktop/tests/acceptance/runs-live.mjs",
@@ -3624,8 +3684,13 @@
     },
     {
       "path": "desktop/tests/helpers/office-kit-runtime.mjs",
-      "bytes": 369,
-      "sha256": "7db83b594b46c04c25161c31819942f6f57b9ccc2980dd4d0c04d0e0cb1a0132"
+      "bytes": 878,
+      "sha256": "8e72d1afbcc078b2c1b3fda017e1449975b4dede2162ee71d3f9fae8fb7145ad"
+    },
+    {
+      "path": "desktop/tests/helpers/office-live-ui.mjs",
+      "bytes": 4022,
+      "sha256": "d7294e1408d715fbec0320cf04e017412325ed700e4d11ce91565d0892ebc80a"
     },
     {
       "path": "desktop/tests/helpers/ppt-style.mjs",
@@ -3784,8 +3849,8 @@
     },
     {
       "path": "desktop/tests/native-office.test.mjs",
-      "bytes": 8625,
-      "sha256": "b08f7db3c26daf1120d517bb9db32c9a6b26f11b6dbc50d0d151c64b04c12ba4"
+      "bytes": 8739,
+      "sha256": "5d947c1502db64fd5375cb16557bb0fdffed74c0f741bdf85c137481f85cc5bf"
     },
     {
       "path": "desktop/tests/native/office-worker-asar.mjs",
@@ -4221,6 +4286,21 @@
       "path": "desktop/tests/v0552-memory-graph.test.mjs",
       "bytes": 4073,
       "sha256": "653887ec8fb3d236abc554b62fa3066370284199127872017aa7a4cdbcfb39e3"
+    },
+    {
+      "path": "desktop/tests/v056-market-live.test.mjs",
+      "bytes": 10423,
+      "sha256": "a12c739079360ab5f5b5588387a2ceb0a16b105770544a38af31cb6ca886e696"
+    },
+    {
+      "path": "desktop/tests/v056-office-warm.test.mjs",
+      "bytes": 10350,
+      "sha256": "3130cea4a880a8152517ba9b16e9e427826588cc3c21daf3ada5a2d03448402f"
+    },
+    {
+      "path": "desktop/tests/v056-preview-panel.test.mjs",
+      "bytes": 10186,
+      "sha256": "e87a5fc6b32211ba2762a890c97d9235aaf1699c9619b746444f6c879f41f946"
     },
     {
       "path": "desktop/tests/v45-release.test.mjs",
@@ -4796,6 +4876,11 @@
       "path": "docs/ZIP_AND_MODELS.md",
       "bytes": 6434,
       "sha256": "86559c729184dd9dc76c18929effdb26a7c746feb26917f17cdc9fd2bb4c9d93"
+    },
+    {
+      "path": "docs/guides/NATIVE_OFFICE_AND_PYTHON.md",
+      "bytes": 3623,
+      "sha256": "e6c8c225b60337210facdfc65c67508a0f7789a87a9e2f3cc0ac7787c5bb99ae"
     },
     {
       "path": "docs/images/documents.png",
@@ -7063,6 +7148,11 @@
       "sha256": "decf1cf7bb22b5c99c4857cfcd5718ce5465c4454166317589c83fc73df74b66"
     },
     {
+      "path": "scripts/build-office-core.py",
+      "bytes": 7572,
+      "sha256": "113354d70439df925d8e462d223aa182e2bf281b61425b0feacf830707d8d561"
+    },
+    {
       "path": "scripts/build-verified.sh",
       "bytes": 661,
       "sha256": "2ae5329ac860076070c9217a43106a15cb5ecf907a0f7baeb9ef903f76b53c68"
@@ -7113,9 +7203,14 @@
       "sha256": "3cd7d0de974d6a4dcf7f6b7681fbe4d18f7305cd5734e085b637bc61137cfc1c"
     },
     {
+      "path": "scripts/office-core.allowlist.json",
+      "bytes": 11558,
+      "sha256": "731a91b0b654b70093edabbc796fbf882a60118a5b81887a83350ac641955d21"
+    },
+    {
       "path": "scripts/offline_bundle.py",
-      "bytes": 7281,
-      "sha256": "e9afa2e276fb1ae44a60c1363a914f574f3522b7c293f59ac27bce42d52da568"
+      "bytes": 8372,
+      "sha256": "89eb751b76da860713656e67cc702cfa82d10a30ebdde8826d23cb4f08eda134"
     },
     {
       "path": "scripts/package-desktop-source.py",
@@ -7139,8 +7234,8 @@
     },
     {
       "path": "scripts/package-offline-mac.py",
-      "bytes": 11748,
-      "sha256": "7c7c1b49903a217dc6be73bf9357aa8886c0b28154425b09f33040fe80680492"
+      "bytes": 12929,
+      "sha256": "8723d51b4137632aef6433bd176081d57a813423255f8ef3b5d07f751c3cc7d2"
     },
     {
       "path": "scripts/package-source.mjs",
@@ -7154,8 +7249,8 @@
     },
     {
       "path": "scripts/prepare-native-runtimes.py",
-      "bytes": 4684,
-      "sha256": "62701c2366b63c21555f2e1dc2af15efbf95e7b1987259577a3c4d4fc7d525c9"
+      "bytes": 5248,
+      "sha256": "1d09ff718dccf53c66d16e1c43273af523d472368d0e54b42a3ad9666d77d878"
     },
     {
       "path": "scripts/prepare-ocr-wasm.py",

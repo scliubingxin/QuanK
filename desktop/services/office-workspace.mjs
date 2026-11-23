@@ -19,12 +19,46 @@ const INTERNAL=Symbol('wb-internal-uno');// [lane:ribbon] symbol keys never surv
 import {pathToFileURL} from 'node:url';import path from 'node:path';import {mkdtemp,mkdir,writeFile,lstat,rm,open,realpath} from 'node:fs/promises';import {constants} from 'node:fs';import {randomUUID} from 'node:crypto';import {inspectDocument} from '../runtime/documents.mjs';import {imageFromBase64} from '../src/shared/image-bytes.js';import {startOfficeKit} from '../runtime/office-kit.mjs';
 const allowed=new Set(['.uno:Bold','.uno:Italic','.uno:Underline','.uno:Undo','.uno:Redo','.uno:SelectAll']);
 const profile='<?xml version="1.0"?><oor:items xmlns:oor="http://openoffice.org/2001/registry"><item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item><item oor:path="/org.openoffice.Office.Common/Load"><prop oor:name="UpdateDocMode" oor:op="fuse"><value>0</value></prop></item></oor:items>';
-export function createOfficeWorkspace({documents,directory,runtime,approve=async()=>false,driver=startOfficeKit,notify=()=>{},audit=async()=>{},removeOfficeTemp=rm,closeWaitMs=5000}){
+export function createOfficeWorkspace({documents,directory,runtime,approve=async()=>false,driver=startOfficeKit,notify=()=>{},audit=async()=>{},removeOfficeTemp=rm,closeWaitMs=5000,waitForEngine=async()=>{},allowStandby=()=>true,standbyIdleMs=30*60*1000,onStandbyTiming=()=>{}}){
  const sessions=new Map(),opening=new Set(),lifecycle=new AbortController();let closed=false,replacing=false;
- // [p2-ux2] one standby engine is started ahead of time so opening a document only has to load it
- let spare=null,warming=null;
- const takeSpare=()=>{const s=spare;spare=null;return s;};
- function prewarm(){if(closed||spare||warming||sessions.size+opening.size>=2)return warming||Promise.resolve();warming=(async()=>{let dir;try{await mkdir(directory,{recursive:true,mode:0o700});dir=await mkdtemp(path.join(directory,'kit-'));await mkdir(path.join(dir,'profile/user'),{recursive:true,mode:0o700});await writeFile(path.join(dir,'profile/user/registrymodifications.xcu'),profile,{mode:0o600,flag:'wx'});const worker=await driver({...await runtime(),directory:dir,format:'standby'});if(typeof worker?.load!=='function'||closed){worker?.close?.();throw Error('standby unavailable');}spare={dir,worker};dir=null;}catch{}finally{if(dir)await rm(dir,{recursive:true,force:true}).catch(()=>{});warming=null;}})();return warming;}
+ let spare, warming, spareTimer;
+ const takeSpare=()=>{clearTimeout(spareTimer);const ready=spare;spare=null;return ready;};
+ async function disposeSpare(slot){
+  if(!slot)return;
+  slot.worker.close?.();
+  await slot.worker.closed;
+  await rm(slot.dir,{recursive:true,force:true});
+ }
+ function prewarm(){
+  if(warming)return warming;
+  if(closed)return Promise.resolve(false);
+  if(spare&&spare.worker.isAlive!==false)return Promise.resolve(true);
+  warming=(async()=>{
+   let dir;const started=performance.now();
+   try{
+    await disposeSpare(takeSpare());
+    await mkdir(directory,{recursive:true,mode:0o700});
+    dir=await mkdtemp(path.join(directory,'kit-'));
+    await mkdir(path.join(dir,'profile/user'),{recursive:true,mode:0o700});
+    await writeFile(path.join(dir,'profile/user/registrymodifications.xcu'),profile,{mode:0o600,flag:'wx'});
+    const worker=await driver({...await runtime(),directory:dir,format:'standby',signal:lifecycle.signal,lowPriority:true});
+    if(typeof worker?.load!=='function'||closed){
+     worker?.close?.();
+     await worker?.closed;
+     throw Error('编辑待命进程不可用');
+    }
+    spare={dir,worker};dir=null;
+    spareTimer=setTimeout(()=>{void disposeSpare(takeSpare()).catch(()=>{});},standbyIdleMs);
+    spareTimer.unref?.();
+    onStandbyTiming({ms:Math.round(performance.now()-started)});
+    return true;
+   }finally{
+    if(dir)await rm(dir,{recursive:true,force:true}).catch(()=>{});
+    warming=null;
+   }
+  })();
+  return warming;
+ }
  function find(id){const s=sessions.get(id);if(closed||!s)throw Error('Office会话已结束，请重新打开');return s;}
  function current(s){const d=documents.read(s.documentId);if(d.revision!==s.revision||d.sha256!==s.sha256)throw Error('文档已被其他任务修改，请重新打开，不能覆盖新版本');return d;}
  function locked(s,fn){const p=s.queue.then(async()=>{if(closed||sessions.get(s.id)!==s)throw Error('Office会话已结束，请重新打开');current(s);return fn();});s.queue=p.catch(()=>{});return p;}
@@ -33,8 +67,8 @@ export function createOfficeWorkspace({documents,directory,runtime,approve=async
  async function snap(s,p={}){const out=await s.worker.request('snapshot',p);validateSnapshotPng(out.png,{width:out.width,height:out.height});if(out.selection?.length>12000)throw Error('Office画面或选区超限');s.selection=out.selection||'';return {...meta(s),...out,history:officeHistory(out.history)};}
  async function checkCells(s,sequence,selection,cells,signal){signal?.throwIfAborted();current(s);if(sequence!==s.sequence)throw Error('Excel选区已变化');const shot=await snap(s);if(shot.selection!==selection)throw Error('Excel内容选区已变化');const fresh=(await s.worker.request('cells_context')).cells;signal?.throwIfAborted();current(s);if(Date.now()-s.opened>30*60*1000)throw Error('编辑授权已过30分钟');if(sequence!==s.sequence||!fresh||JSON.stringify(fresh)!==JSON.stringify(cells))throw Error('原生Excel工作表、区域或内容已变化；请重新定位范围');}
  return {
- async open(documentId,revision,{onApproved}={}){if(closed||opening.has(documentId)||[...sessions.values()].some(s=>s.documentId===documentId))throw Error('文档已在QuanK Office打开');if(sessions.size+opening.size>=2)throw Error('最多打开2份Office文档');opening.add(documentId);let dir,worker;try{const d=documents.read(documentId);if(d.revision!==revision)throw Error('文档版本已变化');const file=documents.bytes(documentId,revision);if(!['docx','xlsx','pptx'].includes(file.format))throw Error('仅支持Office文档');inspectDocument(file.format,file.bytes);if(await approve('打开QuanK Office编辑',d.name+'.'+file.format+'\n使用QuanK内置文档引擎，手动编辑直接保存本机文档新版本，无需退出或收回。宏禁用，仍有当前账号权限，非OS沙箱。AI发送资料和修改选区另行批准。')!==true)return {status:'denied'};try{onApproved?.();}catch{}if(documents.read(documentId).sha256!==file.sha256||documents.read(documentId).revision!==revision)throw Error('审批期间文档变化');const ready=takeSpare();if(ready){try{await writeFile(path.join(ready.dir,'document.'+file.format),file.bytes,{mode:0o600,flag:'wx'});await ready.worker.load(file.format);dir=ready.dir;worker=ready.worker;}catch{try{ready.worker.close?.();}catch{}await rm(ready.dir,{recursive:true,force:true}).catch(()=>{});}}
- if(!worker){await mkdir(directory,{recursive:true,mode:0o700});dir=await mkdtemp(path.join(directory,'kit-'));await mkdir(path.join(dir,'profile/user'),{recursive:true,mode:0o700});await writeFile(path.join(dir,'profile/user/registrymodifications.xcu'),profile,{mode:0o600,flag:'wx'});await writeFile(path.join(dir,'document.'+file.format),file.bytes,{mode:0o600,flag:'wx'});worker=await driver({...await runtime(),directory:dir,format:file.format});}const s={id:randomUUID(),documentId,name:d.name,format:file.format,revision,sha256:file.sha256,dir,worker,queue:Promise.resolve(),dirty:false,sequence:0,selection:'',opened:Date.now()};if(closed)throw Error('Office服务已关闭');sessions.set(s.id,s);dir=null;worker=null;setTimeout(()=>void prewarm(),1500).unref?.();return meta(s);}finally{opening.delete(documentId);worker?.close();if(dir)await rm(dir,{recursive:true,force:true});}},
+ async open(documentId,revision,{onApproved}={}){if(closed||opening.has(documentId)||[...sessions.values()].some(s=>s.documentId===documentId))throw Error('文档已在QuanK Office打开');if(sessions.size+opening.size>=2)throw Error('最多打开2份Office文档');opening.add(documentId);let dir,worker;try{const d=documents.read(documentId);if(d.revision!==revision)throw Error('文档版本已变化');const file=documents.bytes(documentId,revision);if(!['docx','xlsx','pptx'].includes(file.format))throw Error('仅支持Office文档');inspectDocument(file.format,file.bytes);if(await approve('打开QuanK Office编辑',d.name+'.'+file.format+'\n使用QuanK内置文档引擎，手动编辑直接保存本机文档新版本，无需退出或收回。宏禁用，仍有当前账号权限，非OS沙箱。AI发送资料和修改选区另行批准。')!==true)return {status:'denied'};try{onApproved?.();}catch{}await waitForEngine();if(warming)await warming.catch(()=>{});lifecycle.signal.throwIfAborted();const currentDocument=documents.read(documentId);if(currentDocument.sha256!==file.sha256||currentDocument.revision!==revision)throw Error('审批或启动期间文档变化');const ready=takeSpare();if(ready){try{await writeFile(path.join(ready.dir,'document.'+file.format),file.bytes,{mode:0o600,flag:'wx'});await ready.worker.load(file.format);dir=ready.dir;worker=ready.worker;}catch{await disposeSpare(ready).catch(()=>{});}}
+ if(!worker){await mkdir(directory,{recursive:true,mode:0o700});dir=await mkdtemp(path.join(directory,'kit-'));await mkdir(path.join(dir,'profile/user'),{recursive:true,mode:0o700});await writeFile(path.join(dir,'profile/user/registrymodifications.xcu'),profile,{mode:0o600,flag:'wx'});await writeFile(path.join(dir,'document.'+file.format),file.bytes,{mode:0o600,flag:'wx'});worker=await driver({...await runtime(),directory:dir,format:file.format});}const s={id:randomUUID(),documentId,name:d.name,format:file.format,revision,sha256:file.sha256,dir,worker,queue:Promise.resolve(),dirty:false,sequence:0,selection:'',opened:Date.now()};if(closed)throw Error('Office服务已关闭');sessions.set(s.id,s);dir=null;worker=null;if(allowStandby())void prewarm().catch(()=>{});return meta(s);}finally{opening.delete(documentId);worker?.close();if(dir)await rm(dir,{recursive:true,force:true});}},
  async snapshot(id,p){const s=find(id),options={};if(p?.fonts===true)options.fonts=true;for(const k of ['width','height','x','y','scale','tileWidth','tileHeight'])if(p?.[k]!==undefined){if(!Number.isInteger(p[k])||p[k]<0||p[k]>((k==='x'||k==='y')&&s.format==='xlsx'?300000000:2000000))throw Error('画面参数无效');options[k]=p[k];}return locked(s,()=>snap(s,options));},
  async operation(id,op,p={}){const s=find(id);if(Date.now()-s.opened>30*60*1000)throw Error('编辑授权已过30分钟，请保存关闭后重新打开');let data,mutates=false,soft=['xlsx','docx'].includes(s.format)&&['mouse','part'].includes(op);// [excel] soft: native Calc may commit an in-cell edit; the worker reports it
 
@@ -147,6 +181,6 @@ export function createOfficeWorkspace({documents,directory,runtime,approve=async
  async close(id,{discard=false}={}){const s=find(id);const p=s.queue.then(async()=>{if(sessions.get(id)!==s)return;if(s.dirty&&!discard)await save(s);s.worker.close();sessions.delete(id);await rm(s.dir,{recursive:true,force:true});});s.queue=p.catch(()=>{});return p;},
  prewarm,
  hasSpare:()=>!!spare,
- async shutdown(){closed=true;lifecycle.abort(Error('Office服务已关闭'));{const s=takeSpare();if(s){try{s.worker.close?.();}catch{}await rm(s.dir,{recursive:true,force:true}).catch(()=>{});}}for(const s of sessions.values()){s.worker.close();await rm(s.dir,{recursive:true,force:true});}sessions.clear();}
+ async shutdown(){closed=true;lifecycle.abort(Error('Office服务已关闭'));await warming?.catch(()=>{});await disposeSpare(takeSpare()).catch(()=>{});for(const s of sessions.values()){s.worker.close();await rm(s.dir,{recursive:true,force:true});}sessions.clear();}
  };
 }

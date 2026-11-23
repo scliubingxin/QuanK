@@ -60,6 +60,15 @@ export async function prepareCommand(folders,p) {
   const timeoutMs=p.timeoutMs===undefined?120000:p.timeoutMs;if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>300000)throw new Error('超时必须在 100 到 300000 毫秒之间');
   return {executable:await resolveExecutable(p.executable.trim()),requestedExecutable:p.executable.trim(),args:[...p.args],cwd,timeoutMs};
 }
+function missingPythonPackage(stderr) {
+    const module = stderr.match(/^ModuleNotFoundError: No module named ['"]([a-zA-Z_][\w.]*)['"]/m)?.[1];
+    if (!module) return '';
+    const root = module.split('.')[0];
+    const distributions = {docx: 'python-docx', pptx: 'python-pptx', PIL: 'Pillow'};
+    const packageName = Object.hasOwn(distributions, root) ? distributions[root] : root;
+    return `缺少 Python 模块 ${module}。QuanK 0.56 起不再内置这些包。可在系统 Python 中运行 pip install ${packageName}，或在技能设置中改用系统 Python。`;
+}
+
 export function runCommand(command,{signal,onOutput=()=>{},maxBytes=1024*1024,outputMode='stop',environment}={}) {
   return new Promise((resolve,reject)=>{
     if(signal?.aborted){reject(new Error('执行已取消'));return;}
@@ -72,7 +81,7 @@ export function runCommand(command,{signal,onOutput=()=>{},maxBytes=1024*1024,ou
     }
     function stop(reason){if(!stopped){stopped=reason;kill();}}
     const abort=()=>stop('cancelled');
-    function finish(exitCode,exitSignal,error){if(settled)return;settled=true;clearTimeout(timer);clearTimeout(pipeTimer);if(!stopped)clearTimeout(forceTimer);signal?.removeEventListener('abort',abort);if(outputError){reject(new Error('处理命令输出失败，已请求停止进程；请检查实际执行状态',{cause:outputError}));return;}if(error){reject(new Error(error.code==='ENOENT'?`找不到命令 ${command.executable}。请安装此 CLI，或填写其绝对路径。`:error.code==='EACCES'||error.code==='EPERM'?`无法执行命令 ${command.executable}：没有执行权限，或者它没有安装而 PATH 里有无权访问的目录。请确认已安装并可执行，或填写其绝对路径。`:error.message));return;}resolve({stdout,stderr,exitCode,signal:exitSignal,elapsedMs:Date.now()-started,status:stopped||(exitCode===0?'succeeded':'failed'),truncated:outputMode==='tail'?bytes>maxBytes:stopped==='output_limit',outputBytes:bytes});}
+    function finish(exitCode,exitSignal,error){if(settled)return;settled=true;clearTimeout(timer);clearTimeout(pipeTimer);if(!stopped)clearTimeout(forceTimer);signal?.removeEventListener('abort',abort);if(outputError){reject(new Error('处理命令输出失败，已请求停止进程；请检查实际执行状态',{cause:outputError}));return;}if(error){reject(new Error(error.code==='ENOENT'?`找不到命令 ${command.executable}。请安装此 CLI，或填写其绝对路径。`:error.code==='EACCES'||error.code==='EPERM'?`无法执行命令 ${command.executable}：没有执行权限，或者它没有安装而 PATH 里有无权访问的目录。请确认已安装并可执行，或填写其绝对路径。`:error.message));return;}const hint = !stopped && exitCode !== 0 ? missingPythonPackage(stderr) : ''; if (hint) stderr = hint + '\n' + stderr; resolve({stdout,stderr,exitCode,signal:exitSignal,elapsedMs:Date.now()-started,status:stopped||(exitCode===0?'succeeded':'failed'),truncated:outputMode==='tail'?bytes>maxBytes:stopped==='output_limit',outputBytes:bytes});}
     try{child=spawn(command.executable,command.args,{cwd:command.cwd,env:environment||commandEnvironment(),shell:false,windowsHide:true,detached:process.platform!=='win32',stdio:['ignore','pipe','pipe']});}catch(e){finish(null,null,e);return;}
     for(const [stream,field] of [[child.stdout,'stdout'],[child.stderr,'stderr']]){
       stream.setEncoding('utf8');stream.on('data',chunk=>{

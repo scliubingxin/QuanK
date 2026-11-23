@@ -1,3 +1,4 @@
+import {startLiveOfficeKit} from '../helpers/office-live-ui.mjs';
 // [docx] Live check of the Word editor operations against the real bundled document engine (Writer).
 // Run: WB_TEST_PYTHON=<python3> WB_TEST_OFFICE_DIRECTORY=<engine program dir> node --test tests/acceptance/office-doc-live.mjs
 // Every check is recorded; prints DOC-LIVE {json} and fails if any check failed.
@@ -8,7 +9,6 @@ import {mkdtemp, rm} from 'node:fs/promises';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 import office from '../../runtime/vendor/office.cjs';
-import {startOfficeKit} from '../../runtime/office-kit.mjs';
 import {Store} from '../../core.mjs';
 import {generateDocument} from '../../runtime/documents.mjs';
 import {createDocumentService} from '../../services/documents.mjs';
@@ -16,12 +16,12 @@ import {createOfficeWorkspace} from '../../services/office-workspace.mjs';
 import {allDocItems, mapDocStates} from '../../src/office/doc/doc-config.js';
 import {parsePageRects, parseWordCount} from '../../src/shared/office-doc.js';
 
-test('real DOCX: typing, styles, fonts, lists, inserts, links, comments, outline, page info', {timeout: 600000}, async () => {
+test('real DOCX: typing, styles, fonts, lists, inserts, links, comments, outline, page info', {timeout: 120000}, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'wb-doc-live-')), store = new Store(dir); await store.load();
   const documents = createDocumentService({store});
   const blocks = [{type: 'heading', text: '一、登录系统'}, {type: 'paragraph', text: '通过链接登录 XXX，点击以你名字命名的专业知识库。'}, {type: 'heading', text: '二、添加数据集'}, {type: 'paragraph', text: '点击添加数据集-手动数据集。'}];
   const d = (await documents.importFile('Doc live', 'docx', (await generateDocument('docx', JSON.stringify({blocks}))).bytes)).document;
-  const kit = createOfficeWorkspace({documents, directory: path.join(dir, 'kit'), runtime: async () => ({python: officePython, officeDirectory}), approve: async () => true, driver: o => startOfficeKit({...o, timeoutMs: 120000})});
+  const kit = createOfficeWorkspace({documents, directory: path.join(dir, 'kit'), runtime: async () => ({python: officePython, officeDirectory}), approve: async () => true, driver: o => startLiveOfficeKit({...o, timeoutMs: 120000})});
   const results = [];
   const check = async (name, fn) => { const t = Date.now(); try { const detail = await fn(); results.push({name, ok: true, ms: Date.now() - t, detail: detail ?? ''}); } catch (e) { results.push({name, ok: false, ms: Date.now() - t, error: String(e.message || e).slice(0, 300)}); } };
   const plain = () => [...xml().matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)].map(m => m[1]).join('');

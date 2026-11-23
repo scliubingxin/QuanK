@@ -11,7 +11,7 @@ import {agentEditor,bindAgentEditor,readAgentEditor} from './ui/agent-editor.js'
 import {imageCards} from './ui/image-cards.js';
 import {mountHtmlPreview} from './ui/html-preview.js';
 import {installChatMedia} from './ui/chat-media.js';
-import {mountOfficePreview} from './ui/office-preview.js';
+import {mountOfficePreview, filePreviewPanel, mountFilePreviewPanel} from './ui/office-preview.js';
 import {createOfficeWorkspace} from './ui/office-workspace.js';
 import {mountSpreadsheet} from './ui/spreadsheet.js';
 import {mountWordRuns} from './ui/word-runs.js';
@@ -46,7 +46,7 @@ import { portfolioUI } from './ui/portfolio.js'; // [F4]
 import { securityUI } from './ui/security.js'; // [F5]
 import { tradeUI } from './ui/trade.js'; // [v0.52]
 import { researchPage, noteEditForm } from './ui/research-page.js'; // [v0.53]
-import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView, patchLive } from './ui/market.js';
+import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView, patchLive, liveTargets, setKlinePeriod } from './ui/market.js';
 import { session as marketSession } from './shared/market.js'; // [v0.52.1]
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
 import { feedUnread } from './shared/feed.js';
@@ -82,7 +82,7 @@ let miniappOpenId = '', miniappDispose = null, miniappVersionsFor = ''; // [p4-m
 let quantOpen = '', quantDetailData = null, quantDisposers = []; // [q1]
 // [v0.54] right-hand page tabs: pages opened from the chat and every stock detail open beside the conversation.
 // quantOpen is the stock of the active stock tab; each stock's computed detail stays in quantCache until refreshed.
-let pageTabs = [], pageTabId = '', pageWide = false, pageWidth = 0, panelClickAt = 0, panelHeadHtml = '', panelBodyKey = '', renderingStock = '', renderingStockTab;
+let pageTabs = [], pageTabId = '', pageWide = false, pageWidth = 0, panelClickAt = 0, panelHeadHtml = '', panelBodyKey = '', disposeFilePreview, libraryFilter, renderingStock = '', renderingStockTab;
 const quantCache = new Map(), quantVer = new Map(), quantLoading = new Set();
 try { const r = panelUI.restoreTabs(localStorage.getItem('qk.pageTabs')); pageTabs = r.tabs; pageTabId = r.active; pageWide = r.wide; pageWidth = r.width; } catch {}
 let marketTab = 'industry', marketStockCode = '', marketPingAt = 0; // [F1]
@@ -144,6 +144,7 @@ function executionRow(r) { const output = r.tool === 'cli_execute' ? [r.partial 
 function commandQueue() { return views.commandQueue({state, action, date, statusNames}); }
 function trace(runId) { const rows = executionRecords(runId); return rows.length ? `<section class="run-trace" aria-label="实际执行过程"><div class="trace-label">${icon('activity')}执行过程 · ${rows.length} 步</div>${rows.map(executionRow).join('')}</section>` : ''; }
 function openPreview(item) {
+    if (item.documentId && openDocumentPreview(item.documentId)) return;
     const existing = previewTabs.find(t => t.id === item.id);
     if (existing)
         Object.assign(existing, item);
@@ -180,7 +181,7 @@ function toast(message, {persistent = false, retry} = {}) {
     return dismiss;
 }
 async function runOfficeAction(label, work) {
-    const dismiss = toast('正在' + label + '…', {persistent: true});
+    const dismiss = toast(label.endsWith('…') ? label : '正在' + label + '…', {persistent: true});
     try {
         await work();
     } catch (error) {
@@ -204,6 +205,30 @@ async function invoke(name, payload) {
     catch(error) { throw new Error(String(error?.message||'操作失败，请重试').replace(/^Error invoking remote method ['"][^'"]+['"]:\s*(?:Error:\s*)?/,'').replace(/^Error:\s*/,'')); }
 }
 async function update(name, payload) { applyState(await invoke(name, payload)); render(); return state; }
+function officeEngineSettings() {
+    const engine = state.officeEngine;
+    if (!engine) return '';
+    const {phase, reason, timings} = engine;
+    const status = {idle:'未启动', starting:'启动中', ready:'就绪', failed:'失败'}[phase];
+    const metrics = [];
+    const font = timings.startupFont;
+    if (font) metrics.push(`字体缓存${font.hit ? '命中' : '生成'} ${font.ms} ms`);
+    for (const [stage,label] of [['preview','预览进程'],['editor','编辑进程'],['ready','引擎就绪']]) {
+        if (timings[stage]) metrics.push(`${label} ${timings[stage].ms} ms`);
+    }
+    if (timings.lastPreview) {
+        const preview = timings.lastPreview;
+        const cache = {memory:'内存缓存命中',disk:'磁盘缓存命中',miss:'缓存未命中'}[preview.cache];
+        metrics.push(`最近预览 ${preview.ms} ms · ${cache} · 转换 ${preview.conversionMs} ms${preview.failed ? ' · 失败' : ''}`);
+    }
+    return `<p><button type="button" class="secondary" role="switch" aria-checked="${state.settings.officeStartupWarm !== false}" data-action="officeWarmToggle">启动时预热 Office 引擎 · ${state.settings.officeStartupWarm !== false ? '开启' : '关闭'}</button></p>
+    <p role="status">Office 引擎${status}${reason ? ' · ' + escape(reason) : ''}</p>
+    ${metrics.length ? `<p class="hint">${metrics.join(' · ')}</p>` : ''}
+    ${phase === 'failed' ? action('重试','officeEngineRetry') : ''}`;
+}
+function settingsMarkup() {
+    return modelLibrary(state,escape) + '<section id="officeEngineSettings">' + officeEngineSettings() + '</section>';
+}
 function action(label, act, id = '', kind = 'secondary') { return `<button type="button" class="${kind}" data-action="${act}" data-id="${escape(id)}">${label}</button>`; }
 function empty(title, desc, button = '') { return `<div class="empty">${icon('spark')}<h3>${title}</h3><p>${desc}</p>${button}</div>`; }
 function heading(kicker, title, desc, button = '', stats = []) { // [ux11] plaza-style hero on every list page; kicker kept for callers, no longer shown
@@ -217,7 +242,7 @@ const boundComposers=new WeakSet();
 const composerMenus=createComposerMenus($('#app'));
 const composerImages=createComposerImages($('#app'),id=>invoke('imagePreview',{id}));
 window.addEventListener('pagehide',()=>{composerMenus.dispose();composerImages.dispose();});
-const officeWorkspace = createOfficeWorkspace($('#app'), host => host.classList.contains('html-host')?mountHtmlPreview(host):mountOfficePreview(host, invoke));
+const officeWorkspace = createOfficeWorkspace($('#app'), host => host.classList.contains('html-host')?mountHtmlPreview(host):mountOfficePreview(host, invoke, () => state.officeEngine?.phase === 'ready'));
 window.addEventListener('pagehide', () => officeWorkspace.dispose());
 // [p1-m4] a chat that finishes while the user is watching it is simply marked seen (no recap)
 const seenRequests = new Set();
@@ -238,7 +263,7 @@ function render() {
     const active = nav.find(n => n[0] === page);
     const name = state.settings.name || '我的工作空间';
     $('#app').className = sidebarCollapsed ? 'sidebar-collapsed' : '';
-    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(state)})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div><button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
+    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(state)})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div>${state.officeEngine?.phase==='starting' ? '<span role="status">Office 引擎启动中…</span>' : ''}<button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
     officeWorkspace.update(markup, `${page}:${chatId}`);
     renderPanel(); // [v0.54]
     for (const el of [document.scrollingElement, document.getElementById('app'), document.querySelector('.main'), document.querySelector('.workbench')]) if (el && el.scrollLeft) el.scrollLeft = 0; // [resp] never leave the shell scrolled sideways
@@ -488,7 +513,7 @@ function content() {
             extra: taskTab === 'runs' && (state.runJobs || []).some(j => ['queued', 'running', 'cancelling'].includes(j.status)) ? views.runQueue({state, action, date, statusNames}) : ''}); // [ux8] only while something is queued
     if (page === 'research') return researchPage(state, {action, date, stock: rpStock, kind: rpKind, query: rpQuery}); // [v0.53]
     if (page === 'library')
-        return `<div class="page">${heading('', '成果中心', '对话与自动化生成的文档和成果都在这里，可预览、继续编辑和导出。', '', [[(state.documents || []).length, '份文档'], [state.artifacts.length, '份保存的成果']])}${documentLibrary({state,action,date})}${state.artifacts.length ? `<div class="cards">${state.artifacts.map(a => `<div class="card"><span class="tile-icon amber">${icon('file')}</span><h3>${escape(a.name)}</h3><p>${escape(a.text.slice(0, 110))}…</p><div class="meta">${date(a.time)}</div><div class="actions">${action('查看', 'viewArtifact', a.id)}${action('导出', 'exportArtifact', a.id)}${action('删除', 'deleteArtifact', a.id)}</div></div>`).join('')}</div>` : empty('还没有保存的成果', '在助手回复下点击“保存到成果中心”，或完成一个自动化任务。')}</div>`;
+        return `<div class="page">${heading('', '成果中心', '对话与自动化生成的文档和成果都在这里，可预览、继续编辑和导出。', '', [[(state.documents || []).length, '份文档'], [state.artifacts.length, '份保存的成果']])}${documentLibrary({state,action,date,filter: libraryFilter})}${libraryFilter ? '' : state.artifacts.length ? `<div class="cards">${state.artifacts.map(a => `<div class="card"><span class="tile-icon amber">${icon('file')}</span><h3>${escape(a.name)}</h3><p>${escape(a.text.slice(0, 110))}…</p><div class="meta">${date(a.time)}</div><div class="actions">${action('查看', 'viewArtifact', a.id)}${action('导出', 'exportArtifact', a.id)}${action('删除', 'deleteArtifact', a.id)}</div></div>`).join('')}</div>` : empty('还没有保存的成果', '在助手回复下点击“保存到成果中心”，或完成一个自动化任务。')}</div>`;
     if (page === 'context') // [ux4] 我的上下文 · 记忆
         return memoryPage({state, action, icon, date, empty, filter: memoryFilter, query: memoryQuery,
             heading: (kicker, title, desc, buttons = '') => contextHeader(state, {tab: 'context', date}) + `<div class="ctx-sub"><p class="description">${desc}</p><div class="ctx-actions">${buttons}</div></div>`}).replace('<div class="page">', '<div class="page context-page">');
@@ -514,7 +539,7 @@ function modal(title, body, submit, handler) {
                 const data=new FormData(d.querySelector('form'));
                 d.querySelectorAll('[data-mcp-secret]').forEach(el=>el.value='');
                 const result = await handler(data);
-                if(result === 'modelLibrary') modal('模型设置',modelLibrary(state,escape));
+                if(result === 'modelLibrary') modal('设置',settingsMarkup());
                 else d.close();
             }
             catch (e) {
@@ -589,7 +614,7 @@ async function marketAction(actionId, id) {
     if (actionId === 'mkSignal') { if ($('#modal')?.open) $('#modal').close(); const [kind, code] = String(id || '').split(':'); if (kind === 'quant') return handle('quantOpen', code); return marketAction('mkStock', code); } // [F1c]
     if (actionId === 'mkTab') { marketTab = id === 'concept' ? 'concept' : 'industry'; render(); return; }
     if (actionId === 'mkStock') { if ($('#modal')?.open) $('#modal').close(); marketStockCode = String(id || ''); if (page === 'market') render(); else await navigate('market'); return; }
-    if (actionId === 'mkBack') { marketStockCode = ''; render(); return; }
+    if (actionId === 'mkBack') { const t = panelTab(); if (t?.kind === 'market-stock' && Date.now() - panelClickAt < 1500) { closePanelTab(t.id); return openPageTab('market'); } marketStockCode = ''; render(); return; }
     if (actionId === 'mkRefresh') { toast('正在刷新行情…'); await mcall({ action: 'overview' }); render(); toast('行情已更新'); return; }
     if (actionId === 'mkSector') { const r = await mcall({ action: 'sectorStocks', sector: id, limit: 30 }); modal(`${r.sector?.name || '板块'} · 成分股涨幅前 30`, sectorStocksView(r)); return; }
     if (actionId === 'mkAddPool') { const out = await invoke('quant', { action: 'addStock', code: id }); if (out?.state) applyState(out.state); render(); toast('已加入股票池'); return; }
@@ -598,6 +623,7 @@ async function marketAction(actionId, id) {
 }
 function marketRefreshView() {
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+    if (page === 'market' && marketStockCode) return;
     if (page === 'home') { const n = $('#mkHome'); if (n) n.outerHTML = marketHomeCard(state, { date }); }
     else if ((page === 'market' || page === 'quant' || panelShows('market') || panelShows('quant')) && !typing) render(); // [v0.54] main 量化 is always the pool
 }
@@ -605,16 +631,20 @@ function marketRefreshView() {
 // quotes every second and patch the numbers in place.
 let liveBusy = false;
 async function liveTick() {
-    if (!api || liveBusy || document.hidden || !(['home', 'market', 'quant'].includes(page) || panelShows('market') || panelShows('quant') || panelTab()?.kind === 'stock')) return;
-    if (!['open', 'pre'].includes(marketSession(Date.now()))) return;
-    const codes = [...new Set([...document.querySelectorAll('[data-live-price]')].map(e => e.dataset.livePrice))];
-    if (!codes.length && !document.querySelector('[data-live-idx]')) return;
+    if (!api || liveBusy || state.locked || document.hidden || !['open', 'pre'].includes(marketSession(Date.now()))) return;
+    const targets = liveTargets(document);
+    if (!targets) return;
+    const {codes} = targets;
     liveBusy = true;
     try {
         const out = await invoke('market', { action: 'live', codes }), r = out?.result || {};
+        if (state.locked || document.hidden || !['open', 'pre'].includes(marketSession(Date.now()))) return;
         patchLive(document, r);
         const o = state.market?.overview;
-        if (o && r.indices?.length) o.indices = (o.indices || []).map(x => ({ ...x, ...(r.indices.find(y => y.secid === x.secid) || {}) }));
+        if (o && r.indices?.length) {
+            o.liveAt = r.at;
+            o.indices = (o.indices || []).map(x => ({ ...x, ...(r.indices.find(y => y.secid === x.secid) || {}) }));
+        }
         if (state.market && r.quotes) state.market.quotes = { ...(state.market.quotes || {}), ...Object.fromEntries(Object.entries(r.quotes).map(([c, q]) => [c, { ...q, at: r.at }])) };
     } catch {} finally { liveBusy = false; }
 }
@@ -659,7 +689,7 @@ async function handle(actionId, id, stockTarget) {
     if (actionId === 'ppClose') { closePanelTab(id); return; }
     if (actionId === 'ppCloseAll') { pageTabs = []; setPanelActive(''); savePanel(); render(); return; }
     if (actionId === 'ppWide') { pageWide = !pageWide; savePanel(); render(); return; }
-    if (actionId === 'ppMain') { const t = panelTab(); if (!t) return; if (t.kind === 'stock') { pageWide = true; savePanel(); render(); return; } const r = panelUI.closeTab(pageTabs, t.id, pageTabId); pageTabs = r.tabs; setPanelActive(r.active); savePanel(); return navigate(t.page, true); }
+    if (actionId === 'ppMain') { const t = panelTab(); if (!t) return; if (t.kind === 'market-stock') { marketStockCode = t.code; closePanelTab(t.id); return navigate('market', true); } if (['stock', 'document'].includes(t.kind)) { pageWide = true; savePanel(); render(); return; } const r = panelUI.closeTab(pageTabs, t.id, pageTabId); pageTabs = r.tabs; setPanelActive(r.active); savePanel(); return navigate(t.page, true); }
     if (typeof actionId === 'string' && actionId.startsWith('mk')) return marketAction(actionId, id); // [F1]
     if(actionId==='previewImageOcrEvidence'){
       const ref=JSON.parse(id);if(ref.chatId!==chatId)throw Error('任务已切换，请重新选择证据');
@@ -749,7 +779,7 @@ async function handle(actionId, id, stockTarget) {
             if (result?.status === 'opened') { await update('state'); toast('已打开内置编辑窗口；保存并退出后点击收回编辑结果'); }
             return;
         }
-        return runOfficeAction('启动 QuanK Office 并载入文档', async () => {
+        return runOfficeAction(state.officeEngine?.phase==='ready' ? '载入 Office 文档' : 'Office 引擎启动中…', async () => {
             const result = await invoke('officeOpen', {id, revision: d.revision});
             if (result?.status === 'opened') { await update('state'); toast('已打开 QuanK Office，编辑直接保存'); }
         });
@@ -766,6 +796,19 @@ async function handle(actionId, id, stockTarget) {
     if (actionId==='documentNew') {
         modal('新建文档',input('名称','documentName','新文档')+'<label>文件格式<select name="format" id="documentFormat">'+Object.keys(documentExamples).map(f=>'<option>'+f+'</option>').join('')+'</select></label>'+area('内容（Office 使用结构化 JSON；可让 AI 代写）','documentContent',documentExamples.docx),'审阅并创建',async f=>{const result=await invoke('documentOperation',{operation:'document_create',name:f.get('documentName'),format:f.get('format'),content:f.get('documentContent')});if(result.status!=='succeeded')throw Error(result.error||result.message||'未保存');await update('state');toast('文档已创建并校验，可导出');});
         $('#documentFormat').onchange=e=>{$('#modal [name="documentContent"]').value=documentExamples[e.target.value];};return;
+    }
+    if (actionId === 'libraryClearFilter') { libraryFilter = undefined; render(); return; }
+    if (actionId === 'documentLocate') {
+        libraryFilter = {ids: [id], label: '当前文件'};
+        if (page === 'library') render(); else await openPageTab('library');
+        return;
+    }
+    if (actionId === 'libraryConversation') {
+        const chat = state.chats.find(c => c.id === id);
+        const ids = chat?.messages.flatMap(m => messageDocuments(state, chat, m).map(d => d.id)) || [];
+        libraryFilter = {ids: [...new Set(ids)], label: '本对话的产物'};
+        if (page === 'library') render(); else await openPageTab('library');
+        return;
     }
     if (actionId?.startsWith('document')) {
         const d=(state.documents||[]).find(x=>x.id===id);if(!d)throw Error('文档不存在');
@@ -795,7 +838,7 @@ async function handle(actionId, id, stockTarget) {
         if(actionId==='documentView'){openPreview({id:'document:'+id,name:d.name+'.'+d.format,text:d.text,kind:'document',documentId:id});return;}
         if(actionId==='documentHistory'){modal('历史版本 · '+d.name,d.history.map(h=>`<div class="file-row"><div>v${h.revision} · ${date(h.time)}<small>${h.size} 字节 · ${escape(h.sha256)}</small></div>${action('导出此版本','documentExportVersion',id+':'+h.revision)}</div>`).join(''));return;}
         if(actionId==='documentExportPdf')return exportOfficeDocumentPdf(id, d.revision);
-        if(actionId==='documentExport'){await invoke('documentExport',{id,revision:d.revision});return;}
+        if(['documentExport','documentSystemOpen'].includes(actionId)){await invoke('documentExport',{id,revision:d.revision,openWithSystem:actionId==='documentSystemOpen'});return;}
         if(actionId==='documentContinue'){switchChat('');page='home';toolsEnabled=true;draft=`请先调用 document_read 读取文档「${d.name}.${d.format}」（id=${id}，当前版本 ${d.revision}），再根据以下要求调用 ${d.hasRichSource?'document_write（保留editableHtml结构）':d.format==='docx'?'document_patch（使用wordEditing片段坐标，保留其他样式）':'document_edit'} 保存新版本。修改要求：`;render();$('#prompt')?.focus();return;}
         if(actionId==='documentEdit'){
             const body=d.format==='xlsx'?area('单元格修改 JSON（sheetIndex 指 sheetN.xml，从 1 开始）','cells','[{"sheetIndex":1,"address":"A1","value":"新内容"}]'):input('查找原文（Word/PPT 不跨段落）','find')+area('替换内容','replacement','新内容');
@@ -963,7 +1006,11 @@ async function handle(actionId, id, stockTarget) {
         render();
         return;
     }
-    if(actionId==='settings'){modal('模型设置',modelLibrary(state,escape));return;}
+    if(actionId==='officeWarmToggle'||actionId==='officeEngineRetry'){
+        await update('officeEngine',actionId==='officeWarmToggle' ? {enabled:state.settings.officeStartupWarm===false} : {retry:true});
+        return;
+    }
+    if(actionId==='settings'){modal('设置',settingsMarkup());return;}
     if(actionId==='modelEdit'){const p=(state.modelProfiles||[]).find(p=>p.id===id)||{};modal(p.id?'编辑模型':'添加模型',modelForm(p,state.settings.secureStorage,escape),'保存模型',async f=>{const payload={...Object.fromEntries(f),id:p.id,revision:p.revision};delete payload.provider;if(!String(payload.name||'').trim())payload.name=payload.model||'模型';for(const k of ['supportsOff','tools','vision','enabled','persistKey','clearKey'])payload[k]=f.has(k);await update('modelProfile',payload);toast('模型已保存');return 'modelLibrary';});bindModelForm($('#modal'),{test:x=>invoke('modelTest',x)});return;}
     if(actionId==='modelRemove'){const p=(state.modelProfiles||[]).find(p=>p.id===id);if(p)modal('删除模型配置','<p>移除此配置及保存的密钥；排队或执行中的请求不会自动换模型。</p>','删除',async()=>{await update('modelProfile',{id:p.id,revision:p.revision,remove:true});});return;}
     if (actionId === 'legacySettings') {
@@ -1719,6 +1766,10 @@ async function handle(actionId, id, stockTarget) {
     }
 }
 document.addEventListener('click', async (e) => {
+    const menu = e.target.closest('.file-menu');
+    for (const opened of document.querySelectorAll('.file-menu[open]')) {
+        if (opened !== menu || e.target.closest('[data-action]')) opened.open = false;
+    }
     const b = e.target.closest('button');
     if (!b)
         return;
@@ -1771,6 +1822,20 @@ function keepPanelScroll() { const el = document.querySelector('#pagePanel .pp-b
 function setPanelActive(id) { keepPanelScroll(); pageTabId = id || ''; const t = panelTab(); quantOpen = t?.kind === 'stock' ? t.code : ''; quantDetailData = quantOpen ? quantCache.get(quantOpen) ?? null : null; }
 function openPanelTab(tab) { keepPanelScroll(); pageTabs = panelUI.openTab(pageTabs, tab).tabs; setPanelActive(tab.id); savePanel(); }
 function closePanelTab(id) { const r = panelUI.closeTab(pageTabs, id, pageTabId); pageTabs = r.tabs; setPanelActive(r.active); savePanel(); render(); }
+function openDocumentPreview(id) {
+    const d = state.documents?.find(item => item.id === id);
+    if (!d) return false;
+    openPanelTab(panelUI.documentTab(id, d.name + '.' + d.format, d.format));
+    render();
+    return true;
+}
+function openMarketStockTab({code, period, name}) {
+    setKlinePeriod(code, period);
+    const tab = panelUI.marketStockTab(code, name, period);
+    tab.chartRevision = (pageTabs.find(t => t.id === tab.id)?.chartRevision || 0) + 1;
+    openPanelTab(tab);
+    render();
+}
 async function openPageTab(p) {
     if (panelUI.MAIN_ONLY.has(p)) return navigate(p, true);
     openPanelTab(panelUI.pageTab(p, nav.find(n => n[0] === p)?.[2] || PAGE_TITLES[p] || p));
@@ -1787,7 +1852,7 @@ function bindPanelResize(host) {
 function renderPanel() {
     let host = document.getElementById('pagePanel');
     const tab = !state.locked && panelTab();
-    if (!tab) { host?.remove(); document.body.classList.remove('pp-on', 'pp-wide'); panelHeadHtml = panelBodyKey = ''; return; }
+    if (!tab) { disposeFilePreview?.(); disposeFilePreview = undefined; host?.remove(); document.body.classList.remove('pp-on', 'pp-wide'); panelHeadHtml = panelBodyKey = ''; return; }
     if (!host) {
         host = document.createElement('aside'); host.id = 'pagePanel'; host.className = 'page-panel'; host.setAttribute('aria-label', '页面页签');
         host.innerHTML = '<div class="pp-resize" title="拖动调整宽度"></div><header class="pp-head"></header><div class="pp-body"></div>';
@@ -1799,14 +1864,26 @@ function renderPanel() {
     const head = panelUI.panelHead({ tabs: pageTabs, active: tab.id, wide: pageWide, icon });
     if (head !== panelHeadHtml) { host.querySelector('.pp-head').innerHTML = head; panelHeadHtml = head; }
     let body, key;
-    if (tab.kind === 'page' && tab.page === page) { body = panelUI.panelBusy(tab); key = 'busy:' + tab.id; }
+    if (tab.kind === 'document') {
+        const d = state.documents?.find(item => item.id === tab.documentId);
+        body = d ? filePreviewPanel(d, {action, icon, native: state.officeNative, workspace: state.officeWorkspace}) : '<p>文件已从成果中心移除。</p>';
+        key = tab.id + '\n' + (d ? d.revision + ':' + state.officeNative : 'missing');
+    } else if (tab.kind === 'market-stock') {
+        if (!tab.chartRevision) setKlinePeriod(tab.code, tab.period);
+        body = marketPage(state, {action, date, stock: tab.code});
+        key = tab.id + ':' + (tab.period || '') + ':' + (tab.chartRevision || 0);
+    } else if (tab.kind === 'page' && tab.page === page) { body = panelUI.panelBusy(tab); key = 'busy:' + tab.id; }
     else {
         const saved = page; page = tab.page; renderingStockTab = tab.kind === 'stock' ? tab : undefined; renderingStock = renderingStockTab?.code || '';
         try { body = content(); } catch (e) { body = `<div class="pp-same"><p>页面加载失败：${escape(e.message)}</p></div>`; } finally { page = saved; renderingStock = ''; renderingStockTab = undefined; }
         key = tab.kind === 'stock' ? `${tab.id}\n#${quantVer.get(tab.code) || 0}:${tab.section || ''}` : `${tab.id}\n${body}`; // a stock detail only changes when it is (re)computed
     }
     const el = host.querySelector('.pp-body');
-    if (key !== panelBodyKey) { const same = panelBodyKey.split('\n')[0] === key.split('\n')[0]; el.innerHTML = body; panelBodyKey = key; if (!same) el.scrollTop = tab.scroll || 0; }
+    el.classList.toggle('pp-file-body', tab.kind === 'document');
+    if (key !== panelBodyKey) { disposeFilePreview?.(); disposeFilePreview = undefined; const same = panelBodyKey.split('\n')[0] === key.split('\n')[0]; el.innerHTML = body; panelBodyKey = key; if (!same) el.scrollTop = tab.scroll || 0;
+        const preview = el.querySelector('.file-preview-panel');
+        if (preview) disposeFilePreview = mountFilePreviewPanel(preview, invoke, () => state.officeEngine?.phase === 'ready');
+    }
     if (tab.kind === 'stock' && !quantCache.has(tab.code) && !quantLoading.has(tab.code)) setTimeout(() => handle('quantOpen', tab.code).catch(err => toast(err.message)), 0);
 }
 document.addEventListener('click', e => { if (e.target.closest?.('#pagePanel')) panelClickAt = Date.now(); }, true);
@@ -1823,16 +1900,16 @@ async function boot() {
     }
 }
 let runtimeTimer;
-api?.onOpenPage?.(p => { if (p?.page === 'library' && p.document) { openPageTab('library'); Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { marketStockCode = p.code ? String(p.code) : ''; openPageTab('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code), {name: p.name, section: p.tab}).catch(e => toast(e.message)); else openPageTab('quant'); return; } if (p?.page === 'tasks' && p.tab) { taskTab = ['trade', 'runs'].includes(p.tab) ? p.tab : 'tasks'; openPageTab('tasks'); return; } /* [v0.52.2] */ if (p?.page === 'research') { rpStock = /^\d{6}$/.test(String(p.stock || '')) ? String(p.stock) : ''; rpKind = typeof p.kind === 'string' ? p.kind : ''; rpQuery = ''; openPageTab('research'); return; } /* [v0.53.1] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context', 'security'].includes(p?.page)) openPageTab(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
+api?.onOpenPage?.(p => { if (p?.page === 'library' && p.document) { Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { if (/^\d{6}$/.test(String(p.code))) openMarketStockTab(p); else openPageTab('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code), {name: p.name, section: p.tab}).catch(e => toast(e.message)); else openPageTab('quant'); return; } if (p?.page === 'tasks' && p.tab) { taskTab = ['trade', 'runs'].includes(p.tab) ? p.tab : 'tasks'; openPageTab('tasks'); return; } /* [v0.52.2] */ if (p?.page === 'research') { rpStock = /^\d{6}$/.test(String(p.stock || '')) ? String(p.stock) : ''; rpKind = typeof p.kind === 'string' ? p.kind : ''; rpQuery = ''; openPageTab('research'); return; } /* [v0.53.1] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context', 'security'].includes(p?.page)) openPageTab(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
 api?.onOpenChat?.(p => { if (p?.id && state.chats.some(c => c.id === p.id)) handle('openChat', p.id).catch(e => toast(e.message)); });
 api?.onRuntime?.(() => {
     clearTimeout(runtimeTimer);
     runtimeTimer = setTimeout(async () => {
         try {
-            const wasLocked = !!state.locked, next = await invoke('state');
+            const wasLocked = !!state.locked, officePhase = state.officeEngine?.phase, next = await invoke('state');
             applyState(next);
             if (wasLocked !== !!state.locked || state.locked) render(); // [F5] lock / unlock
-            else if (!$('#modal').open && (['chat', 'tools', 'tasks', 'security'].includes(page) || ['tools', 'tasks', 'security', 'feed'].some(panelShows)))
+            else if (!$('#modal').open && (officePhase !== state.officeEngine?.phase || ['chat', 'tools', 'tasks', 'security'].includes(page) || ['tools', 'tasks', 'security', 'feed'].some(panelShows)))
                 render();
             else if (!$('#modal').open) { marketRefreshView(); signalPopups(); } // [F1] [v0.53.1] buy / sell popups also on pages that do not re-render (工作台, 资料库 …)
         }
@@ -1877,6 +1954,8 @@ function applyState(next) {
             chat.messages.push({ ...local.message });
     }
     state = next;
+    const engineSettings = $('#officeEngineSettings');
+    if (engineSettings && $('#modal').open) engineSettings.innerHTML = officeEngineSettings();
     for(const tabs of [previewTabs,...[...taskWorkspaces.values()].map(w=>w.previewTabs||[])])for(const t of tabs){if(t.documentId){const d=(state.documents||[]).find(d=>d.id===t.documentId);if(d){t.text=d.text;t.name=d.name+'.'+d.format;}}}
 }
 let streamPaintTimer;
@@ -1967,7 +2046,7 @@ document.addEventListener('office-selection',async e=>{
 });
 
 // Explicit double-click opens an owned Office editor window; never infer filesystem paths.
-document.addEventListener('dblclick',event=>{if(!state.officeWorkspace||event.target.closest('button,a,input,textarea'))return;const card=event.target.closest('[data-document]');const d=state.documents?.find(d=>d.id===card?.dataset.document);if(d&&['docx','xlsx','pptx'].includes(d.format))invoke('officeOpen',{id:d.id,revision:d.revision}).catch(e=>toast(e.message));});
+document.addEventListener('dblclick',event=>{if(!state.officeWorkspace||event.target.closest('button,a,input,textarea'))return;const card=event.target.closest('[data-document]');const d=state.documents?.find(d=>d.id===card?.dataset.document);if(d&&['docx','xlsx','pptx'].includes(d.format))runOfficeAction(state.officeEngine?.phase==='ready' ? '载入 Office 文档' : 'Office 引擎启动中…',()=>invoke('officeOpen',{id:d.id,revision:d.revision})).catch(e=>toast(e.message));});
 
 // [p1-m2] right-click a conversation in the sidebar for its actions
 // [p2-m1] task form: show only the fields that belong to the chosen cadence
