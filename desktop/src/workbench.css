@@ -1008,7 +1008,7 @@ html,body{width:100%;height:100%;overflow:hidden}
 @media(max-width:1100px){.hq-trend{margin-left:0;width:100%;justify-content:space-between}.hq-pool-spark{width:60%}}
 
 /* [v45] quant engine card: buttons wrap as whole buttons instead of breaking text vertically */
-.plaza-grid.quant-top{grid-template-columns:minmax(0,1fr)!important}
+.plaza-grid.quant-top,.pp-body .plaza-grid.quant-top{grid-template-columns:minmax(0,1fr)!important}
 .quant-engine .pc-actions{flex-wrap:wrap}
 .pc-actions>*{white-space:nowrap;flex:0 0 auto}
 
@@ -1581,3 +1581,93 @@ body.pp-resizing iframe{pointer-events:none}
 .pp-same{margin:90px auto;max-width:320px;text-align:center;color:#5b6684}
 .pp-same h3{color:#0B2BA6;margin-bottom:6px}
 .pp-body .plaza-grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))!important}
+
+
+/* ===== [v0.54.1] 右侧页签排版：统一容器查询（替代按窗口宽度的 media query） =====
+   页签内容区与主区域都是独立容器；页面按自身宽度自适应，卡片按 auto-fit 网格排布。 */
+.pp-body,.workspace{container-type:inline-size;container-name:qkzone}
+.quant-stock{container-type:inline-size;container-name:qkcard}
+
+/* 网格统一 auto-fit：窄容器自动减列，不再溢出或留白 */
+.quant-page .plaza-grid.q-pool-grid,.quant-page .q-reports .plaza-grid,
+.pp-body .plaza-grid:not(.quant-top),.workspace .plaza-grid:not(.quant-top){
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))!important;
+  gap:14px!important
+}
+.plaza-grid.quant-top{grid-template-columns:minmax(0,1fr)!important}
+
+/* 卡片自身宽度决定数字/按钮：窄卡片两列数字、按钮两列整齐排列 */
+@container qkcard (max-width:360px){
+  .quant-page .quant-stock .q-nums{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+  .quant-page .quant-stock .q-nums b{font-size:15px}
+  .quant-page .quant-stock .q-nums span{min-width:0}
+  .quant-page .quant-stock .pc-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .quant-page .quant-stock .pc-actions>*{width:100%;text-align:center}
+}
+
+/* 窄容器：头部分栏改上下排列，标签不折行，工具条换行 */
+@container qkzone (max-width:760px){
+  .fd-hero,.q-hero{grid-template-columns:minmax(0,1fr)!important}
+  .qk-col-8,.qk-col-4,.qk-col-6{grid-column:span 12!important}
+  .plaza-bar{flex-direction:column;align-items:stretch}
+  .plaza-bar-end{width:100%}
+  .plaza-section-head{flex-wrap:wrap;gap:6px 12px}
+  .plaza-section-head h2{white-space:nowrap;flex-shrink:0}
+  .plaza-section-head small{flex-basis:100%}
+  .plaza-stats,.fd-stats{justify-content:flex-start;flex-wrap:wrap}
+}
+@container qkzone (max-width:600px){
+  .page-title{flex-direction:column;align-items:flex-start}
+  .plaza-chip{white-space:nowrap}
+  .preset-card .pc-head{flex-wrap:wrap}
+}
+
+/* 预置 MCP 技能/工具卡片：名称完整显示（不截断） */
+.preset-card .pc-title h3{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.plaza-chip{white-space:nowrap}
+
+/* 投研资料搜索框：与工作台一致的圆角搜索框，按钮对齐 */
+.rp-search{display:flex;align-items:center;gap:8px;margin:12px 0;padding:5px 6px 5px 15px;border:1px solid #dce4ed;border-radius:999px;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.03)}
+.rp-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:13px;color:#25364b;padding:9px 0}
+.rp-search input::placeholder{color:#9ca3af}
+.rp-search .primary,.rp-search button{border-radius:999px;white-space:nowrap}
+
+/* [v0.54.1-b] 市场行情指数卡：主区域/页签变窄时按容器宽度 auto-fit，数字不被截断 */
+@container qkzone (max-width:1100px){
+  .mk-idx-row{grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))}
+}
+@container qkzone (max-width:620px){
+  .mk-idx-row{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}
+  .mk-idx{padding:10px 11px}
+  .mk-idx b{font-size:17px}
+  .mk-idx-row.big .mk-idx b{font-size:20px}
+}
+.mk-idx b,.mk-idx span,.mk-idx-row.big .mk-idx b{white-space:nowrap;overflow:hidden;text-overflow:clip;font-variant-numeric:tabular-nums}
+
+/* 页签栏：多页签横向滚动、工具按钮不被挤压 */
+.pp-head{min-width:0}
+.pp-tabs{overscroll-behavior-x:contain;scroll-behavior:smooth}
+.pp-tools{flex-shrink:0}
+.pp-tab{flex:0 0 auto}
+
+/* [v0.54.1-c] 工作台首页：按主区域容器宽度自适应（右侧页签打开时不再竖长）；主区域 ≥1000px 外观不变 */
+@container qkzone (max-width:1000px){
+  .home.qk-home{padding:14px 16px 32px}
+  .qk-hero{padding:24px 22px 20px;border-radius:20px;margin-bottom:16px}
+  .qk-hero-art{display:none}
+  .qk-hero-inner{max-width:none}
+  .qk-hero h1{font-size:clamp(22px,4.4cqi,32px);line-height:1.3;margin:12px 0 4px;letter-spacing:-.5px}
+  .qk-hero .subtitle{margin:0 0 14px}
+  .qk-hero .compact-composer textarea{min-height:64px}
+  .qk-hero .suggestions{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
+  .qk-hero .suggestions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;min-width:0}
+  .composer-bar{display:flex;flex-wrap:wrap;align-items:center;row-gap:8px}
+  .composer-bar-start{flex:1 1 auto}
+  .composer-bar-end{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;min-width:0}
+  .composer-agent-pill{flex-shrink:0}
+  .composer-bar-end [data-composer-trigger="model"] span:first-child{max-width:none;overflow:visible;text-overflow:clip;white-space:nowrap}
+}
+@container qkzone (max-width:600px){
+  .qk-hero{padding:20px 16px 16px}
+  .qk-hero .suggestions{grid-template-columns:repeat(auto-fit,minmax(104px,1fr))}
+}

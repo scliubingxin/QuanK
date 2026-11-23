@@ -221,7 +221,7 @@ export function reportsBox(q, {action, date}) {
     const tag = r ? `<span class="pc-tag ${r.ok ? (warn ? 't-orange' : 't-green') : 't-red'}">${r.ok ? (warn ? '有告警' : '已生成') : '失败'}</span>` : '';
     return `<div class="card plaza-card q-report"><div class="pc-head">${plazaIcon(d.title)}<div class="pc-title"><h3>${escape(d.title)}</h3><small>${r ? `${escape(date(r.at))}${r.date ? ' · ' + escape(r.date) : ''}` : '尚未生成'}${d.schedule === 'daily' ? ' · 每日' : ' · 手动'}</small></div>${tag}</div>
 ${r?.metrics?.length ? `<div class="q-metrics">${r.metrics.map(m => `<span><b>${escape(m.value)}</b>${escape(m.label)}</span>`).join('')}</div>` : ''}
-<p class="pc-desc">${escape(r ? (r.ok ? summaryText(r.summary) || '已生成' : r.error || '生成失败') : '点「生成」在本机运行引擎自带的分析脚本。')}</p>
+<p class="pc-desc">${escape(r ? (r.ok ? summaryText(r.summary) || '报告已生成本机快照，点「查看」阅读完整正文与指标。' : r.error || '生成失败') : '点「生成」在本机运行引擎自带的分析脚本。')}</p>
 ${(r?.warnings || []).map(w => `<p class="task-error">${escape(w)}</p>`).join('')}
 <div class="pc-actions">${action(r ? '重新生成' : '生成', 'quantReportRun', d.id, 'primary')}${r?.ok ? action('查看', 'quantReport', d.id) : ''}</div></div>`;
   }).join('');
