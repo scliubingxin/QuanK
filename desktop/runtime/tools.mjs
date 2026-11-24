@@ -91,7 +91,7 @@ export class ToolRuntime {
             if (['browser_click', 'browser_fill'].includes(name)) { prepared = await this.browser.prepareAction(name, args, signal); record.receipt = this.browser.receipt(prepared); }
             if(name==='document_create'&&args.format==='pptx'){const ids=pptImagesFromContent(args.content);if(!Array.isArray(allowedImageIds)||ids.some(id=>!allowedImageIds.includes(id)))throw Error('PPT只能嵌入本轮用户明确附加的图片');}
             if (name.startsWith('document_')) documentToken = await this.documents.prepare(name,args,signal);
-            const title = imageReceipt ? '保存图片识别成果' : pdfReceipt ? '保存PDF识别成果' : pdfSource ? '识别授权PDF' : ocrImage ? '识别本轮图片文字' : documentToken ? '文档操作 · ' + name : name === 'cli_execute' ? (projectService?'启动项目开发服务':'执行本机 CLI') : name === 'browser_read' ? '读取网页内容' : name === 'browser_snapshot' ? '检查网页元素' : name === 'browser_click' ? '点击网页元素' : name === 'browser_fill' ? '填写网页文本框' : '打开浏览器';
+            const title = imageReceipt ? '保存图片识别成果' : pdfReceipt ? '保存PDF识别成果' : pdfSource ? '识别授权PDF' : ocrImage ? '识别本轮图片文字' : documentToken ? '文档操作 · ' + name : name === 'cli_execute' ? (projectService?'启动项目开发服务':'运行命令') : name === 'browser_read' ? '读取网页内容' : name === 'browser_snapshot' ? '检查网页元素' : name === 'browser_click' ? '点击网页元素' : name === 'browser_fill' ? '填写网页文本框' : '打开浏览器';
             const detail = imageReceipt ? args.name+'.md\n保存已批准的图片识别结果，来源 '+imageReceipt.source.name.replace(/[\u0000-\u001f]/g,' ')+'，SHA-256 '+imageReceipt.source.sha256+'；保留原图片。识别文字会保存为本机文档，可供后续绑定知识库。' : pdfReceipt ? args.name+'.md\n保存已批准识别结果，来源 '+pdfReceipt.source.name.replace(/[\u0000-\u001f]/g,' ')+'，SHA-256 '+pdfReceipt.source.sha256+'，共 '+pdfReceipt.pages.length+' 页；保留原PDF。识别文字会保存为本机文档，可供后续绑定知识库。' : pdfSource ? pdfSource.name+'\n第 '+args.startPage+'–'+args.endPage+' 页将本机识别并将文字发送给当前模型；请核对来源和准确性。' : ocrImage ? ocrImage.name+'\n将本机识别图片文字并发送给当前模型。识别结果可能有误。' : documentToken ? documentToken.detail : prepared ? friendlyAction(prepared, name) + (name === 'browser_fill' ? '\n将填入（不会自动提交）：\n' + prepared.inputText : '\n点击可能会提交表单或触发网页上的操作，请核对网址和目标。')
                 : name === 'cli_execute' ? friendlyCommand(command) + '\n命令以你的账号权限运行，可以访问工作目录以外的文件。' + (projectService?'\n开发服务最长30分钟；日志保留最近尾部，退出/停止会终止进程；不表示业务就绪。':'') + (chatId ? '\n命令输出会发送给当前模型。' : '')
                 : readScope ? friendlyPage(readScope) + '\n将读取这个网页的正文，并发送给当前模型。' : String(args.url);
@@ -112,7 +112,7 @@ export class ToolRuntime {
                 return record.result;
             }
             const decision = automatic ? true
-                : await abortablePdfWork(()=>this.approve(title,detail,signal,{browserScope,documentReadScope,ruleScope}),signal);
+                : await abortablePdfWork(()=>this.approve(title,detail,signal,{browserScope,documentReadScope,ruleScope,...(chatId ? {chatId} : {}),network:name.startsWith('browser_')}),signal);
             const allowed = decision === true || ((browserScope || documentReadScope || ruleScope) && decision?.allowed === true);
             if (!allowed) {
                 record.status = 'denied';

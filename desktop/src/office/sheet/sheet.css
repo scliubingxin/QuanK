@@ -134,3 +134,14 @@ body[data-format=xlsx] #wb-statusbar { gap: 2px; padding: 0 10px 0 6px; }
 .sb-dialog-input { height: 32px; padding: 0 8px; border: 1px solid #dfe5ec; border-radius: 6px; }
 .sb-dialog-ok { align-self: flex-end; height: 30px; padding: 0 16px; background: #1f6bff; color: #fff; border-color: #1f6bff; }
 .sb-dialog-ok:hover { background: #0f58e6; border-color: #0f58e6; }
+
+.sb-approval {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--line, #d9e0e7);
+}
+.sb-approval span { margin-right: auto; min-width: 0; }

@@ -8,6 +8,7 @@ export function capabilityTabs(tab) {
     ["agents", "智能体"],
     ["skills", "Skills 技能库"],
     ["mcp", "MCP 连接器"],
+    ["coding", "Coding 智能体"],
   ]
     .map(
       ([id, name]) =>

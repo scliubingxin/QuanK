@@ -6,6 +6,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {Store, initialState} from '../core.mjs';
 import {createApprover} from '../main/approval.mjs';
+import {createInlineApprovals} from '../main/inline-approval.mjs';
 import {createAgentSession} from '../services/agent-session.mjs';
 import {createApprovalRules, mcpConnectScope, mcpToolScope, skillRunScope, skillImportScope, vectorScope, ruleCandidate} from '../services/approval-rules.mjs';
 import {approvalRulesPanel} from '../src/ui/approvals.js';
@@ -47,13 +48,14 @@ test('gate: rule skips the dialog, "always allow" saves a rule, unattended runs 
   assert.equal(gate.gated, true);
   const scope = vectorScope('bge-m3');
   assert.equal(await gate('本机向量检索', 'd', undefined, {ruleScope: scope}), true);
-  assert.deepEqual(asked[0].opts, {ruleScope: scope});
+  assert.equal(asked[0].opts.chatId, 'c1');
+  assert.deepEqual(asked[0].opts.ruleScope, scope);
   assert.equal(store.data.approvalRules.length, 1);
   assert.equal(await gate('本机向量检索', 'd', undefined, {ruleScope: scope}), true);
   assert.equal(asked.length, 1, 'second time no dialog');
   reply = false;
   assert.equal(await gate('调用 MCP · write', 'd'), false);
-  assert.equal(asked[1].opts, undefined, 'no rule scope → plain dialog');
+  assert.equal(asked[1].opts.ruleScope, null, 'one-time consent has no saved rule scope');
   reply = {allowed: true};
   assert.equal(await gate('x', 'd'), false, 'objects never count as approval unless they are an always-allow answer with a scope');
   rules.unattended.set('c1', 't1');
@@ -83,31 +85,29 @@ async function mcpFixture() {
     close: async () => {},
   });
   const shown = [];
-  let reply = 1;
-  const native = createApprover({getWindow: () => ({}), focus: () => {}, dialog: {showMessageBox: (_w, o) => { shown.push(o); return Promise.resolve({response: typeof reply === 'function' ? reply(o) : reply}); }}});
+  const approvals = createInlineApprovals({ created: card => {
+    shown.push(card);
+    queueMicrotask(() => approvals.finish(card.requestId, 'allow'));
+  } });
+  const approve = createApprover({ approvals });
   const rules = createApprovalRules({store});
-  const session = (chatId = 'c1') => createAgentSession({agent: structuredClone(agent), store, clientFactory, chatId, runId: 'r-' + chatId, approve: rules.gate(native, {chatId})});
-  return {dir, store, rules, shown, calls, session, setReply: r => { reply = r; }};
+  const session = (chatId = 'c1') => createAgentSession({agent: structuredClone(agent), store, clientFactory, chatId, runId: 'r-' + chatId,
+    signal: new AbortController().signal, approve: rules.gate(approve, {chatId})});
+  return {dir, store, rules, shown, calls, session};
 }
 
-test('MCP through a real native approver: connect and read-only tools can be always-allowed, writes always ask', async () => {
+test('MCP inline approvals offer task scope for connections and reads, and one-time consent for writes', async () => {
   const f = await mcpFixture();
   try {
-    f.setReply(o => o.buttons.length === 3 ? 2 : 1);
-    const s1 = await f.session('c1');
-    assert.deepEqual(f.shown[0].buttons, ['取消', '允许这一次', '总是允许']);
-    assert.match(f.shown[0].detail, /总是允许」会保存规则：连接 MCP local/);
-    assert.ok(f.store.data.approvalRules.some(r => r.key === 'connect http://localhost:1234/mcp'));
-    await s1.execute('mcp_0_search', {});
-    assert.deepEqual(f.shown[1].buttons, ['取消', '允许这一次', '总是允许'], 'read-only tool offers a rule');
-    await s1.execute('mcp_0_write', {});
-    assert.deepEqual(f.shown[2].buttons, ['取消', '允许这一次'], 'non read-only tool never offers a rule');
+    const session = await f.session('c1');
+    await session.execute('mcp_0_search', {});
+    await session.execute('mcp_0_write', {});
+    assert.deepEqual(f.shown.map(card => card.choices), [
+      ['deny', 'allow', 'always'], ['deny', 'allow', 'always'], ['deny', 'allow'],
+    ]);
     assert.deepEqual(f.calls, ['search', 'write']);
-    await s1.close?.();
-    const s2 = await f.session('c2');
-    await s2.execute('mcp_0_search', {});
-    assert.equal(f.shown.length, 3, 'connect and read-only call now run by rule');
-    await s2.close?.();
+    assert.equal(f.store.data.approvalRules.length, 0);
+    await session.close?.();
   } finally { await rm(f.dir, {recursive: true, force: true}); }
 });
 

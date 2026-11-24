@@ -1,114 +1,32 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createInlineApprovals } from "../main/inline-approval.mjs";
 import { createApprover } from "../main/approval.mjs";
 import { ToolRuntime } from "../runtime/tools.mjs";
 import { createBrowserPermissions } from "../runtime/browser-permissions.mjs";
-const turn = () => new Promise((r) => setImmediate(r));
-test("active native dialog receives AbortSignal, cancels and releases queued work", async () => {
-  let shown = 0,
-    firstSignal;
-  const approve = createApprover({
-    getWindow: () => ({}),
-    focus: () => {},
-    dialog: {
-      showMessageBox: (_window, options) => {
-        shown++;
-        if (shown === 2) return Promise.resolve({ response: 1 });
-        firstSignal = options.signal;
-        return new Promise((r) =>
-          options.signal.addEventListener("abort", () => r({ response: 0 }), {
-            once: true,
-          }),
-        );
-      },
-    },
-  });
-  const c = new AbortController(),
-    first = approve("active", "details", c.signal),
-    second = approve("next", "details");
-  const rejected = assert.rejects(first, { name: "AbortError" });
-  await turn();
-  assert.ok(firstSignal);
-  c.abort();
-  await rejected;
-  assert.equal(await second, true);
-  assert.equal(shown, 2);
-});
-test("emergency cancellation closes active and cancels queued requests without late acceptance", async () => {
-  let resolve,
-    shown = 0;
-  const approve = createApprover({
-    getWindow: () => ({}),
-    focus: () => {},
-    dialog: {
-      showMessageBox: () => {
-        shown++;
-        return new Promise((r) => {
-          resolve = r;
-        });
-      },
-    },
-  });
-  const a = approve("a", ""),
-    b = approve("b", "");
-  const rejected = Promise.all([assert.rejects(a), assert.rejects(b)]);
-  await turn();
+test("emergency cancellation settles every pending card and permits new requests", async () => {
+  const approvals = createInlineApprovals();
+  const approve = createApprover({ approvals });
+  const first = approve("first", "detail");
+  const second = approve("second", "detail");
+  const ids = approvals.list().map(card => card.requestId);
   approve.cancelAll();
-  await rejected;
-  assert.equal(shown, 1);
-  await assert.rejects(approve("new", ""), /尚未关闭/);
-  resolve({ response: 1 });
-  await turn();
+  await Promise.all([assert.rejects(first, { name: "AbortError" }), assert.rejects(second, { name: "AbortError" })]);
+  for (const id of ids) assert.equal(approvals.finish(id, "allow"), false);
+  const next = approve("next", "detail");
+  assert.equal(approvals.finish(approvals.list().at(-1).requestId, "allow"), true);
+  assert.equal(await next, true);
 });
-test("timeout cancels a hung adapter and never treats a late Allow as approval", async () => {
-  let finish, signal;
-  const approve = createApprover({
-    timeoutMs: 15,
-    getWindow: () => ({}),
-    focus: () => {},
-    dialog: {
-      showMessageBox: (_w, o) => {
-        signal = o.signal;
-        return new Promise((r) => (finish = r));
-      },
-    },
-  });
-  await assert.rejects(approve("a", ""), { name: "TimeoutError" });
-  assert.equal(signal.aborted, true);
-  finish({ response: 1 });
-  await turn();
-});
-test("missing parent fails closed and task consent is explicit, never the default", async () => {
-  let calls = 0;
-  const missing = createApprover({
-    getWindow: () => null,
-    focus: () => {},
-    dialog: {
-      showMessageBox: async () => {
-        calls++;
-      },
-    },
-  });
-  await assert.rejects(missing("a", ""), /窗口/);
-  assert.equal(calls, 0);
-  const approve = createApprover({
-    getWindow: () => ({}),
-    focus: () => {},
-    dialog: {
-      showMessageBox: async (_w, o) => {
-        assert.equal(o.defaultId, 0);
-        assert.equal(o.cancelId, 0);
-        assert.equal(o.buttons.length, 3);
-        return { response: 2 };
-      },
-    },
-  });
-  assert.deepEqual(
-    await approve("browser", "", undefined, {
-      browserScope: { origin: "https://example.com", runId: "r" },
-    }),
-    { allowed: true, browserTask: true },
-  );
+
+test("browser task consent keeps its exact origin", async () => {
+  const approvals = createInlineApprovals();
+  const approve = createApprover({ approvals });
+  const response = approve("browser", "", undefined, { browserScope: { origin: "https://example.com", runId: "r" } });
+  const [card] = approvals.list();
+  assert.deepEqual(card.choices, ["deny", "allow", "always"]);
+  assert.match(card.taskLabel, /https:\/\/example.com/);
+  approvals.finish(card.requestId, "always");
+  assert.deepEqual(await response, { allowed: true, browserTask: true });
 });
 test("browser grant exact origin/run, known cross-origin target, revoke and completion boundaries", () => {
   const p = createBrowserPermissions(),
@@ -225,21 +143,12 @@ test("revocation during persistence blocks an automatically authorized browser a
   assert.equal(result.status, "failed");
   assert.equal(reads, 1);
 });
-test("oversized approval never opens an off-screen native sheet; Word approval uses human summary", async () => {
-  let calls = 0;
-  const approve = createApprover({
-    getWindow: () => ({}),
-    focus: () => {},
-    dialog: {
-      showMessageBox: async () => {
-        calls++;
-        return { response: 1 };
-      },
-    },
-  });
+test("oversized approval never creates a card; Word approval uses a summary", async () => {
+  const approvals = createInlineApprovals();
+  const approve = createApprover({ approvals });
   await assert.rejects(approve("CLI", "x".repeat(1001)), /过长/);
   await assert.rejects(approve("CLI", "x\n".repeat(21)), /过长/);
-  assert.equal(calls, 0);
+  assert.equal(approvals.list().length, 0);
   const store = {
     data: { documents: [], executions: [], folders: [] },
     save: async () => {},

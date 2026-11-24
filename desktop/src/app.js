@@ -7,6 +7,9 @@ import {compactComposer,createComposerMenus} from './ui/composer.js';
 import {modelPicker,modelLibrary,modelForm,bindModelForm,modelChoiceLabel} from './ui/models.js';
 import {legacyRoundLimit} from './ui/legacy-round-limit.js';
 import {capabilityTabs,skillsPage,mcpPage,mcpAuthFields,mcpForm,bindMcpForm,mcpPayload} from './ui/capability-library.js';
+import { approvalCard, approvalBar, codingApprovalRequests, revealApproval } from './ui/approval-card.js';
+import {codingTaskPage} from './ui/coding-task.js';
+import {codingPage, codingForm, codingPayload, bindCodingForm, codingPreset, codingTestResult, workBuddyPreset} from './ui/coding.js';
 import {agentEditor,bindAgentEditor,readAgentEditor} from './ui/agent-editor.js';
 import {imageCards} from './ui/image-cards.js';
 import {mountHtmlPreview} from './ui/html-preview.js';
@@ -22,13 +25,13 @@ import { insightHtml } from './ui/insight.js';
 import * as views from './ui/workspace.js';
 import { memoryPage } from './ui/memory.js';
 import { recentSections, chatMarkdown } from './ui/chats.js';
-import { composerSendMode } from './shared/page-command.js';
+import { codingPageCommand, composerSendMode } from './shared/page-command.js';
 import { matchCommands, helpHtml, contextMeter } from './ui/slash.js';
 import { contextUsage } from './shared/context.js';
 import { readPlanSteps } from './ui/plan.js';
 import { taskForm, taskCards, taskPayload } from './ui/tasks.js';
 import { automationPage, taskEditor } from './ui/automation.js'; // [ux6]
-import { pendingApprovalsPanel, approvalRulesPanel, pendingBanner } from './ui/approvals.js';
+import { approvalRulesPanel, pendingBanner } from './ui/approvals.js';
 import { feedPage } from './ui/feed.js';
 import { briefingCard, briefingForm, briefingPayload } from './ui/briefing.js';
 import { taskCenterPanel } from './ui/taskcenter.js';
@@ -50,7 +53,8 @@ import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAle
 import { session as marketSession } from './shared/market.js'; // [v0.52.1]
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
 import { feedUnread } from './shared/feed.js';
-function viewContext() { return { state, chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
+function viewContext() {
+    return { state, approvalCards: approvalRequests().filter(item => item.chatId === chatId).map(item => approvalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
 // [p1-m4] away recap: remember what finished while the user was elsewhere, then clear the unread flag
 let recap = null;
 function markSeen(id) {
@@ -73,6 +77,126 @@ let state = { chats: [], folders: [], memories: [], agents: [], tasks: [], artif
 let selections=[];
 let modelChoice='legacy',modelEffort='';
 let capabilityTab='agents';const busyMcp=new Set();
+let codingCandidates = null;
+let codingTaskList = [], codingTaskRevision = 0, codingTaskPaint;
+const codingTaskDetails = new Map();
+const codingTaskCall = async (action, payload = {}) => (await invoke('codingTasks', { action, ...payload })).result;
+async function loadCodingTasks() {
+    const revision = codingTaskRevision;
+    const tasks = await codingTaskCall('list');
+    if (!state.locked && codingTaskRevision === revision) codingTaskList = Array.isArray(tasks) ? tasks : [];
+}
+async function loadCodingTask(id) {
+    const task = await codingTaskCall('get', { id });
+    if (!state.locked) codingTaskDetails.set(id, task);
+    return task;
+}
+function refreshCodingTasks(task) {
+    if (state.locked) return;
+    codingTaskRevision++;
+    const index = codingTaskList.findIndex(item => item.id === task.id);
+    const permissionChanged = codingTaskList[index]?.pendingPermission?.requestId !== task.pendingPermission?.requestId;
+    if (index < 0) codingTaskList = [task, ...codingTaskList].slice(0, 50);
+    else codingTaskList[index] = task;
+    if (permissionChanged && !$('#modal').open) render();
+    if (codingTaskPaint) return;
+    codingTaskPaint = setTimeout(async () => {
+        codingTaskPaint = undefined;
+        try {
+            const tab = panelTab();
+            if (tab?.kind === 'coding-task') await loadCodingTask(tab.taskId);
+            if (state.locked) return;
+            if (!$('#modal').open && capabilityTab === 'coding' && (page === 'agents' || panelShows('agents'))) render();
+            else if (tab?.kind === 'coding-task') renderPanel();
+        } catch (error) { if (!state.locked) toast(error.message); }
+    }, 80);
+}
+const localApprovals = new Map();
+const busyApprovals = new Set();
+const expandedApprovals = new Set();
+function approvalRequests() {
+    const scheduled = [...(state.pendingApprovals || []), ...(state.resolvedApprovals || [])].map(item => ({
+        ...item, requestId: item.id, agent: '定时任务', action: item.title.replace(/[？?]$/, ''),
+        summary: item.detail + '\n无人值守运行已跳过此操作。确认仅标记为已查看。',
+        source: state.tasks?.find(task => task.id === item.taskId)?.name,
+        highRisk: !item.candidate, network: /browser|web/.test(item.tool), channel: 'scheduled',
+        ...(item.candidate && item.taskId ? { taskLabel: '仅覆盖此定时任务接下来 30 天内的同类操作。',
+            promptChoices: { allow: '确认记录' } } : {}),
+    }));
+    return [...(state.inlineApprovals || []), ...codingTaskList.flatMap(codingApprovalRequests),
+        ...scheduled, ...[...localApprovals.values()].map(entry => entry.card)]
+        .map(item => ({ ...item, source: item.source || state.chats.find(chat => chat.id === item.chatId)?.name }))
+        .sort((a, b) => a.time - b.time);
+}
+function approvalFeedState() {
+    return { ...state, approvalFeed: approvalRequests().filter(request => !request.decision) };
+}
+function approvalMarkup() {
+    return approvalBar(approvalRequests(), page === 'chat' ? chatId : '', action);
+}
+function inlineConfirm(title, html, handler) {
+    const requestId = crypto.randomUUID();
+    const body = document.createElement('template');
+    body.innerHTML = html.replace(/<\/(?:p|li|div)>|<br\s*\/?>/gi, '$&\n');
+    const card = { requestId, agent: 'QuanK', action: title,
+        summary: body.content.textContent.trim(), chatId: page === 'chat' ? chatId : undefined,
+        time: Date.now(), highRisk: true, channel: 'local' };
+    localApprovals.set(requestId, { card, handler });
+    if ($('#modal')?.open) $('#modal').close();
+    render();
+}
+function paintApprovalSummaries(root = document) {
+    for (const card of root.querySelectorAll('.inline-approval-card')) {
+        const summary = card.querySelector('pre');
+        const button = card.querySelector('[data-action="approvalExpand"]');
+        const expanded = expandedApprovals.has(card.dataset.approvalId);
+        summary.classList.toggle('expanded', expanded);
+        button.hidden = !expanded && summary.scrollHeight <= summary.clientHeight + 1;
+        button.textContent = expanded ? '收起' : '展开';
+        button.setAttribute('aria-expanded', String(expanded));
+    }
+}
+async function jumpToApproval(id) {
+    const request = approvalRequests().find(item => item.requestId === id);
+    if (!request || state.locked) return;
+    if ($('#modal')?.open) $('#modal').close();
+    if (request.codingTaskId) await handle('codingTaskOpen', request.codingTaskId);
+    else if (request.chatId && state.chats.some(chat => chat.id === request.chatId)) {
+        if (page !== 'chat' || chatId !== request.chatId) await handle('openChat', request.chatId);
+    } else {
+        switchChat('');
+        page = 'home';
+        render();
+    }
+    const target = request.codingTaskId ? document.getElementById('pagePanel') : document.getElementById('app');
+    if (target) revealApproval(target, id);
+}
+async function answerApproval(id, decision) {
+    if (busyApprovals.has(id)) return;
+    const request = approvalRequests().find(item => item.requestId === id);
+    if (!request || request.decision) return;
+    busyApprovals.add(id);
+    try {
+        if (request.channel === 'coding') {
+            await handle('codingTaskPermission', [request.codingTaskId, id, decision].join(':'));
+        } else if (request.channel === 'scheduled') {
+            await update('approvalRule', { action: 'resolveInline', id, decision });
+        } else if (request.channel === 'local') {
+            const entry = localApprovals.get(id);
+            localApprovals.set(id, { card: { ...entry.card, decision, finishedAt: Date.now() } });
+            render();
+            if (decision === 'allow') await entry.handler();
+        } else {
+            await invoke('approvalResponse', { requestId: id, decision });
+            await update('state');
+        }
+    } finally {
+        busyApprovals.delete(id);
+    }
+}
+const busyCoding = new Set();
+const codingProject = () => state.quant?.mode === 'remote' ? '' : state.quant?.source || '';
+const codingCall = async payload => (await invoke('coding', payload)).result;
 const nav = [['home', 'chat', '工作台'], ['feed', 'activity', '动态'], ['research', 'file', '投研资料'], ['library', 'grid', '成果中心'], ['studio', 'spark', '创作'], ['files', 'folder', '本地文件'], ['agents', 'agent', '智能体'], ['tools', 'activity', '浏览器与权限'], ['security', 'shield', '安全与合规'], ['tasks', 'clock', '自动化'], ['quant', 'trend', '量化'], ['market', 'trend', '行情'], ['connectors', 'link', '连接'], ['graph', 'search', '知识图谱'], ['context', 'spark', '记忆库']];
 let memoryFilter = 'all', memoryQuery = '', incognito = false, planMode = false, researchMode = false, feedFilter = 'important'; // [p1-m1][p1-m2][p1-m5][p1-m6][p2-m3]
 let graphQuery = '', graphType = 'all'; // [p3-m5]
@@ -140,7 +264,7 @@ function taskStatus(c) {
 const recentOpen = new Set();
 function recentRows() { return recentSections({ chats: state.chats, folders: state.chatFolders || [], query: recentQuery, chatId, page, status: c => statusNames[c.run.status], date, live: new Set(['queued', 'running', 'cancelling']), open: recentOpen }); }
 function executionRecords(runId) { return (state.executions || []).filter(r => r.chatId === chatId && (!runId || r.runId === runId)).slice().reverse(); }
-function executionRow(r) { const output = r.tool === 'cli_execute' ? [r.partial || r.result?.stdout || '', r.result?.stderr ? 'stderr:\n' + r.result.stderr : '', r.result?.error || '', r.result?.exitCode !== undefined ? '退出码：' + r.result.exitCode : ''].filter(Boolean).join('\n') : JSON.stringify(r.result || {}, null, 2); return `<details class="execution-step" data-detail="${escape(r.id)}" ${openedDetails.has(r.id) ? 'open' : ''}><summary>${icon(r.tool === 'cli_execute' ? 'activity' : 'link')}<span>${toolNames[r.tool] || escape(r.tool)}</span><span class="step-status ${['failed', 'denied', 'cancelled', 'interrupted'].includes(r.status) ? 'issue' : ''}">${escape(statusNames[r.status] || r.status)}</span><span class="step-time">${r.finishedAt ? ((r.finishedAt - r.time) / 1000).toFixed(1) + 's' : date(r.time)}</span></summary><div class="step-detail"><b>实际参数</b><pre>${escape(JSON.stringify(r.command || r.receipt || r.args, null, 2))}</pre>${output && output !== '{}' ? `<b>执行结果</b><pre>${escape(output)}</pre>` : ''}${r.status === 'pending_approval' ? '<p>请在系统确认窗口核对目标与参数；此处不能代替原生授权。</p>' : ''}</div></details>`; }
+function executionRow(r) { const output = r.tool === 'cli_execute' ? [r.partial || r.result?.stdout || '', r.result?.stderr ? 'stderr:\n' + r.result.stderr : '', r.result?.error || '', r.result?.exitCode !== undefined ? '退出码：' + r.result.exitCode : ''].filter(Boolean).join('\n') : JSON.stringify(r.result || {}, null, 2); return `<details class="execution-step" data-detail="${escape(r.id)}" ${openedDetails.has(r.id) ? 'open' : ''}><summary>${icon(r.tool === 'cli_execute' ? 'activity' : 'link')}<span>${toolNames[r.tool] || escape(r.tool)}</span><span class="step-status ${['failed', 'denied', 'cancelled', 'interrupted'].includes(r.status) ? 'issue' : ''}">${escape(statusNames[r.status] || r.status)}</span><span class="step-time">${r.finishedAt ? ((r.finishedAt - r.time) / 1000).toFixed(1) + 's' : date(r.time)}</span></summary><div class="step-detail"><b>实际参数</b><pre>${escape(JSON.stringify(r.command || r.receipt || r.args, null, 2))}</pre>${output && output !== '{}' ? `<b>执行结果</b><pre>${escape(output)}</pre>` : ''}${r.status === 'pending_approval' ? '<p>请在对话中的授权卡片核对目标与参数。</p>' : ''}</div></details>`; }
 function commandQueue() { return views.commandQueue({state, action, date, statusNames}); }
 function trace(runId) { const rows = executionRecords(runId); return rows.length ? `<section class="run-trace" aria-label="实际执行过程"><div class="trace-label">${icon('activity')}执行过程 · ${rows.length} 步</div>${rows.map(executionRow).join('')}</section>` : ''; }
 function openPreview(item) {
@@ -201,7 +325,8 @@ function exportOfficeDocumentPdf(id, revision) {
 async function invoke(name, payload) {
     if (!api)
         throw new Error('当前为界面预览。请通过 npm start 启动桌面应用以使用此功能。');
-    try { if(typeof api?.[name] !== 'function')throw Error(`当前安装的 QuanK 不支持这个功能（缺少「${name}」接口）。请安装最新版本，完全退出（⌘Q）后重新打开。`); return await api[name](payload); }
+    try { if(typeof api?.[name] !== 'function')throw Error(`当前安装的 QuanK 不支持这个功能（缺少「${name}」接口）。请安装最新版本，完全退出（⌘Q）后重新打开。`); return await api[name](payload && typeof payload === 'object' && !Array.isArray(payload) && page === 'chat'
+        ? { ...payload, approvalChatId: chatId } : payload); }
     catch(error) { throw new Error(String(error?.message||'操作失败，请重试').replace(/^Error invoking remote method ['"][^'"]+['"]:\s*(?:Error:\s*)?/,'').replace(/^Error:\s*/,'')); }
 }
 async function update(name, payload) { applyState(await invoke(name, payload)); render(); return state; }
@@ -263,9 +388,10 @@ function render() {
     const active = nav.find(n => n[0] === page);
     const name = state.settings.name || '我的工作空间';
     $('#app').className = sidebarCollapsed ? 'sidebar-collapsed' : '';
-    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(state)})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div>${state.officeEngine?.phase==='starting' ? '<span role="status">Office 引擎启动中…</span>' : ''}<button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
+    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(approvalFeedState())})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div>${state.officeEngine?.phase==='starting' ? '<span role="status">Office 引擎启动中…</span>' : ''}<button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}${['home', 'chat'].includes(page) ? '' : approvalMarkup()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
     officeWorkspace.update(markup, `${page}:${chatId}`);
     renderPanel(); // [v0.54]
+    paintApprovalSummaries();
     for (const el of [document.scrollingElement, document.getElementById('app'), document.querySelector('.main'), document.querySelector('.workbench')]) if (el && el.scrollLeft) el.scrollLeft = 0; // [resp] never leave the shell scrolled sideways
     if(previousComposer&&$('#prompt'))$('#prompt').replaceWith(previousComposer);
     composerMenus.afterRender(`${page}:${chatId}`);
@@ -366,12 +492,15 @@ function render() {
         paintPicker();
 }
 function chatLive() { return pending || ['queued','running','cancelling'].includes(state.chats.find(c=>c.id===chatId)?.run?.status); }
-function composer() {return compactComposer({selections,state,agentId,files,images,sendImages,live:chatLive(),toolsEnabled,icon,escape,modelName:modelChoiceLabel(state,modelChoice,modelEffort),modelMarkup:modelPicker(state,modelChoice,modelEffort,escape),meter:contextMeter(currentUsage()),modes:{show:['home','chat'].includes(page)&&!chatLive(),plan:planMode,research:researchMode,incognito,incognitoAllowed:page==='home'&&!chatId}});} // [F1f] modes beside the composer
+function composer() {return approvalMarkup() + compactComposer({selections,state,agentId,files,images,sendImages,live:chatLive(),toolsEnabled,icon,escape,modelName:modelChoiceLabel(state,modelChoice,modelEffort),modelMarkup:modelPicker(state,modelChoice,modelEffort,escape),meter:contextMeter(currentUsage()),modes:{show:['home','chat'].includes(page)&&!chatLive(),plan:planMode,research:researchMode,incognito,incognitoAllowed:page==='home'&&!chatId}});} // [F1f] modes beside the composer
 // [p1-m3] context meter for the next request
 function currentUsage() { const chat = page === 'chat' ? state.chats.find(c => c.id === chatId) : null; return contextUsage({chat, draft, files, memories: state.settings?.memory?.enabled === false || chat?.incognito ? [] : (state.memories || []).filter(m => m.source !== 'auto'), limit: Number(state.settings?.contextTokens) || undefined}); }
 function paintMeter() { const node = document.querySelector('.context-meter'); if (node) node.outerHTML = contextMeter(currentUsage()); }
 
-function homeContent() { return views.homeContent(viewContext()); }
+function homeContent() {
+    const cards = approvalRequests().filter(item => !item.codingTaskId && !state.chats.some(chat => chat.id === item.chatId));
+    return (cards.length ? `<div class="home-approvals">${cards.map(item => approvalCard(item, action)).join('')}</div>` : '') + views.homeContent(viewContext());
+}
 function conversationContent() { return views.conversationContent(viewContext()); }
 function closePicker() {
     pickerKind = '';
@@ -493,11 +622,12 @@ function content() {
         return securityUI.securityPage(state, {heading, action});
     if (page === 'tools')
         return `<div class="page">${heading('', '浏览器与权限', '助手打开网页、运行命令前会先征求你的确认；确认框可按 Esc 取消，60 秒无人响应自动取消。在这里管理「总是允许」的规则和已有授权。', action('刷新', 'refresh')+action('撤销浏览器授权','revokeBrowserApprovals')+action('取消所有确认框','cancelApprovals'))}
- ${pendingApprovalsPanel(state, {action, date})}${approvalRulesPanel(state, {action, date})}<div class="tool-grid"><section class="tool-panel"><h2>浏览器</h2><p class="description">内置浏览器支持检查元素、点击与填写；系统浏览器使用你平常的浏览器，但助手不能读取其内容。</p><label>网址<input id="tool-url" aria-label="浏览器网址" value="${escape(toolDraft.url)}" placeholder="https://example.com"></label><div class="toolbar">${action('打开内置浏览器', 'browserOpen', '', 'primary')}${action('在系统浏览器打开', 'externalBrowser')}</div><div class="browser-list">${(state.browsers || []).map(b => `<div class="file-row"><div>${escape(b.title || '网页')}<small>${escape(b.url)}</small></div>${action('读取正文', 'browserRead', b.id)}${action('检查元素', 'browserInspect', b.id)}</div>`).join('')}</div></section>
+ ${approvalRulesPanel(state, {action, date})}<div class="tool-grid"><section class="tool-panel"><h2>浏览器</h2><p class="description">内置浏览器支持检查元素、点击与填写；系统浏览器使用你平常的浏览器，但助手不能读取其内容。</p><label>网址<input id="tool-url" aria-label="浏览器网址" value="${escape(toolDraft.url)}" placeholder="https://example.com"></label><div class="toolbar">${action('打开内置浏览器', 'browserOpen', '', 'primary')}${action('在系统浏览器打开', 'externalBrowser')}</div><div class="browser-list">${(state.browsers || []).map(b => `<div class="file-row"><div>${escape(b.title || '网页')}<small>${escape(b.url)}</small></div>${action('读取正文', 'browserRead', b.id)}${action('检查元素', 'browserInspect', b.id)}</div>`).join('')}</div></section>
  <section class="tool-panel"><h2>CLI 命令</h2><p class="description">非交互执行，返回真实输出及退出码。命令以当前账号权限运行；工作目录不是权限沙箱。</p><label>程序名 / 绝对路径<input id="tool-executable" aria-label="CLI 程序" value="${escape(toolDraft.executable)}" placeholder="node / python3 / git / codex"></label><label>参数（JSON 字符串数组）<textarea id="tool-args" aria-label="CLI 参数">${escape(toolDraft.args)}</textarea></label><label>授权工作目录<select id="tool-folderId" aria-label="CLI 工作目录"><option value="">请选择文件夹</option>${state.folders.map(f => `<option value="${f.id}" ${toolDraft.folderId === f.id ? 'selected' : ''}>${escape(f.name)}</option>`).join('')}</select></label><label>子目录（可留空）<input id="tool-relative" value="${escape(toolDraft.relative)}"></label><div class="toolbar">${action('审阅并执行', 'commandRun', '', 'primary')}${action('授权文件夹', 'folder')}</div><p class="description">例如 node + ["--version"]，或 codex + ["exec","检查此项目的测试失败原因"]。需要先在电脑上安装并配置对应 CLI。</p></section></div>
  ${commandQueue()}<div class="section-head"><h2>实际执行记录</h2><small>包含模型和手动发起的操作</small></div>${(state.executions || []).map(r => `<details class="execution" ${['running', 'pending_approval'].includes(r.status) ? 'open' : ''}><summary><span>${escape(r.tool)}</span><span class="badge">${escape(r.status)}</span><small>${date(r.time)}</small></summary><pre>${escape(JSON.stringify(r.command || r.args, null, 2))}</pre>${r.partial ? `<pre class="terminal">${escape(r.partial)}</pre>` : ''}${r.result ? `<pre class="terminal">${escape(r.tool === 'cli_execute' ? [r.result.stdout || '', r.result.stderr ? 'stderr:\n' + r.result.stderr : '', r.result.error || '', 'status: ' + r.result.status, 'exit code: ' + r.result.exitCode].join('\n') : JSON.stringify(r.result, null, 2))}</pre>` : ''}</details>`).join('') || empty('还没有执行记录', '可先打开一个网页，或授权项目目录后执行 node --version。')}</div>`;
     if (page === 'files')
         return `<div class="page">${heading('LOCAL KNOWLEDGE', '让本地知识，触手可及。', '仅列出已授权目录中的文本和代码文件。选择文件后可预览、附加到对话。', action(icon('plus') + '授权文件夹', 'folder'))}${state.folders.length ? `<div class="file-search"><select id="folderSelect" aria-label="文件夹">${state.folders.map(f => `<option value="${f.id}" ${f.id === folderId ? 'selected' : ''}>${escape(f.name)}</option>`).join('')}</select><input id="fileQuery" placeholder="按文件名搜索，按 Enter 确认" value="${escape(searchTerm)}"><button class="secondary" data-action="fileSearch">${icon('search')}搜索</button><button class="secondary" data-action="revoke" data-id="${escape(folderId)}">撤销授权</button></div><p class="description">不自动上传。单个文件最大 1 MB，每次最多附加 32 个文件。Word/PDF 可使用原 Web 工作台处理。</p>${fileResults.map((f, i) => `<div class="file-row">${icon('file')}<div>${escape(f.name)}<small>${escape(f.relative)}</small></div>${action('预览', 'previewFile', i)}${action('附加到对话', 'attachFile', i)}</div>`).join('') || empty('暂无匹配的文件', '支持 Markdown、TXT、CSV、JSON 与常见代码文件；隐藏文件和依赖目录不会列出。')}${fileTruncated ? '<p class="description">列表已达到扫描上限（300 个结果 / 5000 个目录项 / 深度 6），可选择更小的文件夹。</p>' : ''}` : empty('选择你的第一个文件夹', '通过系统窗口授予文件夹访问权限。你可以随时在这里撤销。', action('选择文件夹', 'folder', '', 'primary'))}</div>`;
+    if (page === 'agents' && capabilityTab === 'coding') return `<div class="page">${capabilityTabs('coding')}${codingPage(state.coding, {heading, action, empty, date, candidates: codingCandidates, busy: busyCoding, project: codingProject(), tasks: codingTaskList})}</div>`;
     if (page === 'agents' && capabilityTab!=='agents')return `<div class="page">${capabilityTabs(capabilityTab)}${capabilityTab==='skills'?skillsPage(state):mcpPage(state,busyMcp)}</div>`;
     if (page === 'agents') { // [ux11] plaza cards
         const ag = state.agents || [], skillN = a => (a.skills || []).length + (a.skillIds || []).length, mcpN = a => (a.mcp || []).length + (a.mcpIds || []).length;
@@ -518,10 +648,15 @@ function content() {
         return memoryPage({state, action, icon, date, empty, filter: memoryFilter, query: memoryQuery,
             heading: (kicker, title, desc, buttons = '') => contextHeader(state, {tab: 'context', date}) + `<div class="ctx-sub"><p class="description">${desc}</p><div class="ctx-actions">${buttons}</div></div>`}).replace('<div class="page">', '<div class="page context-page">');
     if (page === 'feed') // [p2-m3]
-        return feedPage(state, {action, date, heading, empty, filter: feedFilter}).replace('<!--briefing-->', briefingCard(state, {action})); // [p2-m4] briefing on top
+        return feedPage(approvalFeedState(), {action, date, heading, empty, filter: feedFilter}).replace('<!--briefing-->', briefingCard(state, {action})); // [p2-m4] briefing on top
     return '';
 }
 function modal(title, body, submit, handler) {
+    if (handler && submit && /^(?:删除|清空|放弃|撤销|移出|移除|禁用|断开|恢复默认|确认恢复|开启离线模式|开启本机数据加密|关闭本机数据加密|切换到真实下单)|下单/.test(title)
+        && !/<(?:input|select|textarea)\b/i.test(body)) {
+        inlineConfirm(title, body, handler);
+        return;
+    }
     const d = $('#modal');
     d.classList.remove('task-modal'); // [ux6]
     d.onclick=null;
@@ -577,6 +712,18 @@ async function send() {
     }
     if(!draft.trim()&&images.length&&!sendImages){toast('请勾选本轮发送图片，或输入文字');return;}
     const prompt = draft.trim()?draft:files.length?'请阅读附加的资料，概括要点并指出需要我注意的地方。':'请分析这些图片。'; // [ux3] an attachment alone can be sent
+    const codingCommand = !files.length && !images.length && !selections.length && codingPageCommand(prompt);
+    if (codingCommand) {
+        draft = '';
+        capabilityTab = 'coding';
+        await openPageTab('agents');
+        if (codingCommand === 'workbuddy') {
+            const candidates = await codingCall({action: 'detect'}).catch(() => []);
+            if (!state.locked && panelTab()?.page === 'agents' && capabilityTab === 'coding')
+                showCodingForm(codingPreset(candidates.find(candidate => candidate.command.endsWith('/codebuddy')) || workBuddyPreset));
+        }
+        return;
+    }
     const mode = composerSendMode(prompt, {plan: planMode, research: researchMode});
     if (mode === 'plan' || mode === 'research') return sendPlan(prompt, mode === 'research' ? mode : '');
     if (mode === 'page') toast('这是打开页面的指令，已按普通对话处理');
@@ -684,12 +831,37 @@ async function navigate(next, main = false) {
     else
         render();
 }
+function showCodingForm(agent = {}) {
+    modal(agent.id ? '编辑 Coding 智能体' : '添加 Coding 智能体', codingForm(agent, codingProject()), '保存', async () => {
+        const form = $('#modal form');
+        const payload = codingPayload(form, agent);
+        state.coding = await codingCall({action: 'save', ...payload});
+        render();
+    });
+    bindCodingForm($('#modal'), agent, {
+        browse: () => invoke('codingBrowse'),
+        test: draft => codingCall({action: 'test', id: agent.id, draft}),
+        projectSettings: () => handle('quantSettings').catch(error => toast(error.message)),
+    });
+}
+
 async function handle(actionId, id, stockTarget) {
+    if (actionId === 'approvalJump') return jumpToApproval(id);
+    if (actionId === 'approvalDecision') {
+        const [requestId, decision] = id.split(':');
+        return answerApproval(requestId, decision);
+    }
+    if (actionId === 'approvalExpand') {
+        if (expandedApprovals.has(id)) expandedApprovals.delete(id);
+        else expandedApprovals.add(id);
+        paintApprovalSummaries();
+        return;
+    }
     if (actionId === 'ppSelect') { setPanelActive(id); savePanel(); render(); return; } // [v0.54]
     if (actionId === 'ppClose') { closePanelTab(id); return; }
     if (actionId === 'ppCloseAll') { pageTabs = []; setPanelActive(''); savePanel(); render(); return; }
     if (actionId === 'ppWide') { pageWide = !pageWide; savePanel(); render(); return; }
-    if (actionId === 'ppMain') { const t = panelTab(); if (!t) return; if (t.kind === 'market-stock') { marketStockCode = t.code; closePanelTab(t.id); return navigate('market', true); } if (['stock', 'document'].includes(t.kind)) { pageWide = true; savePanel(); render(); return; } const r = panelUI.closeTab(pageTabs, t.id, pageTabId); pageTabs = r.tabs; setPanelActive(r.active); savePanel(); return navigate(t.page, true); }
+    if (actionId === 'ppMain') { const t = panelTab(); if (!t) return; if (t.kind === 'market-stock') { marketStockCode = t.code; closePanelTab(t.id); return navigate('market', true); } if (['stock', 'document', 'coding-task'].includes(t.kind)) { pageWide = true; savePanel(); render(); return; } const r = panelUI.closeTab(pageTabs, t.id, pageTabId); pageTabs = r.tabs; setPanelActive(r.active); savePanel(); return navigate(t.page, true); }
     if (typeof actionId === 'string' && actionId.startsWith('mk')) return marketAction(actionId, id); // [F1]
     if(actionId==='previewImageOcrEvidence'){
       const ref=JSON.parse(id);if(ref.chatId!==chatId)throw Error('任务已切换，请重新选择证据');
@@ -964,6 +1136,7 @@ async function handle(actionId, id, stockTarget) {
         try {
             const job = await invoke('enqueueCommand', request);
             applyState(await invoke('state'));
+            if (!state.locked && api.codingTasks) await loadCodingTasks();
             toast('命令已受理：' + (statusNames[job.status] || job.status));
         } finally { activeCommand = ''; render(); }
         return;
@@ -1123,6 +1296,100 @@ async function handle(actionId, id, stockTarget) {
         draft = ({ research: '请帮我研究以下问题。先明确目标、证据来源和信息缺口，再给出有依据的结论。\n研究问题：', writer: '请根据以下背景起草一份项目方案，包含目标、实施步骤、交付物与验收标准。\n项目背景：', summary: '请根据我附加的资料，提取关键事实、决策和下一步行动，标出信息缺口。\n整理要求：', project: '请检查我授权的项目。先列出检查步骤，获得工具批准后运行必要命令，依据实际结果报告问题与改进建议。\n项目与检查目标：' })[id];
         render();
         $('#prompt')?.focus();
+        return;
+    }
+    if (actionId === 'codingSpecEdit') {
+        const text = await codingTaskCall('specGet');
+        modal('编辑量化代码迭代规范', `<label class="coding-spec">Markdown<textarea name="text" required spellcheck="false">${escape(text)}</textarea></label>`, '保存', async data => {
+            await codingTaskCall('specSave', { text: data.get('text') });
+            toast('迭代规范已保存');
+        });
+        return;
+    }
+    if (actionId === 'codingSpecReset') {
+        modal('恢复默认迭代规范', '<p>当前自定义内容将被默认规范替换。</p>', '恢复默认', async () => {
+            await codingTaskCall('specReset');
+            toast('已恢复默认迭代规范');
+        });
+        return;
+    }
+    if (actionId === 'codingTaskStart') {
+        const agents = state.coding?.agents || [];
+        const options = agents.map(agent => `<option value="${escape(agent.id)}">${escape(agent.name)}</option>`).join('');
+        modal('发起量化代码迭代', area('迭代需求', 'request') + (options ? `<label>代理<select name="agent"><option value="">按回退设置选择</option>${options}</select></label>` : ''), '开始', async data => {
+            const task = await codingTaskCall('start', { request: data.get('request'), agentId: data.get('agent') || undefined });
+            if (task) await handle('codingTaskOpen', task.id);
+        });
+        return;
+    }
+    if (actionId === 'codingSetupOpen') return openCodingPage({page: 'agents', coding: {}});
+    if (actionId === 'codingTaskOpen') {
+        const task = await loadCodingTask(id);
+        if (!state.locked) {
+            openPanelTab(panelUI.codingTaskTab(id, task.title));
+            render();
+        }
+        return;
+    }
+    if (actionId === 'codingTaskPermission') {
+        const [taskId, requestId, decision] = id.split(':');
+        const task = await codingTaskCall('permission', { id: taskId, requestId, decision });
+        codingTaskDetails.set(taskId, task);
+        refreshCodingTasks(task);
+        render();
+        return;
+    }
+    if (actionId === 'codingTaskFollowup') {
+        modal('继续修改', area('追加需求', 'request'), '继续', async data => {
+            codingTaskDetails.set(id, await codingTaskCall('followup', { id, request: data.get('request') }));
+            renderPanel();
+        });
+        return;
+    }
+    if (actionId === 'codingTaskStop') {
+        codingTaskDetails.set(id, await codingTaskCall('stop', { id }));
+        renderPanel();
+        return;
+    }
+    if (actionId === 'codingTaskReport') return codingTaskCall('openReport', { id });
+    if (actionId === 'codingTaskMerge' || actionId === 'codingTaskDiscard') {
+        const merge = actionId === 'codingTaskMerge';
+        try { await codingTaskCall(merge ? 'merge' : 'discard', { id }); }
+        finally {
+            await loadCodingTasks();
+            await loadCodingTask(id);
+            render();
+        }
+        return;
+    }
+    if (actionId === 'codingDetect') { codingCandidates = await codingCall({action: 'detect'}); render(); return; }
+    if (actionId === 'codingNew') return showCodingForm();
+    if (actionId === 'codingPrefill') {
+        const candidate = codingCandidates?.[Number(id)];
+        if (candidate) showCodingForm(codingPreset(candidate));
+        return;
+    }
+    if (actionId === 'codingEdit') return showCodingForm((state.coding?.agents || []).find(agent => agent.id === id));
+    if (actionId === 'codingDefault') { state.coding = await codingCall({action: 'setDefault', id}); render(); return; }
+    if (actionId === 'codingRemove') {
+        const agent = state.coding?.agents.find(agent => agent.id === id);
+        if (agent) modal('删除 Coding 智能体', `<p>删除「${escape(agent.name)}」及其连接配置？</p>`, '删除', async () => {
+            state.coding = await codingCall({action: 'remove', id}); render();
+        });
+        return;
+    }
+    if (actionId === 'codingSettings') {
+        const data = new FormData(stockTarget.closest('form'));
+        state.coding = await codingCall({action: 'settings', fallback: data.get('fallback'), allowAssistant: data.has('allowAssistant')});
+        render(); toast('Coding 设置已保存'); return;
+    }
+    if (actionId === 'codingTest' && !busyCoding.has(id)) {
+        busyCoding.add(id); render();
+        try {
+            const result = await codingCall({action: 'test', id});
+            state.coding = await codingCall({action: 'list'});
+            if (!state.locked && !$('#modal').open) modal('测试 Coding 智能体连接', codingTestResult(result));
+        } finally { busyCoding.delete(id); render(); }
         return;
     }
     if(actionId==='capabilityTab'){capabilityTab=id;render();return;}
@@ -1679,7 +1946,11 @@ async function handle(actionId, id, stockTarget) {
     if (actionId === 'feedSeen') { await update('feed', { action: 'seen' }); toast('已全部标为已读'); return; }
     if (actionId === 'feedDismiss') { await update('feed', { action: 'dismiss', id }); return; }
     if (actionId === 'feedRestore') { await update('feed', { action: 'restore' }); return; }
-    if (actionId === 'gotoPending') { page = 'tools'; render(); document.getElementById('pending-approvals')?.scrollIntoView(); return; }
+    if (actionId === 'gotoPending') {
+        const first = approvalRequests().find(item => item.channel === 'scheduled' && !item.decision);
+        if (first) return jumpToApproval(first.requestId);
+        return;
+    }
     if (actionId === 'editTask') { // [p2-m1]
         const t = state.tasks.find(t => t.id === id); if (!t) return;
         modal('编辑定时任务', taskEditor(state, t), '保存', async (f) => update('task', taskPayload(f, id))); // [ux6]
@@ -1780,7 +2051,7 @@ document.addEventListener('click', async (e) => {
         if (b.dataset.page)
             await navigate(b.dataset.page);
         else if (b.dataset.action)
-            await handle(b.dataset.action, b.dataset.id);
+            await handle(b.dataset.action, b.dataset.id, b.dataset.action === 'codingSettings' ? b : undefined);
     }
     catch (err) {
         toast(err.message);
@@ -1844,7 +2115,7 @@ async function openPageTab(p) {
 function bindPanelResize(host) {
     host.querySelector('.pp-resize').addEventListener('mousedown', e => {
         e.preventDefault(); document.body.classList.add('pp-resizing');
-        const move = ev => { pageWidth = panelUI.clampWidth(innerWidth - ev.clientX, innerWidth); host.style.setProperty('--pp-w', pageWidth + 'px'); };
+        const move = ev => { pageWidth = panelUI.clampWidth(innerWidth - ev.clientX, innerWidth); host.style.setProperty('--pp-w', pageWidth + 'px'); paintApprovalSummaries(host); };
         const up = () => { removeEventListener('mousemove', move); removeEventListener('mouseup', up); document.body.classList.remove('pp-resizing'); savePanel(); };
         addEventListener('mousemove', move); addEventListener('mouseup', up);
     });
@@ -1864,7 +2135,16 @@ function renderPanel() {
     const head = panelUI.panelHead({ tabs: pageTabs, active: tab.id, wide: pageWide, icon });
     if (head !== panelHeadHtml) { host.querySelector('.pp-head').innerHTML = head; panelHeadHtml = head; }
     let body, key;
-    if (tab.kind === 'document') {
+    if (tab.kind === 'coding-task') {
+        const task = codingTaskDetails.get(tab.taskId);
+        body = codingTaskPage(task, { action, date,
+            approvals: approvalRequests().filter(item => item.codingTaskId === tab.taskId) });
+        key = tab.id + '\n' + body;
+        if (!task && !tab.loading) {
+            tab.loading = true;
+            void loadCodingTask(tab.taskId).then(() => renderPanel()).catch(() => {});
+        }
+    } else if (tab.kind === 'document') {
         const d = state.documents?.find(item => item.id === tab.documentId);
         body = d ? filePreviewPanel(d, {action, icon, native: state.officeNative, workspace: state.officeWorkspace}) : '<p>文件已从成果中心移除。</p>';
         key = tab.id + '\n' + (d ? d.revision + ':' + state.officeNative : 'missing');
@@ -1880,18 +2160,23 @@ function renderPanel() {
     }
     const el = host.querySelector('.pp-body');
     el.classList.toggle('pp-file-body', tab.kind === 'document');
-    if (key !== panelBodyKey) { disposeFilePreview?.(); disposeFilePreview = undefined; const same = panelBodyKey.split('\n')[0] === key.split('\n')[0]; el.innerHTML = body; panelBodyKey = key; if (!same) el.scrollTop = tab.scroll || 0;
+    if (key !== panelBodyKey) { disposeFilePreview?.(); disposeFilePreview = undefined; const same = panelBodyKey.split('\n')[0] === key.split('\n')[0];
+        const openFolds = same && tab.kind === 'coding-task' ? new Map([...el.querySelectorAll('[data-coding-fold]')].map(item => [item.dataset.codingFold, item.open])) : new Map();
+        el.innerHTML = body;
+        for (const fold of el.querySelectorAll('[data-coding-fold]')) if (openFolds.has(fold.dataset.codingFold)) fold.open = openFolds.get(fold.dataset.codingFold); panelBodyKey = key; if (!same) el.scrollTop = tab.scroll || 0;
         const preview = el.querySelector('.file-preview-panel');
         if (preview) disposeFilePreview = mountFilePreviewPanel(preview, invoke, () => state.officeEngine?.phase === 'ready');
     }
+    paintApprovalSummaries(host);
     if (tab.kind === 'stock' && !quantCache.has(tab.code) && !quantLoading.has(tab.code)) setTimeout(() => handle('quantOpen', tab.code).catch(err => toast(err.message)), 0);
 }
 document.addEventListener('click', e => { if (e.target.closest?.('#pagePanel')) panelClickAt = Date.now(); }, true);
-addEventListener('resize', () => { const h = document.getElementById('pagePanel'); if (h) h.style.setProperty('--pp-w', panelUI.clampWidth(pageWidth, innerWidth) + 'px'); });
+addEventListener('resize', () => { paintApprovalSummaries(); const h = document.getElementById('pagePanel'); if (h) h.style.setProperty('--pp-w', panelUI.clampWidth(pageWidth, innerWidth) + 'px'); });
 async function boot() {
     try {
         if (api) {
             applyState(await invoke('state'));
+            if (!state.locked && api.codingTasks) await loadCodingTasks();
         }
         render();
     }
@@ -1900,16 +2185,41 @@ async function boot() {
     }
 }
 let runtimeTimer;
-api?.onOpenPage?.(p => { if (p?.page === 'library' && p.document) { Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { if (/^\d{6}$/.test(String(p.code))) openMarketStockTab(p); else openPageTab('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code), {name: p.name, section: p.tab}).catch(e => toast(e.message)); else openPageTab('quant'); return; } if (p?.page === 'tasks' && p.tab) { taskTab = ['trade', 'runs'].includes(p.tab) ? p.tab : 'tasks'; openPageTab('tasks'); return; } /* [v0.52.2] */ if (p?.page === 'research') { rpStock = /^\d{6}$/.test(String(p.stock || '')) ? String(p.stock) : ''; rpKind = typeof p.kind === 'string' ? p.kind : ''; rpQuery = ''; openPageTab('research'); return; } /* [v0.53.1] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context', 'security'].includes(p?.page)) openPageTab(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
+api?.onCodingTask?.(refreshCodingTasks);
+async function openCodingPage(p) {
+    if (p?.page === 'coding-task' && typeof p.taskId === 'string') {
+        await handle('codingTaskOpen', p.taskId);
+        return true;
+    }
+    if (p?.page === 'agents' && p.coding) {
+        capabilityTab = 'coding';
+        await openPageTab('agents');
+        return true;
+    }
+    return false;
+}
+api?.onOpenPage?.(async p => {
+    if (p?.page === 'notice') { if (!state.locked) toast(p.message); return; }
+    if (p?.page === 'approval') {
+        try { applyState(await invoke('state')); await loadCodingTasks(); await jumpToApproval(p.requestId); }
+        catch (error) { toast(error.message); }
+        return;
+    }
+    if (await openCodingPage(p).catch(e => { toast(e.message); return true; })) return;
+ if (p?.page === 'library' && p.document) { Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { if (/^\d{6}$/.test(String(p.code))) openMarketStockTab(p); else openPageTab('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code), {name: p.name, section: p.tab}).catch(e => toast(e.message)); else openPageTab('quant'); return; } if (p?.page === 'tasks' && p.tab) { taskTab = ['trade', 'runs'].includes(p.tab) ? p.tab : 'tasks'; openPageTab('tasks'); return; } /* [v0.52.2] */ if (p?.page === 'research') { rpStock = /^\d{6}$/.test(String(p.stock || '')) ? String(p.stock) : ''; rpKind = typeof p.kind === 'string' ? p.kind : ''; rpQuery = ''; openPageTab('research'); return; } /* [v0.53.1] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context', 'security'].includes(p?.page)) openPageTab(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
 api?.onOpenChat?.(p => { if (p?.id && state.chats.some(c => c.id === p.id)) handle('openChat', p.id).catch(e => toast(e.message)); });
 api?.onRuntime?.(() => {
     clearTimeout(runtimeTimer);
     runtimeTimer = setTimeout(async () => {
         try {
             const wasLocked = !!state.locked, officePhase = state.officeEngine?.phase, next = await invoke('state');
+            const approvalChanged = JSON.stringify([state.inlineApprovals, state.pendingApprovals, state.resolvedApprovals]) !==
+                JSON.stringify([next.inlineApprovals, next.pendingApprovals, next.resolvedApprovals]);
+            if (approvalChanged && next.inlineApprovals?.some(item => !item.decision) && $('#modal')?.open && $('#modalSubmit')?.disabled) $('#modal').close();
             applyState(next);
+            if (wasLocked && !state.locked && api.codingTasks) await loadCodingTasks();
             if (wasLocked !== !!state.locked || state.locked) render(); // [F5] lock / unlock
-            else if (!$('#modal').open && (officePhase !== state.officeEngine?.phase || ['chat', 'tools', 'tasks', 'security'].includes(page) || ['tools', 'tasks', 'security', 'feed'].some(panelShows)))
+            else if (approvalChanged || !$('#modal').open && (officePhase !== state.officeEngine?.phase || ['chat', 'tools', 'tasks', 'security'].includes(page) || ['tools', 'tasks', 'security', 'feed'].some(panelShows)))
                 render();
             else if (!$('#modal').open) { marketRefreshView(); signalPopups(); } // [F1] [v0.53.1] buy / sell popups also on pages that do not re-render (工作台, 资料库 …)
         }
@@ -1923,7 +2233,8 @@ const liveStreams = new Map();
 let appVersion = ''; // [v0.52] shown next to the brand
 function applyState(next) {
     if (next?.appVersion) appVersion = String(next.appVersion);
-    if (next?.locked) { state = { locked: true, lock: next.lock || {}, chats: [], folders: [], memories: [], agents: [], tasks: [], artifacts: [], activity: [], settings: { name: '' } }; return; } // [F5]
+    if (next?.locked) { localApprovals.clear(); expandedApprovals.clear(); codingCandidates = null; codingTaskList = []; codingTaskDetails.clear(); codingTaskRevision++; clearTimeout(codingTaskPaint); codingTaskPaint = undefined;
+        for (const tab of pageTabs) if (tab.kind === 'coding-task') delete tab.loading; state = { locked: true, lock: next.lock || {}, chats: [], folders: [], memories: [], agents: [], tasks: [], artifacts: [], activity: [], settings: { name: '' } }; return; } // [F5]
     if (state.locked) { state = { ...next }; state.tasks ??= []; return; }
     for (let i=0;i<(next.runJobs || []).length;i++) {
         const incoming=next.runJobs[i],old=(state.runJobs || []).find(j=>j.id===incoming.id);
@@ -2015,6 +2326,7 @@ async function ingestComposerFiles(list) {
             const scope = chatId, presentPage = page;
             const row = await invoke('chatDropImport', { name, kind: image ? 'image' : 'file', bytes: new Uint8Array(await f.arrayBuffer()) });
             applyState(await invoke('state'));
+            if (!state.locked && api.codingTasks) await loadCodingTasks();
             if (scope !== chatId || presentPage !== page) { toast('已保存到本机，可在＋菜单里附加'); continue; }
             if (image) { if (images.length >= 8) throw Error('每次最多8张图片'); images.push(row); toast('已添加图片；勾选「本轮发送图片给模型」后随消息发送'); }
             else { const added = row?.attachments || []; if (files.length + added.length > 32) throw Error('合计超过32份附件，请分批添加'); files.push(...added); toast(`已添加 ${name}`); }

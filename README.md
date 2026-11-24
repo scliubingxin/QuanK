@@ -4,7 +4,7 @@
   <p><b>量化工作，一键搞定</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.56.0-2F62F5" alt="version">
+    <img src="https://img.shields.io/badge/version-0.57.0-2F62F5" alt="version">
     <img src="https://img.shields.io/badge/macOS-12%2B%20·%20Apple%20芯片-0B2BA6" alt="platform">
     <img src="https://img.shields.io/badge/license-Apache--2.0-8C7CFF" alt="license">
   </p>
@@ -53,6 +53,7 @@
 
 - **行情与分钟 K 线**：实时查看指数、个股报价和 1 / 5 / 15 / 30 分钟 K 线。
 - **量化本地与远程引擎**：运行本地策略或连接远程引擎，查看股票池、策略信号与回测。
+- **Coding 智能体**：通过本机 ACP 代理或内置编码能力迭代策略，审阅测试和回测对比后确认合并。
 - **投研资料与知识库**：归档研报、公告和笔记，检索有出处的资料，查看财务趋势与公司关系。
 - **组合与风控**：查看组合敞口和风险指标，运行压力测试与调仓模拟。
 - **半自动委托**：生成委托并支持模拟撮合，真实委托由你在券商页面确认提交。

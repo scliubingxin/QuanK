@@ -5,7 +5,6 @@ import {mkdtemp, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {Store, initialState} from '../core.mjs';
-import {createApprover} from '../main/approval.mjs';
 import {ToolRuntime} from '../runtime/tools.mjs';
 import {ruleCandidate, createApprovalRules, RULE_LIMIT} from '../services/approval-rules.mjs';
 import {createTaskService} from '../services/tasks.mjs';
@@ -62,23 +61,6 @@ test('rules: add, match by scope, task restriction, expiry, de-duplication and I
   await assert.rejects(rules.handle({action: 'nope'}), /未知操作/);
 });
 
-test('dialog offers "always allow" only with a rule scope and only when it fits', async () => {
-  const shown = [];
-  let reply = 2;
-  const approve = createApprover({getWindow: () => ({}), focus: () => {}, dialog: {showMessageBox: (_w, o) => { shown.push(o); return Promise.resolve({response: reply}); }}});
-  assert.deepEqual(await approve('执行本机 CLI', 'git status', undefined, {ruleScope: {label: '命令 git status'}}), {allowed: true, alwaysAllow: true});
-  assert.deepEqual(shown[0].buttons, ['取消', '允许这一次', '总是允许']); assert.match(shown[0].detail, /30 天内不再询问/);
-  reply = 3;
-  assert.deepEqual(await approve('读取网页内容', 'page', undefined, {browserScope: {origin: 'https://a.com'}, ruleScope: {label: '网站 https://a.com'}}), {allowed: true, alwaysAllow: true});
-  assert.equal(shown[1].buttons.length, 4);
-  reply = 2;
-  assert.deepEqual(await approve('读取网页内容', 'page', undefined, {browserScope: {origin: 'https://a.com'}, ruleScope: {label: '网站 https://a.com'}}), {allowed: true, browserTask: true});
-  reply = 1;
-  assert.equal(await approve('x', 'y\n'.repeat(18), undefined, {ruleScope: {label: 'z'}}), true);
-  assert.deepEqual(shown[3].buttons, ['取消', '允许这一次'], 'no rule option when the note would overflow');
-  assert.equal(await approve('x', 'y'), true); assert.equal(shown[4].buttons.length, 2);
-});
-
 async function runtimeFixture() {
   const dir = await mkdtemp(path.join(tmpdir(), 'wb-rules-'));
   const store = new Store(dir); await store.load(); store.data.folders = [{id: 'f', path: dir, name: 'fixture'}];
@@ -117,7 +99,7 @@ test('tool runtime: unattended runs never open a dialog; unruled operations are 
     assert.equal(f.asked.length, 0);
     assert.equal(f.store.data.executions[0].authorization, 'unattended_deferred');
     const item = f.store.data.pendingApprovals[0];
-    assert.equal(item.taskId, 'task-1'); assert.equal(item.candidate.kind, 'cli'); assert.equal(item.title, '执行本机 CLI');
+    assert.equal(item.taskId, 'task-1'); assert.equal(item.candidate.kind, 'cli'); assert.equal(item.title, '运行命令');
     const shell = await f.runtime.execute('cli_execute', {executable: '/bin/sh', args: ['-c', 'echo hi'], folderId: 'f'}, undefined, {chatId: 'sched', runId: 'r2'});
     assert.equal(shell.status, 'denied'); assert.equal(f.store.data.pendingApprovals[0].candidate, undefined, 'shells can never be ruled');
     await f.rules.handle({action: 'allowPending', id: item.id, onlyTask: true});
@@ -157,7 +139,7 @@ test('approval UI panels', () => {
   const action = (l, a, id = '') => `<button data-action="${a}" data-id="${id}">${l}</button>`, date = () => 'D';
   const s = initialState();
   assert.equal(pendingApprovalsPanel(s, {action, date}), ''); assert.equal(pendingBanner(s, action), '');
-  assert.match(approvalRulesPanel(s, {action, date}), /还没有规则/);
+  assert.match(approvalRulesPanel(s, {action, date}), /没有已保存的审批规则/);
   s.tasks = [{id: 't', name: '早报'}];
   s.pendingApprovals = [{id: 'p1', time: 1, chatId: 'gone', taskId: 't', title: '读取网页内容', detail: 'd', candidate: {label: '网站 https://a.com'}}, {id: 'p2', time: 2, title: '填写网页文本框', detail: 'line1\nline2'}];
   s.approvalRules = [{id: 'r', kind: 'cli', label: '命令 git status', uses: 3, expires: Date.now() + 1e6, taskId: 't'}, {id: 'old', kind: 'browser', label: 'x', expires: 1}];

@@ -23,7 +23,13 @@ export function buildFeed(data) {
   const chatExists = id => !!id && (data.chats || []).some(c => c.id === id && !c.incognito);
   const open = id => chatExists(id) ? [{label: '打开对话', action: 'openChat', id}] : [];
 
-  for (const x of data.pendingApprovals || []) {
+  for (const x of data.approvalFeed || []) {
+    if (data.chats?.some(chat => chat.id === x.chatId && chat.incognito)) continue;
+    items.push({ id: 'approval:' + x.requestId, kind: 'approval', group: 'action', title: '待确认授权：' + clip(x.action, 60),
+      detail: clip(x.source || x.agent), time: x.time, status: 'pending', needsAction: true,
+      actions: [{ label: '前往授权', action: 'approvalJump', id: x.requestId }] });
+  }
+  for (const x of data.approvalFeed ? [] : data.pendingApprovals || []) {
     const task = (data.tasks || []).find(t => t.id === x.taskId);
     items.push({id: 'approval:' + x.id, kind: 'approval', group: 'action', title: '待你确认：' + clip(x.title, 60), detail: clip((task ? task.name + ' · ' : '') + (x.candidate?.label || x.detail)), time: x.time, status: 'pending', needsAction: true,
       actions: [...(x.candidate ? [{label: '总是允许', action: 'allowPending', id: x.id, kind: 'primary'}] : []), ...open(x.chatId), {label: '忽略', action: 'dismissPending', id: x.id}]});

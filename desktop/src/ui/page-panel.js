@@ -16,6 +16,10 @@ export function documentTab(documentId, title, format) {
   return {id: 'document:' + documentId, kind: 'document', documentId, title, format};
 }
 
+export function codingTaskTab(taskId, title = '编码任务') {
+  return {id: 'coding-task:' + taskId, kind: 'coding-task', taskId, title};
+}
+
 export function stockTab(code, name = '', {section} = {}) {
   const c = String(code || '').trim();
   return {id: 'stock:' + c, kind: 'stock', page: 'quant', code: c, title: String(name || c), ...(section === 'graph' ? {section} : {})};
@@ -56,6 +60,7 @@ export function restoreTabs(raw) {
   const tabs = (Array.isArray(v?.tabs) ? v.tabs : []).map(t => t?.kind === 'stock' && /^\d{6}$/.test(String(t.code || '')) ? stockTab(t.code, t.title)
     : t?.kind === 'market-stock' && /^\d{6}$/.test(String(t.code || '')) ? marketStockTab(t.code, t.title, t.period)
     : t?.kind === 'document' && typeof t.documentId === 'string' && t.documentId ? documentTab(t.documentId, String(t.title || ''), String(t.format || ''))
+    : t?.kind === 'coding-task' && typeof t.taskId === 'string' && /^[\w-]+$/.test(t.taskId) ? codingTaskTab(t.taskId, String(t.title || '编码任务'))
     : t?.kind === 'page' && typeof t.page === 'string' && /^[a-z]+$/.test(t.page) && !MAIN_ONLY.has(t.page) ? pageTab(t.page, t.title) : null).filter(Boolean).slice(-PANEL_MAX_TABS);
   const width = Number(v?.width);
   return {tabs, active: tabs.some(t => t.id === v?.active) ? v.active : tabs.at(-1)?.id || '', wide: !!v?.wide, width: Number.isFinite(width) && width >= PANEL_MIN_WIDTH ? Math.round(width) : 0};

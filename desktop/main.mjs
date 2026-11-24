@@ -52,6 +52,9 @@ import { createSecurityService } from './services/security.mjs'; // [F5]
 import { createCliHandler, createCliServer, createCliInstaller, createAskRunner } from './services/cli-server.mjs'; // [v0.51 CLI]
 import { executeAppTool, appToolDefinitions } from './services/app-tools.mjs'; // [v0.51 CLI]
 import { modelEndpoint as qkModelEndpoint } from './core.mjs'; // [F1c]
+import { createQuantAutostart } from './runtime/quant-autostart.mjs';
+import { codingSpec, createCodingTasks } from './services/coding-tasks.mjs';
+import { createCodingRunner, createCodingService, detectAgents } from './services/coding-agent.mjs';
 import { createQuantEngine } from './services/quant-engine.mjs'; // [q1]
 import { normalizeWatch, actionLabel as quantActionLabel } from './src/shared/quant.js'; // [q3]
 import { createWebLookup } from './services/web-lookup.mjs'; // [ux9]
@@ -72,7 +75,10 @@ import { sharedRunQueue } from './runtime/run-queue.mjs';
 import { createCommandService } from './services/commands.mjs';
 import { createWorkspaceService } from './services/workspace.mjs';
 import { createApprover } from './main/approval.mjs';
+import { createInlineApprovals, createApprovalNotifications } from './main/inline-approval.mjs';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createRegistrar } from './main/ipc.mjs';
+import { observeCodingTasks } from './services/app-tools.mjs';
 import { createConversationService } from './services/conversation.mjs';
 import { createTaskService } from './services/tasks.mjs';
 import { recoverInterruptedWork } from './services/recovery.mjs';
@@ -80,7 +86,7 @@ import { requiredText as text } from './services/validation.mjs';
 import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Menu, safeStorage, shell, Notification, session, protocol, nativeImage, powerMonitor, systemPreferences } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { readFile, writeFile, stat } from 'node:fs/promises';
+import { realpath, readFile, writeFile, stat } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { ToolRuntime } from './runtime/tools.mjs';
 import { prepareUserData, rekeySecrets, APP_NAME, LEGACY_CRYPTO_NAME } from './runtime/identity.mjs';
@@ -90,7 +96,7 @@ import { Store, uid, listGranted, readGranted, complete } from './core.mjs';
 protocol.registerSchemesAsPrivileged([previewScheme]);
 const here = path.dirname(fileURLToPath(import.meta.url));
 let win, store, sessionKey = '', runner, closing = false, tick, shortcutReady = false;
-let security = null, auditLog = null, vault = null; // [F5]
+let security = null, auditLog = null, vault = null, coding = null, codingTasks = null; // [F5]
 let cliAsk = null; // [v0.51 CLI] follows `quank ask` turns
 // [F5 M2] every fetch from the main process is recorded (host / path / bytes, never bodies) and refused in offline mode
 const egress = createEgressMonitor({ privacy: () => store?.data?.security?.privacy, onRequest: e => { if (e.purpose === '大模型' && e.method === 'POST') auditLog?.record({ kind: 'model', action: '调用大模型', target: e.host, detail: `${e.path} · ${e.status === -1 ? '失败' : e.status}`, via: 'app' }).catch(() => {}); } });
@@ -113,18 +119,45 @@ const notifyRuntime = () => {
     if (win && !win.isDestroyed())
         win.webContents.send('actwill:runtime');
 };
-const approveNative = createApprover({ dialog, getWindow: () => win, focus });
+const activeCodingRunners = new Set();
+const closeCodingRunners = () => Promise.allSettled([...activeCodingRunners].map(runner => runner.close()));
+const approvalContext = new AsyncLocalStorage();
+const notifyApproval = createApprovalNotifications({
+    isFocused: () => win && !win.isDestroyed() && win.isFocused(),
+    send: (request, open) => {
+        if (!Notification.isSupported()) return;
+        const notice = new Notification({ title: 'QuanK · 待确认授权', body: request.agent + '：' + request.action });
+        notice.on('click', open);
+        notice.show();
+    },
+    open: requestId => {
+        focus();
+        if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'approval', requestId });
+    },
+});
+function approvalCreated(card) {
+    store?.log('待确认授权', card.source || card.agent);
+    void store?.save().catch(() => {});
+    try { notifyApproval(card); } catch {}
+}
+const inlineApprovals = createInlineApprovals({ changed: notifyRuntime, created: approvalCreated });
+const approveInline = createApprover({ approvals: inlineApprovals, context: () => approvalContext.getStore() });
 const approve = Object.assign(async (title, detail, signal, scope) => { // [F5 M3] every confirmation and its answer is audited
-    let r; try { r = await approveNative(title, detail, signal, scope); } catch (e) { auditLog?.record({ kind: 'approval', action: '确认框', target: String(title || '').slice(0, 60), detail: `取消：${String(e?.message || e).slice(0, 60)}` }).catch(() => {}); throw e; }
+    let r; try { r = await approveInline(title, detail, signal, scope); } catch (e) { auditLog?.record({ kind: 'approval', action: '授权请求', target: String(title || '').slice(0, 60), detail: `取消：${String(e?.message || e).slice(0, 60)}` }).catch(() => {}); throw e; }
     const ok = r === true || r?.allowed === true;
     auditLog?.record({ kind: 'approval', action: ok ? '已确认' : '已拒绝', target: String(title || '').slice(0, 60), detail: r?.alwaysAllow ? '选择了总是允许' : r?.browserTask ? '本任务本站点允许' : r?.documentTask ? '本任务允许此文档' : '' }).catch(() => {});
     return r;
-}, { cancelAll: () => approveNative.cancelAll() });
-let officeEngine, previewDiskTransitions = 0;
+}, { cancelAll: () => approveInline.cancelAll() });
+let officeEngine, quantAutostart, previewDiskTransitions = 0;
 let toolRuntime, genoffice, models, projects, libreoffice, officeWindows, connectors, graphService, dashboards, miniapps, quant, market, research, knowledge, portfolio, trade, dataset; // [p3-m1][p3-m5][p4-m1][p4-m4][q1][F1][F2][F3][F4]
 const pdfImports = createPdfImportControl({notify: notifyRuntime});
-const executeTool = (...args) => toolRuntime.execute(...args);
-const view = () => { if (security?.locked) return { locked: true, lock: security.lockState() }; const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,trade:_trade,research:_research,knowledge:_knowledge,portfolio:_portfolio,security:_security,quant:_quant,...publicData}=store.data; return { ...publicData, appVersion: app.getVersion(), pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeEngine:officeEngine?.state()||null,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, research: research?.view()||null, knowledge: knowledge?.view()||null, portfolio: portfolio?.view()||null, trade: trade?.view()||null, dataset: dataset?.view()||null, security: security?.summary()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
+const executeTool = (name, args, signal, context) => {
+    const chat = store?.data.chats.find(item => item.id === context?.chatId);
+    const agent = store?.data.agents.find(item => item.id === chat?.agentId)?.name;
+    return approvalContext.run({ ...approvalContext.getStore(), ...(agent ? { agent } : {}) },
+        () => toolRuntime.execute(name, args, signal, context));
+};
+const view = () => { if (security?.locked) return { locked: true, lock: security.lockState() }; const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,trade:_trade,research:_research,coding:_coding,knowledge:_knowledge,portfolio:_portfolio,security:_security,quant:_quant,...publicData}=store.data; return { ...publicData, inlineApprovals: inlineApprovals.list(), coding: coding?.view(), appVersion: app.getVersion(), pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeEngine:officeEngine?.state()||null,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, research: research?.view()||null, knowledge: knowledge?.view()||null, portfolio: portfolio?.view()||null, trade: trade?.view()||null, dataset: dataset?.view()||null, security: security?.summary()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
 function key() {
     if (sessionKey)
         return sessionKey;
@@ -137,7 +170,7 @@ const LOCK_OPEN = new Set(['state', 'security']);
 const register = (name, handler) => registerIpc(name, async p => {
     if (security?.locked && !LOCK_OPEN.has(name)) throw new Error('QuanK 已锁定，请先解锁');
     const a = auditLog ? auditOf(name, p) : null;
-    try { const r = await handler(p); if (a) auditLog.record({ ...a, via: 'app' }).catch(() => {}); return r; }
+    try { const r = await approvalContext.run({ chatId: typeof p?.approvalChatId === 'string' ? p.approvalChatId : undefined }, () => handler(p)); if (a) auditLog.record({ ...a, via: 'app' }).catch(() => {}); return r; }
     catch (e) { if (a) auditLog.record({ ...a, detail: `${a.detail} · 失败：${String(e?.message || e).slice(0, 60)}`, via: 'app' }).catch(() => {}); throw e; }
 });
 const previewOcrSource = createOcrPreviewLimiter();
@@ -148,6 +181,7 @@ async function launch() {
     win.once('ready-to-show', () => {
         win.show();
         officeEngine?.windowReady();
+        quantAutostart?.windowReady();
     });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', e => e.preventDefault());
@@ -218,8 +252,12 @@ else {
         }
         store.data.executions ??= [];
         const convertDocument=createDocumentConverter({createDriver:signal=>createConversionBrowser({BrowserWindow,session,signal})});
-        const approvalRules = createApprovalRules({ store, notify: notifyRuntime }); // [p2-m2]
+        const approvalRules = createApprovalRules({ store, notify: notifyRuntime, onDeferred: item => approvalCreated({
+            requestId: item.id, agent: '定时任务', action: item.title,
+            source: store.data.tasks?.find(task => task.id === item.taskId)?.name,
+        }) }); // [p2-m2]
         toolRuntime = new ToolRuntime({ store, browser, approve, notify: notifyRuntime, convertDocument,beforeCli:(args,policy)=>projects?.validate(args,policy), rules: approvalRules });
+        register('approvalResponse', p => inlineApprovals.finish(p.requestId, p.decision));
         register('approvalRule', p => approvalRules.handle(p).then(() => view()));
         const officeHome = path.join(store.dir, 'office');
         const officeWarmEnabled = () => store.data.settings.officeStartupWarm !== false;
@@ -293,7 +331,7 @@ else {
         register('imagePreview',p=>images.preview(p.id));
         register('imageRemove',async p=>{await images.remove(p.id);return view();});
         // [ux5] services the chat app tools can drive; getters so later-created services are picked up
-        const appDeps = { notify: notifyRuntime, openPage: (page, extra = {}) => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { ...extra, page }); }, // [v0.53.1] page filters / tabs
+        const appDeps = { get codingTasks() { return codingTasks; }, notify: notifyRuntime, openPage: (page, extra = {}) => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { ...extra, page }); }, // [v0.53.1] page filters / tabs
             openConnectorForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'connectors', connector: p }); }, web: createWebLookup(), // [ux9]
             openMcpForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'agents', mcp: p }); }, get capabilities() { return capabilityLibrary; }, // [mcp2]
             runTask: (id, o) => runTask(id, o), get workspace() { try { return workspace; } catch { return null; } },
@@ -306,7 +344,10 @@ else {
                 onStandbyTiming:timing=>officeEngine?.record('editorWorker',timing),
                 audit:async event=>{const prev=store.data.executions;store.data.executions=[event,...prev.filter(e=>e.id!==event.id)].slice(0,300);try{await store.save();}catch(e){store.data.executions=prev;throw e;}notifyRuntime();}});
             const officeChat=createOfficeChat({store,kit,models,key,approve,queue:runs,notify:notifyRuntime});
-            officeWindows=createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat:officeChat,models,documents:toolRuntime.documents,dialog});
+            officeWindows=createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat:officeChat,models,documents:toolRuntime.documents,dialog,notice: message => {
+                focus();
+                win?.webContents.send('actwill:openPage', { page: 'notice', message });
+            }});
             register('officeOpen',p=>officeWindows.open(p.id,p.revision));
             officeEngine=createOfficeEngine({
                 enabled:officeWarmEnabled, defer:deferOfficeWarm, notify:notifyRuntime,
@@ -331,7 +372,7 @@ else {
         register('briefingSettings', async p => { await briefing.settings(p); return view(); });
         // [p3-m1] connectors: credentials sealed with the same OS secure storage as MCP tokens
         connectors = createConnectorService({ store, secrets: createMcpSecretCodec(safeStorage), notify: notifyRuntime,
-            confirm: async ({ title, detail }) => (await dialog.showMessageBox(win && !win.isDestroyed() ? win : undefined, { type: 'question', buttons: ['发送', '取消'], defaultId: 1, cancelId: 1, noLink: true, message: title, detail })).response === 0 }); // [p3-m3] every send confirmed
+            confirm: async ({ title, detail }) => await approve(title, detail, undefined, { highRisk: true }) === true }); // [p3-m3] every send confirmed
         register('connector', async p => { const result = await connectors.handle(p); return { result, state: view() }; });
         // [p3-m5] knowledge graph (extraction uses the configured model)
         graphService = createGraphService({ store, models, key, notify: notifyRuntime });
@@ -358,16 +399,25 @@ else {
         // [q1] local private quant engine (the user's own strategy project, run as a child process on 127.0.0.1)
         dataset = createDatasetService({ dir: path.join(app.getPath('userData'), 'quant'), market: { handle: p => market ? market.handle(p) : Promise.reject(new Error('行情未就绪')) }, quantSource: () => store.data.quant?.source || '', notify: notifyRuntime, log: (t, d) => store.log?.(t, d), // [v0.53]
             saveDialog: async ({ name, ext }) => { const r = await dialog.showSaveDialog(win, { title: '导出训练数据', defaultPath: path.join(app.getPath('downloads'), name), filters: [{ name: ext.toUpperCase(), extensions: [ext] }] }); return r.canceled ? '' : r.filePath; } });
+        const seal = s => 'v1:' + safeStorage.encryptString(s).toString('base64');
+        const unseal = s => String(s || '').startsWith('v1:') ? safeStorage.decryptString(Buffer.from(String(s).slice(3), 'base64')) : s;
         quant = createQuantEngine({ onSignal: (code, summary) => { void dataset?.record(code, summary).catch(() => {}); }, // [v0.53] training data
             onReport: async (r, md) => { const pool = store.data.quant?.pool || []; await research?.handle({ action: 'archive', kind: 'quant', reportId: r.id, date: r.date, title: `${r.title} · ${r.date}`, summary: r.summary, metrics: r.metrics, text: md || [r.summary, ...(r.items || []).map(x => `- ${x.title}${x.detail ? '：' + x.detail : ''}`)].filter(Boolean).join('\n'), tags: ['量化日报', ...pool.slice(0, 3).map(p => p.name).filter(Boolean)] }); }, // [v0.53] 日报复盘 → 资料库
             dir: path.join(app.getPath('userData'), 'quant'), store, lookup: createStockLookup(), notify: notifyRuntime, onAlert: a => { try { if (!normalizeWatch(store.data.quant?.watch).notify || !Notification.isSupported()) return; // [q3]
                 if (a.kind !== 'change' || !/^(BUY|STRONG_BUY|SELL|STRONG_SELL)$/i.test(String(a.to || ''))) return; // [v0.52.1] only buy / sell points
                 const n = new Notification(a.kind === 'report' ? { title: `QuanK · ${a.title}`, body: a.ok ? `${a.summary || '已生成'}${(a.warnings || []).length ? '\n⚠ ' + a.warnings[0] : ''}`.slice(0, 200) : `生成失败：${a.summary || ''}`.slice(0, 200) } : a.kind === 'digest' ? { title: 'QuanK · 盘前量化简报', body: `${a.counts.total} 只：${a.counts.buy} 个买点，${a.counts.sell} 个风控提示` } : { title: 'QuanK · 量化信号变化', body: `${a.name || a.code}：${quantActionLabel(a.from)} → ${quantActionLabel(a.to, a.toText)}${a.score != null ? `，综合分 ${a.score}` : ''}` });
                 n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', ...(a.kind === 'change' ? { code: a.code } : {}), ...(a.kind === 'report' ? { report: a.reportId } : {}) }); }); n.show(); } catch {} },
-            seal: s => safeStorage.isEncryptionAvailable() ? 'v1:' + safeStorage.encryptString(s).toString('base64') : s,
-            unseal: s => String(s || '').startsWith('v1:') ? safeStorage.decryptString(Buffer.from(String(s).slice(3), 'base64')) : s,
+            seal: s => safeStorage.isEncryptionAvailable() ? seal(s) : s,
+            unseal,
             aiGateway: () => { const r = models.resolve('legacy', '', { tools: false, vision: false }); const s = r?.settings || store.data.settings; if (!s?.model || !s?.baseUrl) return null; return { baseUrl: String(s.baseUrl).replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, ''), model: s.model, key: r ? r.key() : key() }; },
             chooseFolder: async current => { const r = await dialog.showOpenDialog(win, { title: '选择你的策略项目文件夹（根目录需有 wb-engine.json）', ...(current ? { defaultPath: current } : {}), properties: ['openDirectory'] }); return r.canceled ? null : r.filePaths[0]; } });
+        quantAutostart = createQuantAutostart({
+            enabled: () => store.data.quant?.startupEngine === true,
+            officePhase: () => officeWarmEnabled() ? officeEngine?.state().phase : null,
+            defer: deferOfficeWarm,
+            run: canRun => quant.startup(canRun),
+            onError: error => console.warn('[Quant]', error.message),
+        });
         register('quant', async p => { const result = await quant.handle(p); return { result, state: view() }; });
         market = createMarketService({ store, lookup: createStockLookup(), notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'market', code: a.code }); }); n.show(); } catch {} } }); // [F1]
         // [F2] research documents: announcements, reports, library, exports. Charts are rasterised in a hidden offscreen window.
@@ -386,12 +436,12 @@ else {
         portfolio = createPortfolioService({ store, quant, market, knowledge, research, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', ...(a.code ? { code: a.code } : {}) }); }); n.show(); } catch {} } }); // [F4]
         // [F5] 安全与合规
         const aiDefault = () => { const r = models.resolve('legacy', '', { tools: false, vision: false }); const s0 = r?.settings || store.data.settings; if (!s0?.model || !s0?.baseUrl) return null; return { baseUrl: String(s0.baseUrl).replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, ''), model: s0.model, key: r ? r.key() : key(), name: r?.profile?.name || s0.name || '' }; };
-        security = createSecurityService({ store, audit: auditLog, egress, vault, dir: app.getPath('userData'), appName: APP_NAME, notify: notifyRuntime,
+        security = createSecurityService({ store, audit: auditLog, egress, vault, dir: app.getPath('userData'), appName: APP_NAME, notify: () => { if (security?.locked) { approve.cancelAll(); void coding?.cancelActive(); void closeCodingRunners(); } notifyRuntime(); },
             idleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return 0; } },
             touchId: { can: () => { try { return process.platform === 'darwin' && systemPreferences.canPromptTouchID(); } catch { return false; } }, prompt: reason => systemPreferences.promptTouchID(reason) },
             saveFile: async ({ title, defaultName, filters }) => { const r = await dialog.showSaveDialog(win, { title, defaultPath: path.join(app.getPath('documents'), defaultName), filters }); return r.canceled ? null : r.filePath; },
             openFile: async ({ title, filters }) => { const r = await dialog.showOpenDialog(win, { title, properties: ['openFile'], filters }); return r.canceled ? null : r.filePaths[0]; },
-            relaunch: () => { app.relaunch(); app.exit(0); },
+            relaunch: async () => { await coding?.close(); app.relaunch(); app.exit(0); },
             secretsView: () => { const ai = aiDefault(); let host = ''; try { host = ai ? new URL(ai.baseUrl).hostname : ''; } catch {} return {
                 models: (models?.view() || []).map(m => { let h = ''; try { h = new URL(m.baseUrl).hostname; } catch {} return { id: m.id, name: m.name, host: h, model: m.model, hasKey: !!m.hasKey, keySaved: !!m.keySaved, enabled: m.enabled !== false }; }),
                 legacy: { hasKey: !!sessionKey || !!store.data.settings?.encryptedKey, keySaved: !!store.data.settings?.encryptedKey, model: store.data.settings?.model || '' },
@@ -405,6 +455,129 @@ else {
                     if (r.ok) return { ok: true, host, status: r.status, model: ai.model, message: '密钥有效' };
                     return { ok: false, host, status: r.status, model: ai.model, message: r.status === 401 || r.status === 403 ? '密钥无效或已失效（服务返回 ' + r.status + '）。请在「模型设置」里更换 API Key，然后在量化页点「重启」让策略引擎用上新密钥' : r.status === 404 ? '服务不支持模型列表接口，无法判断密钥是否有效；可以直接发一条对话试试' : `服务返回 ${r.status}` };
                 } catch (e) { return { ok: false, host, message: e?.code === 'QK_OFFLINE' ? e.message : `连不上 ${host}：${String(e?.message || e).slice(0, 80)}` }; } } });
+        coding = createCodingService({
+            // C1 replaces the configuration object on save. Preserve the C3 task log across those writes.
+            store: {
+                get data() {
+                    return new Proxy(store.data, { set(target, key, value) {
+                        if (key === 'coding' && value && target.coding?.tasks) value.tasks = target.coding.tasks;
+                        return Reflect.set(target, key, value);
+                    } });
+                },
+                save: () => store.save(),
+            },
+            terminalPython: () => quant.view().pythonFound,
+            projectDir: () => store.data.quant?.mode === 'remote' ? '' : store.data.quant?.source,
+            locked: () => !!security?.locked,
+            offline: () => !!store.data.security?.privacy?.offline,
+            seal: value => {
+                if (!safeStorage.isEncryptionAvailable() || safeStorage.getSelectedStorageBackend?.() === 'basic_text')
+                    throw new Error('系统安全存储不可用，无法保存代理环境变量');
+                return seal(value);
+            },
+            unseal,
+            audit: event => auditLog?.record(event),
+        });
+        function summarizeCodingTask({ stream, result, ...task }) {
+            return { ...task, ...(result ? { result: { diffStat: result.diffStat } } : {}) };
+        }
+        codingTasks = createCodingTasks({
+            store, coding, quant, research, dataset,
+            locked: () => !!security?.locked || closing,
+            audit: event => auditLog?.record(event),
+            notify: task => {
+                if (task.pendingPermission) approvalCreated({
+                    ...task.pendingPermission, agent: 'Coding 智能体', source: task.title,
+                });
+                const title = { review: '量化代码迭代待合并', no_changes: '量化代码迭代无改动', failed: '量化代码迭代失败' }[task.status];
+                if (title) {
+                    store.log(title, task.title);
+                    void store.save().catch(() => {});
+                }
+                notifyRuntime();
+            },
+            runnerFactory: (kind, { redactWith, ...opts }) => {
+                const agent = store.data.coding?.agents?.find(item => item.id === opts.id);
+                let env;
+                try { env = Object.fromEntries(Object.entries(agent?.envSealed || {}).map(([key, value]) => [key, unseal(value)])); }
+                catch { throw Object.assign(new Error('无法读取代理的鉴权配置'), { kind: 'auth' }); }
+                redactWith(Object.values(env));
+                const runner = createCodingRunner({ ...opts, kind, models, env: { ...env, GIT_ALLOW_PROTOCOL: '' },
+                    terminalPython: quant.view().pythonFound, offline: () => !!store.data.security?.privacy?.offline });
+                activeCodingRunners.add(runner);
+                runner.on('end', () => activeCodingRunners.delete(runner));
+                return runner;
+            },
+        });
+        observeCodingTasks(store, appDeps);
+        codingTasks.on('change', task => {
+            if (win && !win.isDestroyed()) win.webContents.send('actwill:codingTask', summarizeCodingTask(task));
+        });
+        const handleCoding = coding.handle;
+        coding.handle = async p => {
+            if (p?.action !== 'detect') return handleCoding(p);
+            // Search stable PATH entries before paths managed by npm exec's disposable cache.
+            const entries = (process.env.PATH || '').split(path.delimiter);
+            const caches = await Promise.all(entries.map(async entry => {
+                const resolved = entry && await realpath(entry).catch(() => entry);
+                return /[\\/]_npx[\\/]/.test(resolved || '');
+            }));
+            const searchPath = [...entries.filter((_, i) => !caches[i]), ...entries.filter((_, i) => caches[i])].join(path.delimiter);
+            const candidates = await detectAgents({ searchPath });
+            if (security?.locked) throw new Error('QuanK 已锁定，请先解锁');
+            return Promise.all(candidates.map(async candidate => ({
+                ...candidate, npmCache: /[\\/]_npx[\\/]/.test(await realpath(candidate.command).catch(() => candidate.command)),
+            })));
+        };
+        register('coding', async p => ({ result: await coding.handle(p) }));
+        register('codingTasks', async p => {
+            switch (p?.action) {
+                case 'list': return { result: codingTasks.list().map(summarizeCodingTask) };
+                case 'get': return { result: codingTasks.get(p.id) };
+                case 'start': {
+                    const agreed = await approve('启动 Coding 任务', '在本地策略项目创建分支。\n需求：' + String(p.request || '').slice(0, 750), undefined, { agent: 'Coding 智能体' });
+                    if (!(agreed === true || agreed?.allowed)) return { result: null };
+                    return { result: await codingTasks.start({ agentId: p.agentId, request: p.request, source: 'ui' }) };
+                }
+                case 'followup': return { result: await codingTasks.followup(p.id, p.request) };
+                case 'permission': return { result: await codingTasks.respondPermission(p.id, p.requestId, p.decision) };
+                case 'stop': return { result: await codingTasks.stop(p.id) };
+                case 'openReport': {
+                    const error = await shell.openPath(await codingTasks.reportFile(p.id));
+                    if (error) throw new Error('无法打开迭代报告');
+                    return { result: true };
+                }
+                case 'merge':
+                case 'discard': {
+                    const task = codingTasks.get(p.id);
+                    const merge = p.action === 'merge';
+                    const strategy = task.strategyProject !== false;
+                    const action = merge ? (strategy ? '合并并重启引擎' : '合并代码项目') : '放弃迭代';
+                    const detail = merge
+                        ? (strategy ? '合并到原分支，随后同步策略、重启本地引擎并刷新股票池信号。' : '将代码项目的改动合并到原分支。')
+                        : '删除迭代分支并返回原分支，保留迭代报告。';
+                    if (!await approve(action, task.title + '\n' + detail, undefined, { agent: 'Coding 智能体', codingTaskId: task.id, source: task.title, highRisk: true }))
+                        return { result: task };
+                    if (codingTasks.get(p.id).updatedAt !== task.updatedAt) throw new Error('迭代已更新，请重新核对后确认');
+                    return { result: await codingTasks[p.action](p.id) };
+                }
+                case 'specGet': return { result: await codingSpec(store.dir, 'get') };
+                case 'specSave': return { result: await codingSpec(store.dir, 'save', p.text) };
+                case 'specReset': return { result: await codingSpec(store.dir, 'reset') };
+                default: throw new Error('未知的 Coding 任务操作');
+            }
+        });
+        register('codingBrowse', async () => {
+            const result = await dialog.showOpenDialog(win, { title: '选择代理可执行文件', properties: ['openFile'] });
+            if (security?.locked) throw new Error('QuanK 已锁定，请先解锁');
+            return result.canceled ? null : result.filePaths[0];
+        });
+        let codingDrained = false;
+        app.on('will-quit', event => {
+            if (codingDrained) return;
+            event.preventDefault();
+            void Promise.allSettled([coding.close(), closeCodingRunners()]).finally(() => { codingDrained = true; app.quit(); });
+        });
         // [v0.51 CLI] quank: local socket bridge to the same app tools (off until the user turns it on)
         {
             const userDir = app.getPath('userData');
@@ -569,7 +742,7 @@ else {
         });
         const importAttachment=async(source,range)=>{ // [F1f] shared by the picker and drag & drop
             if(range&&!source.toLowerCase().endsWith('.pdf'))throw Error('指定页识别仅支持PDF');
-            if(source.toLowerCase().endsWith('.pdf')){const job=pdfImports.start();try{return await importChatPdf({file:source,range,directory:store.dir,signal:job.signal,onProgress:progress=>pdfImports.progress(job,progress),documents:toolRuntime.documents,tools:bundledPdfOcrTools,read:f=>readDocumentSource(f,{noFollow:true,maxBytes:16*1024*1024,label:'PDF'}),confirm:async({name,startPage,endPage})=>{const rangeText=endPage==='first5'?'前5页（不足5页则全部识别）':'第 '+startPage+'–'+endPage+' 页';const choice=await dialog.showMessageBox(win,{type:'question',title:'本机识别 PDF 附件',message:'识别 '+name.replace(/[\u0000-\u001f]/g,' ').slice(0,150)+' 的'+rangeText,detail:'仅在本机识别；发送后识别文字会交给当前模型。所选范围之外的页面不会识别。OCR可能有误，请核对原文。',buttons:['中英混合','中文','英文','取消'],defaultId:3,cancelId:3,noLink:true,signal:AbortSignal.any([job.signal,AbortSignal.timeout(60000)])});return ['chi_sim+eng','chi_sim','eng',null][choice.response]??null;}});}finally{pdfImports.finish(job);}}
+            if(source.toLowerCase().endsWith('.pdf')){const job=pdfImports.start();try{return await importChatPdf({file:source,range,directory:store.dir,signal:job.signal,onProgress:progress=>pdfImports.progress(job,progress),documents:toolRuntime.documents,tools:bundledPdfOcrTools,read:f=>readDocumentSource(f,{noFollow:true,maxBytes:16*1024*1024,label:'PDF'}),confirm:async({name,startPage,endPage})=>{const rangeText=endPage==='first5'?'前5页（不足5页则全部识别）':'第 '+startPage+'–'+endPage+' 页';const choice=await inlineApprovals.request('本机识别 PDF 附件','识别 '+name.replace(/[\u0000-\u001f]/g,' ').slice(0,150)+' 的'+rangeText+'\n仅在本机识别；发送后识别文字会交给当前模型。所选范围之外的页面不会识别。OCR 可能有误，请核对原文。',job.signal,{...approvalContext.getStore(),choices:['deny','chi_sim+eng','chi_sim','eng'],promptChoices:{'chi_sim+eng':'中英混合',chi_sim:'中文',eng:'英文'}});return choice==='deny'?null:choice;}});}finally{pdfImports.finish(job);}}
             const bytes=await readDocumentSource(source,{noFollow:true,maxBytes:source.toLowerCase().endsWith(".zip")?32*1024*1024:4*1024*1024,label:source.toLowerCase().endsWith(".zip")?"ZIP压缩包":"文档"});
             let project,projectError;if(source.toLowerCase().endsWith('.zip')){try{project=await projects.importArchive(path.basename(source),bytes);}catch(e){projectError=e.message;}}
             const parsed=parseChatUpload(path.basename(source),bytes),documents=await toolRuntime.documents.importBatch(parsed.items);
@@ -655,7 +828,7 @@ else {
             void briefing?.tick().catch(() => {});
             void connectors?.tick().catch(() => {}); // [p3-m1]
             void graphService?.tick().catch(() => {}); // [p3-m5]
-            void quant?.tick().catch(() => {}); // [q3] watch the pool in trading hours
+            if (!quantAutostart?.pending()) void quant?.tick().catch(() => {}); // [q3] watch the pool in trading hours
             void market?.tick().catch(() => {}); // [F1] watchlist quotes, alerts, overview keep-alive
             void research?.tick().catch(() => {}); // [F2] pool announcements
             void knowledge?.tick().catch(() => {}); // [F3] weekly topic digests
@@ -670,11 +843,27 @@ else {
         }, 1000);
     }).catch(e => { dialog.showErrorBox('QuanK 启动失败', e.message); app.quit(); });
     app.on('activate', focus);
+    let officeQuitApproved = false, officeQuitPending = false;
     app.on('before-quit', (event) => {
+        if (officeWindows?.hasUnsaved()) {
+            event.preventDefault();
+            focus();
+            win?.webContents.send('actwill:openPage', { page: 'notice', message: 'QuanK Office 有尚未保存的修改。请在文档窗口保存后退出。' });
+            return;
+        }
+        if (!officeQuitApproved && libreoffice?.sessions().length) {
+            event.preventDefault();
+            if (!officeQuitPending) {
+                officeQuitPending = true;
+                void approve('放弃副本并退出', '编辑副本尚未收回。确认退出会清理这些副本。', undefined, { highRisk: true })
+                    .then(allowed => { if (allowed) { officeQuitApproved = true; app.quit(); } })
+                    .catch(() => {}).finally(() => { officeQuitPending = false; });
+            }
+            return;
+        }
         pdfImports.close();
-        if(officeWindows?.hasUnsaved()){event.preventDefault();dialog.showMessageBoxSync({type:'warning',message:'QuanK Office有尚未保存的修改',detail:'请在文档窗口重试保存后退出；不会丢弃未保存内容。'});return;}
-        if(libreoffice?.sessions().length){const choice=dialog.showMessageBoxSync(win,{type:'warning',message:'有文档编辑副本尚未收回',detail:'请先保存并退出内置编辑窗口，再返回收回新版本。放弃退出会清理尚未回收的副本。',buttons:['返回处理','放弃副本并退出'],defaultId:0,cancelId:0});if(choice===0){event.preventDefault();return;}}
         officeEngine?.close();
+        quantAutostart?.close();
         officeWindows?.close().catch(()=>{});
         libreoffice?.close().catch(()=>{});
         genoffice?.close().catch(()=>{});
