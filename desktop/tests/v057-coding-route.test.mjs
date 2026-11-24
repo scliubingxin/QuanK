@@ -53,6 +53,7 @@ const review = {
 function setup({mode = 'local', settings = {}, agents = [], task = review, answer = true} = {}) {
   const store = {data: initialState(), async save() {}, log() {}};
   store.data.coding = {settings, agents};
+  store.data.agents[0].subagents = {dialogue: [], coding: settings.allowAssistant === false ? [] : [...agents.map(a => a.id), 'builtin'], fallback: settings.fallback || 'auto'};
   store.data.quant = {mode, source: '/quant/project'};
   const calls = [], dialogs = [], pages = [], feed = [], notifications = [], requests = [];
   const codingTasks = Object.assign(new EventEmitter(), {
@@ -89,8 +90,8 @@ test('启动确认显示内置、项目和需求，空代理列表仍交给任�
   const f = setup();
   await f.run('start', start);
   assert.match(f.dialogs[0][1], /代理：QuanK 内置.*\n项目：\/quant\/project\n需求：把止损改成 ATR 动态止损/);
-  assert.deepEqual(f.calls, [['start', {...start, source: 'chat', chatId: 'chat-1'}]]);
-  assert.deepEqual(f.pages, [['coding-task', {taskId: review.id}]]);
+  assert.deepEqual(f.calls, [['start', {...start, fallback: 'auto', allowedAgents: [], source: 'chat', chatId: 'chat-1'}]]);
+  assert.deepEqual(f.pages, [['tasks', {coding:{task:review.id}}]]);
 });
 
 test('列代理只返回公开字段，选择指定代理需确认，拒绝后无副作用', async () => {
@@ -120,7 +121,7 @@ test('只接受已授权的其他代码项目', async () => {
 test('查看最近任务并打开详情，继续和停止调用原任务', async () => {
   const f = setup();
   assert.equal((await f.run('status')).task.id, review.id);
-  assert.deepEqual(f.pages, [['coding-task', {taskId: review.id}]]);
+  assert.deepEqual(f.pages, [['tasks', {coding:{task:review.id}}]]);
   await f.run('followup', {...taskArgs, request: '再跑一次'});
   await f.run('stop', taskArgs);
   assert.deepEqual(f.calls, [['followup', review.id, '再跑一次'], ['stop', review.id]]);
@@ -141,7 +142,7 @@ test('工具模式关闭仍提供 Coding 工具以及系统约束', async () => 
   const result = await f.chat(start.request, {response: n => n === 1 && toolCall('start', start)});
   assert.equal(f.requests[0].definitions.filter(d => d.function.name.startsWith('app_coding_')).length, 8);
   assert.match(f.requests[0].messages[0].content, /需要写代码时，调用 app_coding_start.*先用一句话复述.*改哪个项目.*不要在回复里贴大段代码.*短代码片段除外/);
-  assert.deepEqual(f.calls, [['start', {...start, source: 'chat', chatId: 'chat-1'}]]);
+  assert.deepEqual(f.calls, [['start', {...start, fallback: 'auto', allowedAgents: [], source: 'chat', chatId: 'chat-1'}]]);
   assert.equal(result.actions[0].label, '查看结果');
   assert.match(f.store.data.chats[0].messages.at(-2).content, /项目中处理.*ATR/);
 });
@@ -162,7 +163,7 @@ test('关闭助手调用时不暴露任何 Coding 工具，并提供开启指引
   await f.chat('你好', {toolsEnabled: true});
   assert.ok(!f.requests[0].definitions.some(d => d.function.name.startsWith('app_coding_')));
   const reply = await f.chat(start.request, {toolsEnabled: true});
-  assert.match(reply.content, /设置里开启/);
+  assert.match(reply.content, /在编辑智能体中绑定 Coding 子智能体/);
   assert.equal(f.requests.length, 1);
   assert.equal((await f.run('status')).status, 'disabled');
 });
@@ -175,6 +176,7 @@ test('外部模式无代理给出接入入口，有代理启动失败也使用�
   assert.deepEqual(reply.actions, [{label: '打开 Coding 智能体', page: 'agents', coding: {}}]);
   assert.equal(f.dialogs.length, 0);
   f.store.data.coding.agents = [{id: 'a', name: 'Codex'}];
+  f.store.data.agents[0].subagents.coding.push('a');
   assert.match((await f.run('start', start)).message, /接入/);
   assert.equal(f.dialogs.length, 1);
 });
@@ -220,7 +222,7 @@ test('仅需处理的状态推送动态与通知，完成摘要及按钮写入�
   assert.equal(messages.length, 1);
   assert.match(messages[0].content, /待合并[\s\S]*最大回撤 −5\.1% → −4\.8%/);
   assert.doesNotMatch(messages[0].content, /\{|null/);
-  assert.deepEqual(messages[0].actions, [{label: '查看结果', page: 'coding-task', taskId: review.id}]);
+  assert.deepEqual(messages[0].actions, [{label: '查看结果', page: 'tasks', coding:{task:review.id}}]);
 });
 test('零改动结果写入原对话，合并工具拒绝且不要求确认', async () => {
   const task = {...review, status: 'no_changes', chatId: 'chat-1',

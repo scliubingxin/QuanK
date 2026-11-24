@@ -1,3 +1,4 @@
+import { builtinCodingAgent, getSubagents } from '../shared/subagents.js';
 import { registryChoices, mcpAuthFields } from "./capability-library.js";
 import { escape } from "./markdown.js";
 const tools = [
@@ -23,12 +24,28 @@ const skillRow = (s = {}) =>
   `<div class="agent-skill-row"><label>技能名称<input name="skillName" maxlength="60" value="${escape(s.name || "")}"></label><label>简介<input name="skillDescription" maxlength="200" value="${escape(s.description || "")}"></label><label>技能操作步骤 / SKILL.md<textarea name="skillInstructions" maxlength="12000">${escape(s.instructions || "")}</textarea></label><button type="button" data-agent-remove>移除技能</button></div>`;
 const mcpRow = (s = {}) =>
   `<div class="agent-mcp-row"><label>连接名称<input name="mcpName" maxlength="40" value="${escape(s.name || "")}"></label><label>MCP Streamable HTTP 地址<input name="mcpUrl" type="url" placeholder="http://localhost:3000/mcp" value="${escape(s.url || "")}"></label><button type="button" data-agent-remove>移除连接</button></div>`;
+function subagentEditor(agent, state) {
+  const bindings = getSubagents(state, agent);
+  const options = (items, name, bound) => items.map(item =>
+    `<label class="check"><input type="checkbox" name="${name}" value="${escape(item.id)}" ${bound.includes(item.id) ? 'checked' : ''}>${escape(item.name)}</label>`).join('');
+  const dialogue = (state.agents || []).filter(item => item.id !== agent.id);
+  const coding = [...(state.coding?.agents || []), builtinCodingAgent];
+  return `<section class="agent-capabilities agent-subagents"><h3>子智能体</h3>
+    <div class="subagent-group"><h4>对话</h4>${options(dialogue, 'dialogueSubagent', bindings.dialogue)}</div>
+    <div class="subagent-group"><h4>Coding</h4>${options(coding, 'codingSubagent', bindings.coding)}</div>
+    <div class="subagent-coding-settings"><h4>Coding 设置</h4><label>回退方式<select name="codingFallback">
+      ${[['auto','自动回退'],['external','仅外部'],['builtin','仅内置']].map(([id,label]) => `<option value="${id}" ${id === bindings.fallback ? 'selected' : ''}>${label}</option>`).join('')}
+    </select></label><div class="toolbar">
+      <button type="button" class="secondary" data-agent-spec>编辑迭代规范</button>
+      <button type="button" class="secondary" data-agent-spec-reset>恢复默认</button>
+    </div><label data-agent-spec-body hidden>迭代规范<textarea name="codingSpec" spellcheck="false"></textarea></label></div></section>`;
+}
 export function agentEditor(a = {}, documents = [], state = {}) {
-  return `<section class="agent-capabilities"><h3>知识库文档</h3><p>先在成果中心导入文档。智能体可跨已绑定文档检索中文/英文片段，逐份读取仍需批准；结果带文档版本、哈希与行号。最多8份；可在模型配置中选择本机嵌入模型，否则为词法检索。</p><div class="agent-knowledge">${documents.map((d) => `<label class="check"><input type="checkbox" name="knowledge" value="${escape(d.id)}" ${(a.knowledge || []).includes(d.id) ? "checked" : ""}>${escape(d.name)} · ${escape(d.format)} v${d.revision}</label>`).join("") || "<p>暂无文档，请先到成果中心导入。</p>"}</div><h3>绑定 Skills</h3><div id="boundSkills">${registryChoices("skills", state, a)}</div><p class="binding-hint">勾选技能库中已上传并启用的技能即可绑定。上传与维护请前往 Skills 技能库。</p><div id="agentSkills" hidden>${(a.skills || []).map(skillRow).join("")}</div><h3>Tools 工具范围</h3><div class="agent-tools">${tools.map((n) => `<label class="check"><input type="checkbox" name="agentTool" value="${n}" ${!a.tools || a.tools.includes(n) ? "checked" : ""}>${n}</label>`).join("")}</div><h3>绑定 MCP 客户端</h3><div id="boundMcp">${registryChoices("mcp", state, a)}</div><button type="button" data-agent-new-mcp>配置新的 MCP</button><div id="inlineMcpConfig" hidden><label>连接名称<input name="registryMcpName" maxlength="40"></label><label>服务地址<input name="registryMcpUrl" type="url" placeholder="https://example.com/mcp"></label>${mcpAuthFields({}, "registryMcp")}<button type="button" data-agent-save-mcp>保存连接并选中</button><small>只保存配置，测试与实际连接需另行批准。不在URL中填写密钥；暂不支持OAuth/stdio。</small></div><details ${a.mcp?.length ? "open" : ""}><summary>原有内嵌 MCP 配置</summary><h3>MCP 连接</h3><p>支持无需登录的 HTTPS 或本机 HTTP Streamable HTTP 服务；每轮先批准发现，每次调用再批准。暂不支持 stdio / OAuth，不在地址中填写密钥。</p><div id="agentMcp">${(a.mcp || []).map(mcpRow).join("")}</div><button type="button" data-agent-add="mcp">添加 MCP 服务</button></details><label>ReAct 最大模型轮数<input type="number" name="maxSteps" min="1" max="96" value="${a.maxSteps || 32}" required></label><p>模型选择工具 → 执行 → 观察结果 → 验收或继续；默认32轮，可配置1–96轮；每次模型回复最多8个工具调用，仍可随时停止。关闭对话工具模式时不连接MCP或读取技能/知识。</p></section>`;
+  return `${subagentEditor(a, state)}<section class="agent-capabilities"><h3>知识库文档</h3><p>先在成果中心导入文档。智能体可跨已绑定文档检索中文/英文片段，逐份读取仍需批准；结果带文档版本、哈希与行号。最多8份；可在模型配置中选择本机嵌入模型，否则为词法检索。</p><div class="agent-knowledge">${documents.map((d) => `<label class="check"><input type="checkbox" name="knowledge" value="${escape(d.id)}" ${(a.knowledge || []).includes(d.id) ? "checked" : ""}>${escape(d.name)} · ${escape(d.format)} v${d.revision}</label>`).join("") || "<p>暂无文档，请先到成果中心导入。</p>"}</div><h3>绑定 Skills</h3><div id="boundSkills">${registryChoices("skills", state, a)}</div><p class="binding-hint">勾选技能库中已上传并启用的技能即可绑定。上传与维护请前往 Skills 技能库。</p><div id="agentSkills" hidden>${(a.skills || []).map(skillRow).join("")}</div><h3>Tools 工具范围</h3><div class="agent-tools">${tools.map((n) => `<label class="check"><input type="checkbox" name="agentTool" value="${n}" ${!a.tools || a.tools.includes(n) ? "checked" : ""}>${n}</label>`).join("")}</div><h3>绑定 MCP 客户端</h3><div id="boundMcp">${registryChoices("mcp", state, a)}</div><button type="button" data-agent-new-mcp>配置新的 MCP</button><div id="inlineMcpConfig" hidden><label>连接名称<input name="registryMcpName" maxlength="40"></label><label>服务地址<input name="registryMcpUrl" type="url" placeholder="https://example.com/mcp"></label>${mcpAuthFields({}, "registryMcp")}<button type="button" data-agent-save-mcp>保存连接并选中</button><small>只保存配置，测试与实际连接需另行批准。不在URL中填写密钥；暂不支持OAuth/stdio。</small></div><details ${a.mcp?.length ? "open" : ""}><summary>原有内嵌 MCP 配置</summary><h3>MCP 连接</h3><p>支持无需登录的 HTTPS 或本机 HTTP Streamable HTTP 服务；每轮先批准发现，每次调用再批准。暂不支持 stdio / OAuth，不在地址中填写密钥。</p><div id="agentMcp">${(a.mcp || []).map(mcpRow).join("")}</div><button type="button" data-agent-add="mcp">添加 MCP 服务</button></details><label>ReAct 最大模型轮数<input type="number" name="maxSteps" min="1" max="96" value="${a.maxSteps || 32}" required></label><p>模型选择工具 → 执行 → 观察结果 → 验收或继续；默认32轮，可配置1–96轮；每次模型回复最多8个工具调用，仍可随时停止。关闭对话工具模式时不连接MCP或读取技能/知识。</p></section>`;
 }
 export function bindAgentEditor(
   modal,
-  { uploadSkill, saveMcp, onError = () => {} } = {},
+  { uploadSkill, saveMcp, readSpec, resetSpec, onError = () => {} } = {},
 ) {
   const editorForm = modal.querySelector("form");
   const isCurrent = () =>
@@ -48,6 +65,22 @@ export function bindAgentEditor(
         [kind === "skills" ? "skillIds" : "mcpIds"]: ids,
       });
     };
+    const spec = e.target.closest('[data-agent-spec], [data-agent-spec-reset]');
+    if (spec) {
+      const body = editorForm.querySelector('[data-agent-spec-body]');
+      spec.disabled = true;
+      try {
+        if (spec.hasAttribute('data-agent-spec-reset')) {
+          const value = await resetSpec();
+          if (isCurrent() && value !== undefined) { body.querySelector('textarea').value = value; body.hidden = false; }
+        } else if (body.hidden) {
+          const value = await readSpec();
+          if (isCurrent()) { body.querySelector('textarea').value = value; body.hidden = false; }
+        } else body.hidden = true;
+      } catch (error) { onError(error.message); }
+      finally { spec.disabled = false; }
+      return;
+    }
     const upload = e.target.closest("[data-agent-upload]"),
       save = e.target.closest("[data-agent-save-mcp]");
     if (upload || save) {
@@ -100,6 +133,7 @@ export function bindAgentEditor(
 }
 export function readAgentEditor(form, modal) {
   return {
+    subagents: {dialogue: form.getAll('dialogueSubagent'), coding: form.getAll('codingSubagent'), fallback: form.get('codingFallback') || 'auto'},
     knowledge: form.getAll("knowledge"),
     skillIds: form.getAll("skillId"),
     mcpIds: form.getAll("mcpId"),

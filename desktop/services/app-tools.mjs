@@ -1,3 +1,4 @@
+import { boundCodingAgents, getSubagents, hasBoundCoding } from '../src/shared/subagents.js';
 // [ux5] App tools: everything a user can do in the QuanK UI can also be asked for in chat.
 // Reads run directly; anything that changes the app (create / edit / pause / delete / run a scheduled task) shows a native
 // confirmation first. In unattended scheduled runs the approval gate defers those to 「待你确认」, so tasks cannot spawn tasks.
@@ -36,12 +37,16 @@ export const CODING_TOOL_DEFINITIONS = [
   def('app_coding_permission', '仅按用户本轮明确答复处理当前权限请求。', {...codingTask, decision: {type: 'string', enum: ['allow', 'deny', 'always', '允许', '拒绝', '本任务内总是允许', '总是允许']}}, ['task', 'decision']),
 ];
 export const CODING_TOOL_NAMES = new Set(CODING_TOOL_DEFINITIONS.map(d => d.function.name));
-export const CODING_DISABLED = '「允许 QuanK 助手调用 Coding 智能体」已关闭。可以在「Coding 智能体」设置里开启。';
+export const CODING_DISABLED = '在编辑智能体中绑定 Coding 子智能体';
 export const CODING_LOCAL_ONLY = 'Coding 智能体只作用于本地策略项目。请切换到本地引擎并选择策略项目。';
 const codingSetup = {label: '打开 Coding 智能体', page: 'agents', coding: {}};
 const externalUnavailable = new Set(['external_unavailable', 'no_agent', 'no_external_agent', 'not_found', 'no_acp', 'auth', 'quota', 'timeout', 'crashed']);
 const codingConnect = '当前设置为「仅用外部」，请在「Coding 智能体」接入或检查外部代理后重试。';
-export const codingAssistantAllowed = store => store.data.coding?.settings?.allowAssistant !== false;
+const currentAssistant = (store, chatId, agentId) => {
+  const id = agentId || store.data.chats?.find(chat => chat.id === chatId)?.agentId || 'assistant';
+  return store.data.agents?.find(agent => agent.id === id);
+};
+export const codingAssistantAllowed = (store, agentId, chatId) => hasBoundCoding(store.data, currentAssistant(store, chatId, agentId));
 
 const codingObservers = new WeakMap();
 function codingSummary(task) {
@@ -55,7 +60,7 @@ function codingSummary(task) {
 }
 
 function codingResultAction(id) {
-  return {label: '查看结果', page: 'coding-task', taskId: id};
+  return {label: '查看结果', page: 'tasks', coding: {task: id}};
 }
 
 // Set up one listener for the shared service, including changes after the chat turn ends.
@@ -122,8 +127,8 @@ export function observeCodingTasks(store, deps) {
   return observer;
 }
 
-async function runCodingTool(name, args, {store, deps, confirm, denied, signal, chatId, via, permissionRequestId, beforeCodingConfirm}) {
-  if (!codingAssistantAllowed(store)) return {status: 'disabled', message: CODING_DISABLED};
+async function runCodingTool(name, args, {store, deps, confirm, denied, signal, chatId, agentId, via, permissionRequestId, beforeCodingConfirm}) {
+  if (!codingAssistantAllowed(store, agentId, chatId)) return {status: 'disabled', message: CODING_DISABLED};
   if (deps.security?.locked) throw new Error('QuanK 已锁定，请先解锁');
   if (name === 'app_coding_start' && store.data.quant?.mode === 'remote') return {status: 'failed', message: CODING_LOCAL_ONLY};
   const tasks = deps.codingTasks;
@@ -131,8 +136,9 @@ async function runCodingTool(name, args, {store, deps, confirm, denied, signal, 
   const observer = observeCodingTasks(store, deps);
   const open = ({label, page, ...extra}) => deps.openPage?.(page, extra);
   if (name === 'app_coding_agents' || name === 'app_coding_start') {
-    const {agents = [], settings = {}} = store.data.coding || {};
-    const fallback = settings.fallback || 'auto';
+    const assistant = currentAssistant(store, chatId, agentId);
+    const agents = boundCodingAgents(store.data, assistant);
+    const {fallback} = getSubagents(store.data, assistant);
     const preferred = agents.find(agent => agent.isDefault) || agents[0];
     if (name === 'app_coding_agents') return {status: 'succeeded', agents: agents.map(({id, name, isDefault, lastTest}) => ({id, name, isDefault: !!isDefault, lastTest})), defaultAgent: preferred?.id ?? null, fallback};
     const request = typeof args.request === 'string' ? args.request.trim() : '';
@@ -157,14 +163,14 @@ async function runCodingTool(name, args, {store, deps, confirm, denied, signal, 
     signal?.throwIfAborted();
     if (!await confirm('启动 Coding 任务？', `代理：${provider}${fallbackNote}\n项目：${project}\n需求：${clip(request, 500)}`)) return denied;
     signal?.throwIfAborted();
-    if (!codingAssistantAllowed(store)) return {status: 'disabled', message: CODING_DISABLED};
+    if (!codingAssistantAllowed(store, agentId, chatId)) return {status: 'disabled', message: CODING_DISABLED};
     if (store.data.quant?.mode === 'remote') return {status: 'failed', message: CODING_LOCAL_ONLY};
     if (project === localProject ? store.data.quant?.source !== localProject : grantedCodeProject(store, project)?.id !== granted.id)
       throw new Error('本地项目或授权已变化，请重新确认');
     const source = via === 'schedule' ? 'schedule' : 'chat';
     let task;
     try {
-      task = await tasks.start({...(args.agent && selected && fallback !== 'builtin' ? {agentId: selected.id} : {}), request, source, ...(chatId ? {chatId} : {}), ...(project !== localProject ? {project} : {})});
+      task = await tasks.start({...(selected && fallback !== 'builtin' ? {agentId: selected.id} : {}), fallback, allowedAgents: agents.map(item => item.id), request, source, ...(chatId ? {chatId} : {}), ...(project !== localProject ? {project} : {})});
     } catch (error) {
       if (fallback === 'external' && externalUnavailable.has(error.kind || error.code)) return connect();
       throw error;
@@ -202,7 +208,7 @@ async function runCodingTool(name, args, {store, deps, confirm, denied, signal, 
   const detail = [clip(task.title, 80), task.branch, merge ? codingSummary(task).split('\n').slice(0, 15).join('\n').slice(0, 800) : '放弃该任务的迭代分支。'].filter(Boolean).join('\n');
   if (!await confirm(merge ? '合并 Coding 修改？' : '放弃 Coding 修改？', detail)) return denied;
   signal?.throwIfAborted();
-  if (!codingAssistantAllowed(store)) return {status: 'disabled', message: CODING_DISABLED};
+  if (!codingAssistantAllowed(store, agentId, chatId)) return {status: 'disabled', message: CODING_DISABLED};
   const current = tasks.get(id);
   if (status !== current?.status || updatedAt !== current?.updatedAt)
     throw new Error('任务在确认期间已变化，请重新查看并确认');
@@ -304,7 +310,7 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_dashboard_create', '用成果中心里的 Excel 表格生成可交互仪表盘（保存在「创作」页）。数值由本机计算。', {documentId: {type: 'string'}, prompt: {type: 'string', description: '想看什么，例如「按月看各区域销售额」'}}, ['documentId']),
     def('app_briefing_generate', '立即生成今日简报（需要你处理的事、完成的工作、今日日程、新邮件等），返回各板块要点。'),
     def('app_open_document', '在对话右侧预览成果中心的文件。优先传已知文档 id；也可传文件名或关键词。用户说刚才的研报时传关键词「研报」。', {id: {type: 'string'}, query: {type: 'string'}}, []),
-    def('app_open_page', '在 QuanK 窗口中打开某个页面，方便用户查看结果（「查看我的自选」用 app_quant_open）。research（投研资料）可带 stock（6 位代码）和 kind（report/notice/note/doc/export/quant）筛选；quant（量化）可带 stock（公司名称或 6 位代码）和 tab: graph 直接查看公司关系图；tasks（自动化）可带 tab：trade（半自动委托）/ tasks / runs。', {page: {type: 'string', enum: Object.keys(APP_PAGES)}, stock: {type: 'string'}, kind: {type: 'string'}, tab: {type: 'string', enum: ['trade', 'tasks', 'runs', 'graph']}}, ['page']),
+    def('app_open_page', '在 QuanK 窗口中打开某个页面，方便用户查看结果（「查看我的自选」用 app_quant_open）。research（投研资料）可带 stock（6 位代码）和 kind（report/notice/note/doc/export/quant）筛选；quant（量化）可带 stock（公司名称或 6 位代码）和 tab: graph 直接查看公司关系图；tasks（自动化）可带 tab：trade（半自动委托）/ tasks / runs / coding。', {page: {type: 'string', enum: Object.keys(APP_PAGES)}, stock: {type: 'string'}, kind: {type: 'string'}, tab: {type: 'string', enum: ['trade', 'tasks', 'runs', 'coding', 'graph']}}, ['page']),
     ...(incognito ? [] : [
       def('app_memory_add', '把用户明确要求记住的偏好或事实存入长期记忆（不要存密码、密钥等敏感信息）。', {text: {type: 'string'}, kind: {type: 'string', enum: ['preference', 'fact', 'profile']}}, ['text']),
       def('app_graph_search', '在知识图谱中查找人、公司、项目等实体及其关系。', {query: {type: 'string'}}, ['query']),
@@ -348,14 +354,14 @@ export async function executeAppTool(name, args = {}, opts = {}) {
   if (out && typeof out === 'object' && shouldMask(name, deps.privacy?.())) { const m = maskAmounts(out); return {...m.result, privacy: `已按隐私设置隐藏 ${m.masked} 处金额（股数、成本、市值、盈亏、现金等）；回答时不要猜测或推算这些数字。`}; }
   return out;
 }
-async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatId, via, permissionRequestId, beforeCodingConfirm, now = Date.now} = {}) {
+async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatId, agentId, via, permissionRequestId, beforeCodingConfirm, now = Date.now} = {}) {
   const tasks = () => store.data.tasks || [];
   const findTask = id => { const t = tasks().find(t => t.id === id); if (!t) throw new Error('任务不存在，请先用 app_task_list 查看任务 ID'); return t; };
   const confirm = async (title, detail) => { const r = await ask(title, detail, signal); return r === true || r?.allowed === true; };
   const need = k => { if (!deps[k]) throw new Error('当前环境不支持这个操作'); return deps[k]; };
   const denied = {status: 'denied', message: '用户没有确认，未执行'};
   const findMcp = v => { const list = store.data.mcpConnections || []; const c = list.find(c => c.id === v) || list.find(c => c.name === v); if (!c) throw new Error('没有这个 MCP 连接，请先用 app_mcp_list 查看'); return c; }; // [mcp2]
-  if (CODING_TOOL_NAMES.has(name)) return runCodingTool(name, args, {store, deps, confirm, denied, signal, chatId, via, permissionRequestId, beforeCodingConfirm});
+  if (CODING_TOOL_NAMES.has(name)) return runCodingTool(name, args, {store, deps, confirm, denied, signal, chatId, agentId, via, permissionRequestId, beforeCodingConfirm});
   switch (name) {
     case 'app_task_list':
       return {status: 'succeeded', tasks: tasks().slice(0, 50).map(taskView), total: tasks().length};
@@ -882,7 +888,7 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
         need('openPage')('quant', {code: stock.code, name: stock.name, tab: 'graph'});
         return {status: 'succeeded', opened: `${stock.name || stock.code} · 财务与关系 → 公司关系图`};
       }
-      if (args.page === 'tasks' && ['trade', 'tasks', 'runs'].includes(args.tab)) extra.tab = args.tab;
+      if (args.page === 'tasks' && ['trade', 'tasks', 'runs', 'coding'].includes(args.tab)) extra.tab = args.tab;
       need('openPage')(args.page, extra);
       return {status: 'succeeded', opened: APP_PAGES[args.page] + (extra.stock ? ` · ${extra.stock}` : '') + (extra.tab === 'trade' ? ' · 半自动委托' : ''), where: '已在对话右侧的页签中打开，对话保持不动'}; // [v0.54]
     }

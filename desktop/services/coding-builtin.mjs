@@ -616,7 +616,7 @@ export function createBuiltinRunner({
       lockWatch.unref();
       await record('coding.start', 'ok');
       guard();
-      return { sessionId, agentInfo: { name, title: name, version: '0.57.0' } };
+      return { sessionId, agentInfo: { name, title: name, version: '0.57.1' } };
     } catch (error) {
       const safe = signal.reason || (error.kind ? error : failure('project'));
       await record('coding.start', safe.kind);

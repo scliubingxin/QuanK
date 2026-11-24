@@ -335,7 +335,7 @@ export function createCodingTasks({ store, coding, runnerFactory, quant, researc
     list() { unlocked(); return rows.map(view); },
     get(id) { unlocked(); return view(find(id)); },
     supportsProject: true,
-    async start({ agentId, request, source, chatId, project: requested } = {}) {
+    async start({ agentId, request, source, chatId, project: requested, fallback, allowedAgents } = {}) {
       unlocked();
       request = typeof request === 'string' ? request.trim() : '';
       if (!request || request.length > 32000) throw new Error('请填写不超过 32000 字的迭代需求');
@@ -359,11 +359,12 @@ export function createCodingTasks({ store, coding, runnerFactory, quant, researc
         controls.delete(rows[index].task.id);
         rows.splice(index, 1);
       }
-      const { agents = [], settings = {} } = coding.view();
+      const { agents: configured = [], settings = {} } = coding.view();
+      const agents = allowedAgents ? configured.filter(item => allowedAgents.includes(item.id)) : configured;
       const preferred = agentId ? agents.find(agent => agent.id === agentId) : agents.find(agent => agent.isDefault) || agents[0];
       if (agentId && !preferred && agentId !== 'builtin') throw new Error('找不到指定的 Coding 智能体');
       const external = [preferred, ...agents.filter(agent => agent !== preferred)].filter(Boolean).map(agent => ({ ...agent, kind: 'acp' }));
-      const mode = settings.fallback || 'auto';
+      const mode = fallback || settings.fallback || 'auto';
       const candidates = mode === 'builtin' || (agentId === 'builtin' && mode === 'auto') ? [builtin]
         : mode === 'external' ? external.slice(0, 1) : [...external, builtin];
       if (!candidates.length) throw Object.assign(new Error('请先接入可用的外部 Coding 智能体'), { kind: 'external_unavailable' });

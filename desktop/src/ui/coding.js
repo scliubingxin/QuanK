@@ -1,10 +1,11 @@
+import {shellWords} from '../shared/shell-words.js';
 import { escape } from './markdown.js';
 import { codingAgent, codingDiffStat, codingStatus } from './coding-task.js';
 
 const failures = {
   not_found: ['找不到代理命令', '检查可执行文件路径，或重新检测本机代理。'],
   no_acp: ['代理未进入 ACP 模式', '确认参数是否为 ACP 模式（如 codebuddy 需要 --acp）。'],
-  auth: ['代理鉴权失败', '检查 API Key 或先在终端登录。'],
+  auth: ['未登录', '请先在终端登录代理。若使用 WorkBuddy，请运行 codebuddy 登录，或填写 CODEBUDDY_API_KEY。'],
   quota: ['代理额度用尽或请求受限', '检查服务额度、账单或限流状态。'],
   timeout: ['代理响应超时', '检查代理和网络状态，然后重试。'],
   crashed: ['代理异常退出或请求失败', '在终端检查代理能否运行，并确认依赖已安装。'],
@@ -15,15 +16,15 @@ function reason(result) {
 }
 
 export function codingTestResult(result) {
+  if (result.kind === 'cancelled') return '已取消连接测试';
   if (!result.ok) {
     const [title, hint] = reason(result);
-    return `<p class="coding-failure"><strong>✕ ${escape(title)}</strong><span class="coding-test-hint">${escape(hint)}</span></p>`;
+    return `<span class="coding-failure">✕ ${escape(title)}（${escape(result.kind)}）：${escape(hint)}</span>`;
   }
-  const { name, version } = result.agentInfo || {};
-  const agent = [name, version].filter(Boolean).join(' · ');
-  return `<p class="coding-success"><strong>✓ 连接正常</strong>${agent ? ' · ' + escape(agent) : ''} · ${escape(result.ms)} ms</p>
-${result.reply ? `<p class="coding-reply">${escape(result.reply)}</p>` : ''}${result.warning ? `<p class="hint">${escape(result.warning)}</p>` : ''}`;
+  return `<span class="coding-success">✓ 连接正常 · ${(result.ms / 1000).toFixed(1)}s</span>`;
 }
+
+const testingIndicator = '<span class="coding-spinner" aria-hidden="true"></span>正在测试连接…';
 
 export const workBuddyPreset = {
   name: 'WorkBuddy', command: 'codebuddy', args: '--acp',
@@ -37,46 +38,63 @@ export function codingPreset(candidate) {
   };
 }
 
-function argText(args) {
-  if (!Array.isArray(args)) return args || '';
-  return args.map(arg => "'" + arg.replaceAll("'", "'\\''") + "'").join(' ');
+function argList(args) {
+  return Array.isArray(args) ? args : shellWords(args);
 }
+const argText = args => argList(args).join(' ');
 
-export function codingPage(config, { heading, action, empty, date, candidates, busy, project, tasks }) {
-  const { agents = [], settings = {} } = config || {};
-  const defaultAgent = agents.find(a => a.isDefault);
-  const cards = agents.map(agent => {
+export function codingCards(config, { action, date, busy, project, results }) {
+  const { agents = [] } = config || {};
+  return agents.map(agent => {
     const { id, lastTest } = agent;
     const status = busy.has(id) ? '正在测试…' : !lastTest ? '尚未测试'
       : `${lastTest.ok ? '连接正常' : reason(lastTest)[0]} · ${date(lastTest.at)}`;
-    return `<article class="tool-panel coding-card"><h3>${escape(agent.name)} ${agent.isDefault ? '<span class="badge">默认</span>' : ''}</h3>
+    return `<article class="card plaza-card agent-card coding-card"><div class="pc-head"><span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-14-2 16"/></svg></span><div class="pc-title"><h3>${escape(agent.name)} ${agent.isDefault ? '<span class="badge">默认</span>' : ''}</h3></div></div><div class="pc-tags"><span class="pc-tag t-violet">Coding</span></div>
 <code>${escape([agent.command, argText(agent.args)].filter(Boolean).join(' '))}</code>
 ${agent.description ? `<p>${escape(agent.description)}</p>` : ''}
 <p class="${!busy.has(id) && lastTest ? lastTest.ok ? 'coding-success' : 'coding-failure' : 'description'}" role="status">${!busy.has(id) && lastTest ? lastTest.ok ? '✓ ' : '✕ ' : ''}${escape(status)}${!busy.has(id) && lastTest && !lastTest.ok ? `<span class="coding-test-hint">${escape(reason(lastTest)[1])}</span>` : ''}</p>
-<div class="toolbar">${busy.has(id) || !project ? '<button type="button" class="secondary" disabled>测试连接</button>' : action('测试连接', 'codingTest', id)}
+<div class="pc-actions">${busy.has(id) || !project ? '<button type="button" class="secondary" disabled>测试连接</button>' : action('测试连接', 'codingTest', id)}
+${busy.has(id) ? action('取消', 'codingTestCancel', id) + testingIndicator : results?.has(id) ? codingTestResult(results.get(id)) : ''}
 ${agent.isDefault ? '' : action('设为默认', 'codingDefault', id)}${action('编辑', 'codingEdit', id)}${action('删除', 'codingRemove', id)}</div></article>`;
   }).join('');
-  const detected = candidates === null ? '' : `<section class="tool-panel coding-detection"><h3>检测结果</h3>
-${candidates.length ? candidates.map((candidate, index) => `<div class="coding-detected"><div><strong>${escape(candidate.name)}</strong><code>${escape([candidate.command, argText(candidate.args)].filter(Boolean).join(' '))}</code>${candidate.npmCache && candidate.name === 'Codex' ? '<p class="hint">这是 npx 缓存路径，建议全局安装或改用 <code>npx @agentclientprotocol/codex-acp</code></p>' : ''}</div>${action('填入表单', 'codingPrefill', index)}</div>`).join('') : '<p class="description">未找到可执行的 ACP 代理。安装后可以重新检测，也可以手动添加。</p>'}</section>`;
-  return `<div class="coding-page">${heading('', 'Coding 智能体', '接入本机编码代理，迭代量化策略项目。', action('检测本机代理', 'codingDetect') + action('添加代理', 'codingNew', '', 'primary'), [[agents.length, '个代理'], [defaultAgent?.name || '未设置', '默认代理']])}
-${project ? '' : '<p class="hint">请先在量化设置中导入本地策略项目，再测试连接。</p>'}
-<div class="coding-grid">${cards || empty('还没有 Coding 智能体', '可以检测本机代理，或手动添加。')}</div>${detected}
-<section class="tool-panel"><h2>设置</h2><form id="coding-settings">
-<label>回退方式<select name="fallback"><option value="auto" ${!settings.fallback || settings.fallback === 'auto' ? 'selected' : ''}>自动回退</option><option value="external" ${settings.fallback === 'external' ? 'selected' : ''}>仅外部</option><option value="builtin" ${settings.fallback === 'builtin' ? 'selected' : ''}>仅内置</option></select></label>
-<label class="check"><input type="checkbox" name="allowAssistant" ${settings.allowAssistant !== false ? 'checked' : ''}> 允许 QuanK 助手调用 Coding 智能体</label>
-<div class="toolbar">${action('保存设置', 'codingSettings', '', 'primary')}${tasks ? action('编辑迭代规范', 'codingSpecEdit') + action('恢复默认', 'codingSpecReset') : '<button type="button" class="secondary" disabled>编辑迭代规范</button><button type="button" class="secondary" disabled>恢复默认</button>'}</div></form></section>
-<section class="tool-panel coding-tasks"><div class="toolbar"><h2>任务</h2>${tasks && project ? action('发起迭代', 'codingTaskStart', '', 'primary') : ''}</div>
+}
+
+export function codingDetection(config, candidates, action) {
+  const agents = config?.agents || [];
+  const detectionRows = candidates?.map((candidate, index) => {
+    const command = [candidate.command, argText(candidate.args)].filter(Boolean).join(' ');
+    const candidateArgs = JSON.stringify(argList(candidate.args));
+    const added = agents.some(agent => agent.command === candidate.command &&
+      JSON.stringify(argList(agent.args)) === candidateArgs);
+    return `<div class="coding-detected"><div><strong>${escape(candidate.name)}</strong>
+      ${added ? '<span class="badge">已添加</span>' : ''}
+      ${candidate.npmCache ? '<span class="badge" title="安装全局命令可以避免缓存路径变化。Codex 也可使用 npx @agentclientprotocol/codex-acp。">npx 缓存</span>' : ''}
+      <small title="${escape(command)}">${escape(command)}</small></div>
+      ${added ? '<button type="button" class="secondary" disabled>已添加</button>' : action('添加', 'codingPrefill', index)}</div>`;
+  }).join('');
+  return candidates === null ? '' : `<section class="tool-panel coding-detection"><h3>检测结果</h3>
+    ${detectionRows || '<p class="description">未找到可执行的 ACP 代理。安装后可以重新检测，也可以手动添加。</p>'}</section>`;
+}
+const taskTone = status => {
+  if (status === 'review') return 'review';
+  if (status === 'failed') return 'failed';
+  if (['preparing','running','waiting_permission','cancelling'].includes(status)) return 'running';
+  return 'neutral';
+};
+
+export function codingTasksSection(tasks, {action, date}) {
+  return `<section class="tool-panel coding-tasks">
 ${tasks?.length ? tasks.map(task => `<article class="coding-task-row"><div><h3>${escape(task.title)}</h3>
-<p>${escape(codingStatus(task.status))} · ${escape(codingAgent(task.agent))} · ${escape(date(task.createdAt))}</p>
+<p><span class="coding-task-status ${taskTone(task.status)}">${taskTone(task.status) === 'running' ? '<i class="coding-spinner" aria-hidden="true"></i>' : ''}${escape(codingStatus(task.status))}</span> ${escape(codingAgent(task.agent))} · ${escape(date(task.createdAt))}</p>
 ${task.fallbackReason ? `<p class="hint">${escape(task.fallbackReason)}</p>` : ''}
-${task.result?.diffStat ? `<p>${escape(codingDiffStat(task.result.diffStat))}</p>` : ''}</div>${action('查看详情', 'codingTaskOpen', task.id)}</article>`).join('') : '<p class="description">还没有 Coding 任务。</p>'}</section></div>`;
+${task.result?.diffStat ? `<p>${escape(codingDiffStat(task.result.diffStat))}</p>` : ''}</div>${action('查看详情', 'codingTaskOpen', task.id)}</article>`).join('') : '<p class="description">还没有 Coding 任务。</p>'}</section>`;
 }
 
 function environmentRow({ key = '', hasValue = false } = {}) {
-  return `<div class="coding-env-row" data-coding-env data-saved="${hasValue}">
-<label>键名<input title="${escape(key)}" data-coding-key aria-label="环境变量键名" autocomplete="off" spellcheck="false" value="${escape(key)}" ${hasValue ? 'readonly' : ''}></label>
-<label>值<input data-coding-value type="password" aria-label="环境变量值" autocomplete="new-password" placeholder="${hasValue ? '已保存，留空不修改' : key === 'CODEBUDDY_INTERNET_ENVIRONMENT' ? '可选，中国区填写 internal' : ''}"></label>
-<button type="button" class="secondary" data-coding-delete>删除</button></div>`;
+  return `<tr class="coding-env-row" data-coding-env data-saved="${hasValue}">
+<td><input title="${escape(key)}" data-coding-key aria-label="环境变量键名" autocomplete="off" spellcheck="false" value="${escape(key)}" ${hasValue ? 'readonly' : ''}></td>
+<td><div class="coding-env-value"><input data-coding-value type="password" aria-label="环境变量值" autocomplete="new-password" placeholder="${hasValue ? '已保存，留空不修改' : key === 'CODEBUDDY_INTERNET_ENVIRONMENT' ? '可选，中国区填写 internal' : ''}"><button type="button" class="icon-button" data-coding-visibility aria-label="显示值" title="显示值" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></td>
+<td><button type="button" class="icon-button" data-coding-delete aria-label="删除环境变量" title="删除环境变量"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18m-13 0V3h8v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg></button></td></tr>`;
 }
 
 export function codingForm(agent, project) {
@@ -86,9 +104,8 @@ export function codingForm(agent, project) {
 <label>参数<input name="args" value="${escape(argText(agent.args))}" placeholder="支持 shell 引号" spellcheck="false"></label>
 <label>说明<textarea name="description" maxlength="1000">${escape(agent.description || '')}</textarea></label>
 <label>工作目录<input name="cwd" value="${escape(project || '')}" placeholder="请先在量化设置中导入策略项目" readonly></label><button type="button" class="secondary coding-project-link" data-coding-project>修改策略项目</button>
-<fieldset><legend>环境变量</legend><div data-coding-env-list>${(agent.env || []).map(environmentRow).join('')}</div><button type="button" class="secondary" data-coding-add>添加环境变量</button></fieldset>
-<div class="toolbar"><button type="button" class="secondary" data-coding-test ${project ? '' : 'disabled'}>测试连接</button></div>
-<div data-coding-result role="status"></div></div>`;
+<section class="coding-env"><h3>环境变量</h3><table><colgroup><col><col><col></colgroup><thead><tr><th scope="col">键名</th><th scope="col">值</th><th scope="col">操作</th></tr></thead><tbody data-coding-env-list>${(agent.env || []).map(environmentRow).join('')}</tbody></table><button type="button" data-coding-add><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>添加环境变量</button></section>
+<div class="toolbar coding-test-line"><button type="button" class="secondary" data-coding-test ${project ? '' : 'disabled'}>测试连接</button><button type="button" class="secondary" data-coding-cancel hidden>取消</button><span data-coding-result role="status"></span></div></div>`;
 }
 
 export function codingPayload(form, agent) {
@@ -102,20 +119,32 @@ export function codingPayload(form, agent) {
     return [{key, value}];
   });
   const args = pick('args');
-  return { ...(agent.id ? {id: agent.id} : {}), name: pick('name'), command: pick('command'), args: args === argText(agent.args) ? agent.args ?? '' : args, description: pick('description'), cwd: '', env };
+  return { ...(agent.id ? {id: agent.id} : {}), name: pick('name'), command: pick('command'), args: args === argText(agent.args) ? argList(agent.args) : args, description: pick('description'), cwd: '', env };
 }
 
-export function bindCodingForm(dialog, agent, { browse, test, projectSettings }) {
+export function bindCodingForm(dialog, agent, { browse, test, cancelTest, projectSettings }) {
   const form = dialog.querySelector('form'), content = form.querySelector('.coding-form');
   const result = content.querySelector('[data-coding-result]');
+  const cancel = content.querySelector('[data-coding-cancel]');
+  let testId;
+  const cancelCurrent = () => testId ? cancelTest(testId) : Promise.resolve();
+  dialog.addEventListener('close', () => { void cancelCurrent().catch(() => {}); }, {once: true});
   content.addEventListener('click', async event => {
     const button = event.target.closest('button');
     if (!button) return;
     if (button.hasAttribute('data-coding-add')) {
       content.querySelector('[data-coding-env-list]').insertAdjacentHTML('beforeend', environmentRow());
+    } else if (button.hasAttribute('data-coding-visibility')) {
+      const input = button.closest('[data-coding-env]').querySelector('[data-coding-value]');
+      const visible = input.type === 'password';
+      input.type = visible ? 'text' : 'password';
+      const label = visible ? '隐藏值' : '显示值';
+      button.title = label;
+      button.setAttribute('aria-label', label);
+      button.setAttribute('aria-pressed', String(visible));
     } else if (button.hasAttribute('data-coding-delete')) {
       const row = button.closest('[data-coding-env]');
-      row.querySelector('input[type=password]').value = '';
+      row.querySelector('[data-coding-value]').value = '';
       if (row.dataset.saved === 'true') row.hidden = true;
       else row.remove();
     } else if (button.hasAttribute('data-coding-project')) {
@@ -128,14 +157,26 @@ export function bindCodingForm(dialog, agent, { browse, test, projectSettings })
         if (path && content.isConnected && dialog.open) form.elements.command.value = path;
       } catch (error) { result.textContent = error.message; }
       finally { button.disabled = false; }
+    } else if (button === cancel) {
+      cancel.disabled = true;
+      try { await cancelCurrent(); }
+      catch (error) { result.textContent = error.message; }
     } else if (button.hasAttribute('data-coding-test') && form.reportValidity()) {
       const save = dialog.querySelector('#modalSubmit');
       button.disabled = true;
       if (save) save.disabled = true;
-      result.textContent = '正在测试连接…';
-      try { result.innerHTML = codingTestResult(await test(codingPayload(form, agent))); }
+      testId = crypto.randomUUID();
+      cancel.hidden = false;
+      cancel.disabled = false;
+      result.innerHTML = testingIndicator;
+      try { result.innerHTML = codingTestResult(await test(codingPayload(form, agent), testId)); }
       catch (error) { result.textContent = error.message; }
-      finally { button.disabled = false; if (save) save.disabled = false; }
+      finally {
+        testId = undefined;
+        cancel.hidden = true;
+        button.disabled = false;
+        if (save) save.disabled = false;
+      }
     }
   });
 }

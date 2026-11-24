@@ -43,11 +43,11 @@ test('status shows format-specific counts and verified zoom', () => {
 });
 
 test('preview renders a collapsed outline and document-specific tools', () => {
-  const html = filePreviewPanel(doc, {action, icon: () => '', native:true});
+  const html = filePreviewPanel(doc, {action, icon: name => name === 'fileDown' ? '<svg><path d="M12 4v12m-4-4 4 4 4-4"/></svg>' : '', native:true});
   assert.equal([...html.matchAll(/data-outline aria-expanded="false"/g)].length, 2);
   assert.match(html, /class="file-outline" aria-label="大纲" data-format="docx" hidden/);
   assert.match(html, /class="graph-search"><svg[\s\S]*?<input[^>]+aria-label="搜索文字"/);
-  assert.match(html, /data-action="documentExportPdf"[^>]+title="导出 PDF"[^>]*><svg[\s\S]*?>PDF<\/text>/);
+  assert.match(html, /data-action="documentExportPdf"[^>]+title="导出 PDF"[^>]*><svg><path/);
   assert.match(html, /<details class="file-menu">[\s\S]*?下载[\s\S]*?<\/details>/);
   for (const label of ['适合宽度', '适合页面', '上一页', '下一页', '版本历史']) assert.ok(html.includes(label));
   assert.doesNotMatch(html, /撤销|格式刷/);

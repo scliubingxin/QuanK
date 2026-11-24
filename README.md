@@ -4,7 +4,7 @@
   <p><b>量化工作，一键搞定</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.57.0-2F62F5" alt="version">
+    <img src="https://img.shields.io/badge/version-0.57.1-2F62F5" alt="version">
     <img src="https://img.shields.io/badge/macOS-12%2B%20·%20Apple%20芯片-0B2BA6" alt="platform">
     <img src="https://img.shields.io/badge/license-Apache--2.0-8C7CFF" alt="license">
   </p>
