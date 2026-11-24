@@ -1,3 +1,4 @@
+import { modalLayout } from './ui/modal.js';
 import {bindPresetFilters, plazaIcon} from './ui/preset-catalog.js'; // [ux11] plazaIcon
 import {agentAvatar} from './ui/avatars.js';
 import * as panelUI from './ui/page-panel.js'; // [v0.54] right-hand page tabs
@@ -9,7 +10,7 @@ import {legacyRoundLimit} from './ui/legacy-round-limit.js';
 import {capabilityTabs,skillsPage,mcpPage,mcpAuthFields,mcpForm,bindMcpForm,mcpPayload} from './ui/capability-library.js';
 import { approvalCard, approvalBar, codingApprovalRequests, revealApproval } from './ui/approval-card.js';
 import {codingTaskPage} from './ui/coding-task.js';
-import {codingPage, codingForm, codingPayload, bindCodingForm, codingPreset, codingTestResult, workBuddyPreset} from './ui/coding.js';
+import {codingCards, codingDetection, codingForm, codingPayload, bindCodingForm, codingPreset, workBuddyPreset} from './ui/coding.js';
 import {agentEditor,bindAgentEditor,readAgentEditor} from './ui/agent-editor.js';
 import {imageCards} from './ui/image-cards.js';
 import {mountHtmlPreview} from './ui/html-preview.js';
@@ -70,7 +71,7 @@ installChatMedia(document,{readImage:id=>invoke('imagePreview',{id})});
 const api = window.actwill;
 const browserTargets = new Map();
 const $ = s => document.querySelector(s);
-const paths = { spark: 'm12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z', chat: 'M5 4h14v12H9l-4 4Z', folder: 'M3 7V5h6l2 3h10v12H3Z', grid: 'M3 3h7v7H3Zm11 0h7v7h-7ZM3 14h7v7H3Zm11 0h7v7h-7Z', agent: 'M5 7h14v13H5ZM12 3v4M8 12h1m6 0h1m-7 4h6', clock: 'M12 8v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0', settings: 'M4 7h16M4 17h16M8 4v6m8 4v6', search: 'M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm6-2 6 6', plus: 'M12 5v14M5 12h14', arrow: 'M5 12h14m-5-5 5 5-5 5', up: 'M12 20V4m-6 6 6-6 6 6', file: 'M5 3h9l5 5v13H5Zm9 0v6h5M8 13h8m-8 4h6', link: 'm9 15 6-6M8 17l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 8a4 4 0 0 0 6 0l4-4a4 4 0 0 0-6-6l-1 1', check: 'm5 12 4 4L19 6', close: 'm5 5 14 14M5 19 19 5', activity: 'M3 12h4l3-8 4 16 3-8h4', trend: 'M3 17l6-6 4 4 8-8M15 7h6v6', download: 'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4', shield: 'm12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z', stop: 'M6 6h12v12H6Z' };
+const paths = { spark: 'm12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z', chat: 'M5 4h14v12H9l-4 4Z', folder: 'M3 7V5h6l2 3h10v12H3Z', grid: 'M3 3h7v7H3Zm11 0h7v7h-7ZM3 14h7v7H3Zm11 0h7v7h-7Z', agent: 'M5 7h14v13H5ZM12 3v4M8 12h1m6 0h1m-7 4h6', clock: 'M12 8v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0', settings: 'M4 7h16M4 17h16M8 4v6m8 4v6', search: 'M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm6-2 6 6', plus: 'M12 5v14M5 12h14', arrow: 'M5 12h14m-5-5 5 5-5 5', up: 'M12 20V4m-6 6 6-6 6 6', file: 'M5 3h9l5 5v13H5Zm9 0v6h5M8 13h8m-8 4h6', link: 'm9 15 6-6M8 17l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 8a4 4 0 0 0 6 0l4-4a4 4 0 0 0-6-6l-1 1', check: 'm5 12 4 4L19 6', close: 'm5 5 14 14M5 19 19 5', activity: 'M3 12h4l3-8 4 16 3-8h4', trend: 'M3 17l6-6 4 4 8-8M15 7h6v6', fileDown: 'M5 3h9l5 5v13H5Zm9 0v5h5m-7 3v7m-3-3 3 3 3-3', download: 'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4', shield: 'm12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z', stop: 'M6 6h12v12H6Z' };
 const icon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] || paths.spark}"/></svg>`;
 const pendingChats=new Set();
 let state = { chats: [], folders: [], memories: [], agents: [], tasks: [], artifacts: [], activity: [], settings: { model: '尚未配置', name: '我的工作空间' } }, page = 'home', chatId = '', agentId = 'assistant', files = [], images = [], sendImages = false, pending = false, folderId = '', fileResults = [], fileTruncated = false, searchTerm = '', draft = '', toolsEnabled = true, activeCommand = '', toolDraft = { url: 'https://example.com', executable: 'node', args: '["--version"]', folderId: '', relative: '' };
@@ -106,7 +107,7 @@ function refreshCodingTasks(task) {
             const tab = panelTab();
             if (tab?.kind === 'coding-task') await loadCodingTask(tab.taskId);
             if (state.locked) return;
-            if (!$('#modal').open && capabilityTab === 'coding' && (page === 'agents' || panelShows('agents'))) render();
+            if (!$('#modal').open && capabilityTab === 'agents' && agentCategory === 'coding' && (page === 'agents' || panelShows('agents'))) render();
             else if (tab?.kind === 'coding-task') renderPanel();
         } catch (error) { if (!state.locked) toast(error.message); }
     }, 80);
@@ -194,7 +195,8 @@ async function answerApproval(id, decision) {
         busyApprovals.delete(id);
     }
 }
-const busyCoding = new Set();
+const busyCoding = new Map(), codingTestResults = new Map();
+let agentCategory = 'all';
 const codingProject = () => state.quant?.mode === 'remote' ? '' : state.quant?.source || '';
 const codingCall = async payload => (await invoke('coding', payload)).result;
 const nav = [['home', 'chat', '工作台'], ['feed', 'activity', '动态'], ['research', 'file', '投研资料'], ['library', 'grid', '成果中心'], ['studio', 'spark', '创作'], ['files', 'folder', '本地文件'], ['agents', 'agent', '智能体'], ['tools', 'activity', '浏览器与权限'], ['security', 'shield', '安全与合规'], ['tasks', 'clock', '自动化'], ['quant', 'trend', '量化'], ['market', 'trend', '行情'], ['connectors', 'link', '连接'], ['graph', 'search', '知识图谱'], ['context', 'spark', '记忆库']];
@@ -316,6 +318,23 @@ async function runOfficeAction(label, work) {
         dismiss();
     }
 }
+let officeNotice;
+function clearOfficeNotice() {
+    if (officeNotice && !officeNotice.inScope()) {
+        officeNotice.dismiss();
+        officeNotice = undefined;
+    }
+}
+async function openDocumentOffice(document) {
+    const origin = {page, chatId, tab: panelTab()?.id};
+    const inScope = () => page === origin.page && chatId === origin.chatId && panelTab()?.id === origin.tab;
+    try {
+        const result = await invoke('officeOpen', {id: document.id, revision: document.revision});
+        if (result?.status === 'opened' && inScope()) officeNotice = {inScope, dismiss:toast('已在 QuanK Office 打开')};
+    } catch (error) {
+        if (inScope()) officeNotice = {inScope, dismiss:toast(error.message)};
+    }
+}
 function exportOfficeDocumentPdf(id, revision) {
     return runOfficeAction('准备 PDF 导出', async () => {
         const result = await invoke('documentExportPdf', {id, revision});
@@ -373,6 +392,7 @@ window.addEventListener('pagehide', () => officeWorkspace.dispose());
 const seenRequests = new Set();
 function autoSeen() { const c = page === 'chat' && state.chats.find(c => c.id === chatId); if (!c?.unread || seenRequests.has(c.id) || (typeof document.hasFocus === 'function' && !document.hasFocus())) return; seenRequests.add(c.id); c.unread = false; invoke('chatSeen', { id: c.id }).then(s => { seenRequests.delete(c.id); applyState(s); }).catch(() => seenRequests.delete(c.id)); }
 function render() {
+    clearOfficeNotice();
     if (state.locked) { // [F5 M1] lock screen only; the data was dropped from the renderer when the lock arrived
         $('#app').className = 'app-locked'; $('#app').innerHTML = securityUI.lockScreen(state.lock);
         if ($('#modal')?.open) $('#modal').close();
@@ -627,19 +647,26 @@ function content() {
  ${commandQueue()}<div class="section-head"><h2>实际执行记录</h2><small>包含模型和手动发起的操作</small></div>${(state.executions || []).map(r => `<details class="execution" ${['running', 'pending_approval'].includes(r.status) ? 'open' : ''}><summary><span>${escape(r.tool)}</span><span class="badge">${escape(r.status)}</span><small>${date(r.time)}</small></summary><pre>${escape(JSON.stringify(r.command || r.args, null, 2))}</pre>${r.partial ? `<pre class="terminal">${escape(r.partial)}</pre>` : ''}${r.result ? `<pre class="terminal">${escape(r.tool === 'cli_execute' ? [r.result.stdout || '', r.result.stderr ? 'stderr:\n' + r.result.stderr : '', r.result.error || '', 'status: ' + r.result.status, 'exit code: ' + r.result.exitCode].join('\n') : JSON.stringify(r.result, null, 2))}</pre>` : ''}</details>`).join('') || empty('还没有执行记录', '可先打开一个网页，或授权项目目录后执行 node --version。')}</div>`;
     if (page === 'files')
         return `<div class="page">${heading('LOCAL KNOWLEDGE', '让本地知识，触手可及。', '仅列出已授权目录中的文本和代码文件。选择文件后可预览、附加到对话。', action(icon('plus') + '授权文件夹', 'folder'))}${state.folders.length ? `<div class="file-search"><select id="folderSelect" aria-label="文件夹">${state.folders.map(f => `<option value="${f.id}" ${f.id === folderId ? 'selected' : ''}>${escape(f.name)}</option>`).join('')}</select><input id="fileQuery" placeholder="按文件名搜索，按 Enter 确认" value="${escape(searchTerm)}"><button class="secondary" data-action="fileSearch">${icon('search')}搜索</button><button class="secondary" data-action="revoke" data-id="${escape(folderId)}">撤销授权</button></div><p class="description">不自动上传。单个文件最大 1 MB，每次最多附加 32 个文件。Word/PDF 可使用原 Web 工作台处理。</p>${fileResults.map((f, i) => `<div class="file-row">${icon('file')}<div>${escape(f.name)}<small>${escape(f.relative)}</small></div>${action('预览', 'previewFile', i)}${action('附加到对话', 'attachFile', i)}</div>`).join('') || empty('暂无匹配的文件', '支持 Markdown、TXT、CSV、JSON 与常见代码文件；隐藏文件和依赖目录不会列出。')}${fileTruncated ? '<p class="description">列表已达到扫描上限（300 个结果 / 5000 个目录项 / 深度 6），可选择更小的文件夹。</p>' : ''}` : empty('选择你的第一个文件夹', '通过系统窗口授予文件夹访问权限。你可以随时在这里撤销。', action('选择文件夹', 'folder', '', 'primary'))}</div>`;
-    if (page === 'agents' && capabilityTab === 'coding') return `<div class="page">${capabilityTabs('coding')}${codingPage(state.coding, {heading, action, empty, date, candidates: codingCandidates, busy: busyCoding, project: codingProject(), tasks: codingTaskList})}</div>`;
     if (page === 'agents' && capabilityTab!=='agents')return `<div class="page">${capabilityTabs(capabilityTab)}${capabilityTab==='skills'?skillsPage(state):mcpPage(state,busyMcp)}</div>`;
     if (page === 'agents') { // [ux11] plaza cards
         const ag = state.agents || [], skillN = a => (a.skills || []).length + (a.skillIds || []).length, mcpN = a => (a.mcp || []).length + (a.mcpIds || []).length;
         const tags = a => [[(a.knowledge || []).length, '份知识', 'blue'], [skillN(a), '项技能', 'violet'], [mcpN(a), '个 MCP', 'orange']].filter(([n]) => n).map(([n, l, t]) => `<span class="pc-tag t-${t}">${n} ${l}</span>`).join('') || '<span class="pc-tag">通用对话</span>';
         const cards = ag.map(a => `<div class="card plaza-card agent-card"><div class="pc-head">${agentAvatar(a)}<div class="pc-title"><h3>${escape(a.name)}</h3><small>${a.id === 'assistant' ? '内置智能体' : '自定义智能体'} · ReAct ${a.maxSteps || 32} 轮</small></div></div>
 <div class="pc-tags">${tags(a)}</div><p class="pc-desc">${escape(a.description)}</p><div class="pc-actions">${action('开始对话', 'useAgent', a.id, 'primary')}${action('编辑', 'editAgent', a.id)}${a.id !== 'assistant' ? action('删除', 'deleteAgent', a.id) : ''}</div></div>`).join('');
-        return `<div class="page">${capabilityTabs('agents')}${heading('', '为每一种工作，找到好搭档。', '配置知识文档、Skills、MCP、工具和提示词，通过 ReAct 循环完成任务。', action('清除检索索引', 'clearKnowledgeIndex') + action(icon('plus') + '新建智能体', 'newAgent', '', 'primary'),
-            [[ag.length, '个智能体'], [ag.reduce((n, a) => n + skillN(a), 0), '项已绑定技能'], [ag.reduce((n, a) => n + mcpN(a), 0), '个已绑定 MCP']])}
-<div class="plaza-section-head"><h2>我的智能体</h2><small>「开始对话」用它处理任务；「编辑」可绑定知识、Skills、MCP 和工具。</small></div><div class="plaza-grid">${cards}</div></div>`;
+        const categories = `<div class="agent-segments" role="group" aria-label="智能体分类">${[['all', '全部'], ['dialogue', '对话智能体'], ['coding', 'Coding 智能体']].map(([id, label]) => `<button type="button" data-action="agentCategory" data-id="${id}" aria-pressed="${agentCategory === id}" class="${agentCategory === id ? 'active' : ''}">${label}</button>`).join('')}</div>`;
+        const coding = codingCards(state.coding, {action, date, busy: busyCoding, project: codingProject(), results: codingTestResults});
+        const codingOnly = agentCategory === 'coding';
+        const proxies = state.coding?.agents || [];
+        const lastTest = Math.max(0, ...proxies.map(agent => agent.lastTest?.at || 0));
+        const codingStats = [[proxies.length, '个代理'], [proxies.find(agent => agent.isDefault)?.name || '未设置', '默认代理'], [lastTest ? date(lastTest) : '尚未测试', '最近连接测试']];
+        const actions = codingOnly ? action('检测本机代理', 'codingDetect') + action('添加代理', 'codingNew', '', 'primary') :
+            action('清除检索索引', 'clearKnowledgeIndex') + action(icon('plus') + '新建智能体', 'newAgent', '', 'primary');
+        return `<div class="page">${capabilityTabs('agents')}${heading('', '为每一种工作，找到好搭档。', '配置知识文档、Skills、MCP、工具和提示词，通过 ReAct 循环完成任务。', actions,
+            codingOnly ? codingStats : [[ag.length, '个智能体'], [ag.reduce((n, a) => n + skillN(a), 0), '项已绑定技能'], [ag.reduce((n, a) => n + mcpN(a), 0), '个已绑定 MCP']])}
+<div class="plaza-section-head agent-section-head"><h2>我的智能体</h2>${categories}</div><div class="plaza-grid agent-plaza-grid">${codingOnly ? '' : cards}${agentCategory === 'dialogue' ? '' : coding}</div>${codingOnly ? codingDetection(state.coding, codingCandidates, action) : ''}</div>`;
     }
     if (page === 'tasks') // [ux6] 定时任务 / 运行记录
-        return automationPage(state, {action, empty, tab: taskTab || (state.trade ? 'trade' : 'tasks'), filter: taskFilter, runStatus, runTask: runTaskFilter, runTrigger, banner: pendingBanner(state, action),
+        return automationPage(state, {action, empty, codingTasks: codingTaskList, codingProject: codingProject(), date, tab: taskTab || (state.trade ? 'trade' : 'tasks'), filter: taskFilter, runStatus, runTask: runTaskFilter, runTrigger, banner: pendingBanner(state, action),
             extra: taskTab === 'runs' && (state.runJobs || []).some(j => ['queued', 'running', 'cancelling'].includes(j.status)) ? views.runQueue({state, action, date, statusNames}) : ''}); // [ux8] only while something is queued
     if (page === 'research') return researchPage(state, {action, date, stock: rpStock, kind: rpKind, query: rpQuery}); // [v0.53]
     if (page === 'library')
@@ -660,8 +687,8 @@ function modal(title, body, submit, handler) {
     const d = $('#modal');
     d.classList.remove('task-modal'); // [ux6]
     d.onclick=null;
-    d.onclose=()=>d.querySelectorAll('[data-mcp-secret],input[type="password"]').forEach(el=>el.value='');
-    d.innerHTML = `<form method="dialog" novalidate><header><h2>${escape(title)}</h2><button type="button" data-modal-close class="icon-button" value="cancel" aria-label="关闭">${icon('close')}</button></header>${body}<p id="modal-error" role="alert" hidden></p><footer><button type="button" data-modal-close value="cancel" class="secondary">关闭</button>${submit ? `<button type="button" id="modalSubmit" class="primary">${submit}</button>` : ''}</footer></form>`;
+    d.onclose=()=>d.querySelectorAll('[data-mcp-secret],[data-coding-value],input[type="password"]').forEach(el=>el.value='');
+    d.innerHTML = modalLayout(title, body, submit, icon);
     for(const close of d.querySelectorAll("[data-modal-close]"))close.onclick=()=>d.close();
     if (!d.open)
         d.showModal();
@@ -715,11 +742,12 @@ async function send() {
     const codingCommand = !files.length && !images.length && !selections.length && codingPageCommand(prompt);
     if (codingCommand) {
         draft = '';
-        capabilityTab = 'coding';
+        capabilityTab = 'agents';
+        agentCategory = 'coding';
         await openPageTab('agents');
         if (codingCommand === 'workbuddy') {
             const candidates = await codingCall({action: 'detect'}).catch(() => []);
-            if (!state.locked && panelTab()?.page === 'agents' && capabilityTab === 'coding')
+            if (!state.locked && panelTab()?.page === 'agents' && capabilityTab === 'agents' && agentCategory === 'coding')
                 showCodingForm(codingPreset(candidates.find(candidate => candidate.command.endsWith('/codebuddy')) || workBuddyPreset));
         }
         return;
@@ -840,7 +868,8 @@ function showCodingForm(agent = {}) {
     });
     bindCodingForm($('#modal'), agent, {
         browse: () => invoke('codingBrowse'),
-        test: draft => codingCall({action: 'test', id: agent.id, draft}),
+        test: (draft, testId) => codingCall({action: 'test', id: agent.id, draft, testId}),
+        cancelTest: testId => codingCall({action: 'cancelTest', testId}),
         projectSettings: () => handle('quantSettings').catch(error => toast(error.message)),
     });
 }
@@ -951,10 +980,7 @@ async function handle(actionId, id, stockTarget) {
             if (result?.status === 'opened') { await update('state'); toast('已打开内置编辑窗口；保存并退出后点击收回编辑结果'); }
             return;
         }
-        return runOfficeAction(state.officeEngine?.phase==='ready' ? '载入 Office 文档' : 'Office 引擎启动中…', async () => {
-            const result = await invoke('officeOpen', {id, revision: d.revision});
-            if (result?.status === 'opened') { await update('state'); toast('已打开 QuanK Office，编辑直接保存'); }
-        });
+        return openDocumentOffice(d);
     }
     if (actionId==='documentCanvas') {
         const editor=id?await invoke('documentRichEditor',{id}):{name:'新文档',html:'<h1>项目方案</h1><p>在这里编辑正文，选择文字后可设置格式。</p>'};
@@ -1298,21 +1324,6 @@ async function handle(actionId, id, stockTarget) {
         $('#prompt')?.focus();
         return;
     }
-    if (actionId === 'codingSpecEdit') {
-        const text = await codingTaskCall('specGet');
-        modal('编辑量化代码迭代规范', `<label class="coding-spec">Markdown<textarea name="text" required spellcheck="false">${escape(text)}</textarea></label>`, '保存', async data => {
-            await codingTaskCall('specSave', { text: data.get('text') });
-            toast('迭代规范已保存');
-        });
-        return;
-    }
-    if (actionId === 'codingSpecReset') {
-        modal('恢复默认迭代规范', '<p>当前自定义内容将被默认规范替换。</p>', '恢复默认', async () => {
-            await codingTaskCall('specReset');
-            toast('已恢复默认迭代规范');
-        });
-        return;
-    }
     if (actionId === 'codingTaskStart') {
         const agents = state.coding?.agents || [];
         const options = agents.map(agent => `<option value="${escape(agent.id)}">${escape(agent.name)}</option>`).join('');
@@ -1323,6 +1334,7 @@ async function handle(actionId, id, stockTarget) {
         return;
     }
     if (actionId === 'codingSetupOpen') return openCodingPage({page: 'agents', coding: {}});
+    if (actionId === 'codingResultOpen') return openCodingPage({page:'tasks', coding:{task:id}});
     if (actionId === 'codingTaskOpen') {
         const task = await loadCodingTask(id);
         if (!state.locked) {
@@ -1378,20 +1390,20 @@ async function handle(actionId, id, stockTarget) {
         });
         return;
     }
-    if (actionId === 'codingSettings') {
-        const data = new FormData(stockTarget.closest('form'));
-        state.coding = await codingCall({action: 'settings', fallback: data.get('fallback'), allowAssistant: data.has('allowAssistant')});
-        render(); toast('Coding 设置已保存'); return;
-    }
+    if (actionId === 'codingTestCancel' && busyCoding.has(id)) return codingCall({action: 'cancelTest', testId: busyCoding.get(id)});
     if (actionId === 'codingTest' && !busyCoding.has(id)) {
-        busyCoding.add(id); render();
+        const testId = crypto.randomUUID();
+        busyCoding.set(id, testId); render();
         try {
-            const result = await codingCall({action: 'test', id});
-            state.coding = await codingCall({action: 'list'});
-            if (!state.locked && !$('#modal').open) modal('测试 Coding 智能体连接', codingTestResult(result));
+            const result = await codingCall({action: 'test', id, testId});
+            if (!state.locked) {
+                codingTestResults.set(id, result);
+                state.coding = await codingCall({action: 'list'});
+            }
         } finally { busyCoding.delete(id); render(); }
         return;
     }
+    if (actionId === 'agentCategory' && ['all', 'dialogue', 'coding'].includes(id)) { agentCategory = id; render(); return; }
     if(actionId==='capabilityTab'){capabilityTab=id;render();return;}
     if(actionId==='addPresetSkill'){const out=await invoke('skillPreset',{id});applyState(out.state);render();toast('技能已添加，可在智能体中绑定');return;}
     if(actionId==='uploadSkill'){const out=await invoke('skillImport');applyState(out.state);render();if(out.imported)toast('技能已上传，可在智能体中绑定');return;}
@@ -1412,8 +1424,12 @@ async function handle(actionId, id, stockTarget) {
     if(actionId==='testMcp'){busyMcp.add(id);render();try{const out=await invoke('mcpTest',{id});applyState(out.state);toast('已发现 '+out.result.count+' 项工具');}finally{busyMcp.delete(id);applyState(await invoke('state'));render();}return;}
     if (actionId === 'newAgent' || actionId === 'editAgent') {
         const a = state.agents.find(a => a.id === id) || {};
-        modal(a.id ? '编辑智能体' : '创建智能体', input('名称', 'name', a.name) + input('简介', 'description', a.description) + area('角色指令', 'prompt', a.prompt) + agentEditor(a,state.documents||[],state), '保存', async (f) => update('agent', {name:f.get('name'),description:f.get('description'),prompt:f.get('prompt'),...readAgentEditor(f,$('#modal')),id:a.id}));
-        bindAgentEditor($('#modal'),{uploadSkill:async()=>{const out=await invoke('skillImport');applyState(out.state);return out;},saveMcp:async p=>{const out=await invoke('mcpConnection',p);applyState(out.state);return out;},onError:toast});
+        modal(a.id ? '编辑智能体' : '创建智能体', input('名称', 'name', a.name) + input('简介', 'description', a.description) + area('角色指令', 'prompt', a.prompt) + agentEditor(a,state.documents||[],state), '保存', async (f) => {
+            const spec = f.get('codingSpec');
+            if (spec && f.getAll('codingSubagent').length) await codingTaskCall('specSave', {text: spec});
+            return update('agent', {name:f.get('name'),description:f.get('description'),prompt:f.get('prompt'),...readAgentEditor(f,$('#modal')),id:a.id});
+        });
+        bindAgentEditor($('#modal'),{readSpec:()=>codingTaskCall('specGet'),resetSpec:()=>codingTaskCall('specDefault'),uploadSkill:async()=>{const out=await invoke('skillImport');applyState(out.state);return out;},saveMcp:async p=>{const out=await invoke('mcpConnection',p);applyState(out.state);return out;},onError:toast});
         return;
     }
     if (actionId === 'useAgent') {
@@ -1905,7 +1921,7 @@ async function handle(actionId, id, stockTarget) {
         return;
     }
     // [ux6] automation page
-    if (actionId === 'taskTab') { taskTab = ['runs', 'trade'].includes(id) ? id : 'tasks'; render(); return; }
+    if (actionId === 'taskTab') { taskTab = ['runs', 'trade', 'coding'].includes(id) ? id : 'tasks'; render(); return; }
     if (actionId === 'tradeHome') { taskTab = 'trade'; await navigate('tasks'); return; } // [v0.52.2]
     if (actionId === 'taskFilter') { taskFilter = ['active', 'paused'].includes(id) ? id : 'all'; render(); return; }
     if (actionId === 'taskRuns') { taskTab = 'runs'; runTaskFilter = id || 'all'; runStatus = 'all'; runTrigger = 'all'; render(); return; }
@@ -2121,6 +2137,7 @@ function bindPanelResize(host) {
     });
 }
 function renderPanel() {
+    clearOfficeNotice();
     let host = document.getElementById('pagePanel');
     const tab = !state.locked && panelTab();
     if (!tab) { disposeFilePreview?.(); disposeFilePreview = undefined; host?.remove(); document.body.classList.remove('pp-on', 'pp-wide'); panelHeadHtml = panelBodyKey = ''; return; }
@@ -2146,7 +2163,7 @@ function renderPanel() {
         }
     } else if (tab.kind === 'document') {
         const d = state.documents?.find(item => item.id === tab.documentId);
-        body = d ? filePreviewPanel(d, {action, icon, native: state.officeNative, workspace: state.officeWorkspace}) : '<p>文件已从成果中心移除。</p>';
+        body = d ? filePreviewPanel(d, {action, icon, native: state.officeNative}) : '<p>文件已从成果中心移除。</p>';
         key = tab.id + '\n' + (d ? d.revision + ':' + state.officeNative : 'missing');
     } else if (tab.kind === 'market-stock') {
         if (!tab.chartRevision) setKlinePeriod(tab.code, tab.period);
@@ -2187,12 +2204,16 @@ async function boot() {
 let runtimeTimer;
 api?.onCodingTask?.(refreshCodingTasks);
 async function openCodingPage(p) {
-    if (p?.page === 'coding-task' && typeof p.taskId === 'string') {
-        await handle('codingTaskOpen', p.taskId);
+    const task = p?.page === 'coding-task' ? p.taskId : p?.coding?.task;
+    if (typeof task === 'string' && ['tasks', 'agents', 'coding-task'].includes(p.page)) {
+        taskTab = 'coding';
+        await navigate('tasks', true);
+        await handle('codingTaskOpen', task);
         return true;
     }
     if (p?.page === 'agents' && p.coding) {
-        capabilityTab = 'coding';
+        capabilityTab = 'agents';
+        agentCategory = 'coding';
         await openPageTab('agents');
         return true;
     }
@@ -2206,7 +2227,7 @@ api?.onOpenPage?.(async p => {
         return;
     }
     if (await openCodingPage(p).catch(e => { toast(e.message); return true; })) return;
- if (p?.page === 'library' && p.document) { Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { if (/^\d{6}$/.test(String(p.code))) openMarketStockTab(p); else openPageTab('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code), {name: p.name, section: p.tab}).catch(e => toast(e.message)); else openPageTab('quant'); return; } if (p?.page === 'tasks' && p.tab) { taskTab = ['trade', 'runs'].includes(p.tab) ? p.tab : 'tasks'; openPageTab('tasks'); return; } /* [v0.52.2] */ if (p?.page === 'research') { rpStock = /^\d{6}$/.test(String(p.stock || '')) ? String(p.stock) : ''; rpKind = typeof p.kind === 'string' ? p.kind : ''; rpQuery = ''; openPageTab('research'); return; } /* [v0.53.1] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context', 'security'].includes(p?.page)) openPageTab(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
+ if (p?.page === 'library' && p.document) { Promise.resolve(update('state')).then(() => handle('documentView', String(p.document))).catch(e => toast(e.message)); return; } /* [F2] */ if (p?.page === 'market') { if (/^\d{6}$/.test(String(p.code))) openMarketStockTab(p); else openPageTab('market'); return; } if (p?.page === 'quant') { if (p.code) handle('quantOpen', String(p.code), {name: p.name, section: p.tab}).catch(e => toast(e.message)); else openPageTab('quant'); return; } if (p?.page === 'tasks' && p.tab) { taskTab = ['trade', 'runs', 'coding'].includes(p.tab) ? p.tab : 'tasks'; openPageTab('tasks'); return; } /* [v0.52.2] */ if (p?.page === 'research') { rpStock = /^\d{6}$/.test(String(p.stock || '')) ? String(p.stock) : ''; rpKind = typeof p.kind === 'string' ? p.kind : ''; rpQuery = ''; openPageTab('research'); return; } /* [v0.53.1] */ if (['home', 'feed', 'studio', 'tasks', 'library', 'files', 'agents', 'connectors', 'tools', 'graph', 'context', 'security'].includes(p?.page)) openPageTab(p.page); if (p?.page === 'agents' && p.mcp && typeof p.mcp === 'object') { capabilityTab = 'mcp'; render(); setTimeout(() => handle(p.mcp.preset ? 'newPresetMcp' : 'newMcp', String(p.mcp.preset || '')).catch(e => toast(e.message)), 0); } if (p?.page === 'connectors' && p.connector && typeof p.connector === 'object') setTimeout(() => handle('connectorPrefill', JSON.stringify(p.connector)).catch(e => toast(e.message)), 0); }); // [p2-m4][ux5][ux9]
 api?.onOpenChat?.(p => { if (p?.id && state.chats.some(c => c.id === p.id)) handle('openChat', p.id).catch(e => toast(e.message)); });
 api?.onRuntime?.(() => {
     clearTimeout(runtimeTimer);
@@ -2233,7 +2254,7 @@ const liveStreams = new Map();
 let appVersion = ''; // [v0.52] shown next to the brand
 function applyState(next) {
     if (next?.appVersion) appVersion = String(next.appVersion);
-    if (next?.locked) { localApprovals.clear(); expandedApprovals.clear(); codingCandidates = null; codingTaskList = []; codingTaskDetails.clear(); codingTaskRevision++; clearTimeout(codingTaskPaint); codingTaskPaint = undefined;
+    if (next?.locked) { localApprovals.clear(); expandedApprovals.clear(); codingCandidates = null; codingTestResults.clear(); codingTaskList = []; codingTaskDetails.clear(); codingTaskRevision++; clearTimeout(codingTaskPaint); codingTaskPaint = undefined;
         for (const tab of pageTabs) if (tab.kind === 'coding-task') delete tab.loading; state = { locked: true, lock: next.lock || {}, chats: [], folders: [], memories: [], agents: [], tasks: [], artifacts: [], activity: [], settings: { name: '' } }; return; } // [F5]
     if (state.locked) { state = { ...next }; state.tasks ??= []; return; }
     for (let i=0;i<(next.runJobs || []).length;i++) {
@@ -2358,7 +2379,7 @@ document.addEventListener('office-selection',async e=>{
 });
 
 // Explicit double-click opens an owned Office editor window; never infer filesystem paths.
-document.addEventListener('dblclick',event=>{if(!state.officeWorkspace||event.target.closest('button,a,input,textarea'))return;const card=event.target.closest('[data-document]');const d=state.documents?.find(d=>d.id===card?.dataset.document);if(d&&['docx','xlsx','pptx'].includes(d.format))runOfficeAction(state.officeEngine?.phase==='ready' ? '载入 Office 文档' : 'Office 引擎启动中…',()=>invoke('officeOpen',{id:d.id,revision:d.revision})).catch(e=>toast(e.message));});
+document.addEventListener('dblclick',event=>{if(!state.officeWorkspace||event.target.closest('button,a,input,textarea'))return;const card=event.target.closest('[data-document]');const d=state.documents?.find(d=>d.id===card?.dataset.document);if(d&&['docx','xlsx','pptx'].includes(d.format))openDocumentOffice(d).catch(e=>toast(e.message));});
 
 // [p1-m2] right-click a conversation in the sidebar for its actions
 // [p2-m1] task form: show only the fields that belong to the chosen cadence

@@ -339,12 +339,11 @@ else {
         conversations = createConversationService({ appTools: appDeps, approve, rules: approvalRules, models, secrets:mcpSecrets, images, queue:runs, store, active, key, view, executeTool, releaseToolGrants:id=>toolRuntime.releaseGrants(id), notify: notifyRuntime,notifyStream:event=>{if(win&&!win.isDestroyed())win.webContents.send('actwill:stream',event);cliAsk?.stream(event);},onCompleted:e=>{conversationFinished(e);cliAsk?.finished(e);} });
         if(runtimeRoot()){
             const kit=createOfficeWorkspace({documents:toolRuntime.documents,directory:path.join(store.dir,'office-kit'),runtime:officeRuntime,approve,notify:notifyRuntime,
-                waitForEngine:()=>officeEngine?.wait(),
                 allowStandby:()=>officeWarmEnabled()&&!closing,
                 onStandbyTiming:timing=>officeEngine?.record('editorWorker',timing),
                 audit:async event=>{const prev=store.data.executions;store.data.executions=[event,...prev.filter(e=>e.id!==event.id)].slice(0,300);try{await store.save();}catch(e){store.data.executions=prev;throw e;}notifyRuntime();}});
             const officeChat=createOfficeChat({store,kit,models,key,approve,queue:runs,notify:notifyRuntime});
-            officeWindows=createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat:officeChat,models,documents:toolRuntime.documents,dialog,notice: message => {
+            officeWindows=createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat:officeChat,models,documents:toolRuntime.documents,dialog,canOpen:()=>!security?.locked&&!closing,notice: message => {
                 focus();
                 win?.webContents.send('actwill:openPage', { page: 'notice', message });
             }});
@@ -561,6 +560,7 @@ else {
                     if (codingTasks.get(p.id).updatedAt !== task.updatedAt) throw new Error('迭代已更新，请重新核对后确认');
                     return { result: await codingTasks[p.action](p.id) };
                 }
+                case 'specDefault': return { result: await codingSpec(null, 'get') };
                 case 'specGet': return { result: await codingSpec(store.dir, 'get') };
                 case 'specSave': return { result: await codingSpec(store.dir, 'save', p.text) };
                 case 'specReset': return { result: await codingSpec(store.dir, 'reset') };

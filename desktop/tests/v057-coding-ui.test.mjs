@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 import {JSDOM} from 'jsdom';
-import {bindCodingForm, codingForm, codingPage, codingPayload, codingPreset, codingTestResult, workBuddyPreset} from '../src/ui/coding.js';
+import {bindCodingForm, codingForm, codingCards, codingDetection, codingPayload, codingPreset, codingTestResult, workBuddyPreset} from '../src/ui/coding.js';
 import {capabilityTabs} from '../src/ui/capability-library.js';
 import {codingPageCommand} from '../src/shared/page-command.js';
 
@@ -46,42 +46,40 @@ test('检测结果一键填入 WorkBuddy，预备环境变量且不填值', asyn
   assert.ok(editable(agent, '').form.querySelector('[data-coding-test]').disabled);
 });
 
-test('六类失败有中文原因和建议，成功展示代理信息、回复和耗时', () => {
+test('六类失败有中文原因和建议，成功展示秒级耗时', () => {
   for (const [kind, text] of Object.entries({
     not_found: /找不到代理命令.*路径/,
     no_acp: /未进入 ACP 模式.*codebuddy.*--acp/,
-    auth: /鉴权失败.*检查 API Key 或先在终端登录/,
+    auth: /未登录（auth）.*CODEBUDDY_API_KEY/,
     quota: /额度用尽.*账单/,
     timeout: /响应超时.*网络/,
     crashed: /异常退出.*依赖/,
   })) assert.match(codingTestResult({ok: false, kind}), text);
-  const result = codingTestResult({ok: true, agentInfo: {name: 'Fixture', version: '1.0'}, reply: '<正常>', ms: 42});
-  assert.match(result, /Fixture · 1\.0 · 42 ms/);
-  assert.match(result, /&lt;正常&gt;/);
+  const result = codingTestResult({ok: true, agentInfo: {name: 'Fixture', version: '1.0'}, reply: '<正常>', ms: 1900});
+  assert.match(result, /✓ 连接正常 · 1\.9s/);
 });
 
-test('标签、列表上次测试、设置默认值、规范入口和空任务区', () => {
-  assert.match(capabilityTabs('coding'), /aria-selected="true"[^>]+data-id="coding"/);
-  const markup = codingPage({agents: [{id: 'a', name: 'WorkBuddy', isDefault: true, command: 'codebuddy', args: '--acp', description: '本地代理', lastTest: {at: 1, ok: false, kind: 'auth'}}]}, {
-    heading: (_, title, __, actions, stats) => title + actions + stats.flat().join(' '),
-    action: text => '<button type="button">' + text + '</button>', empty: () => '', date: () => '测试时间',
-    candidates: [workBuddyPreset], busy: new Set(), project: '/tmp/strategy',
-  });
+test('Coding 显示在智能体分类下，卡片和检测状态可区分', () => {
+  assert.doesNotMatch(capabilityTabs('agents'), /Coding 智能体/);
+  const config = {agents:[{id:'a', name:'WorkBuddy', isDefault:true, command:'codebuddy', args:'--acp', lastTest:{at:1,ok:false,kind:'auth'}}]};
+  const action = text => '<button type="button">' + text + '</button>';
+  const markup = codingCards(config, {action, date:()=> '测试时间', busy:new Map(), project:'/tmp/strategy'}) +
+    codingDetection(config, [workBuddyPreset], action);
   const doc = new JSDOM(markup).window.document;
-  assert.match(doc.querySelector('.coding-card').textContent, /鉴权失败 · 测试时间/);
-  assert.match(doc.querySelector('.coding-detected').textContent, /WorkBuddy.*--acp/s);
-  assert.equal(doc.querySelector('[name=fallback]').value, 'auto');
-  assert.deepEqual([...doc.querySelectorAll('[name=fallback] option')].map(o => o.value), ['auto', 'external', 'builtin']);
-  assert.ok(doc.querySelector('[name=allowAssistant]').checked);
-  assert.deepEqual([...doc.querySelectorAll('#coding-settings button:disabled')].map(b => b.textContent), ['编辑迭代规范', '恢复默认']);
-  assert.match(doc.body.textContent, /还没有 Coding 任务/);
+  assert.match(doc.querySelector('.coding-card').textContent, /未登录 · 测试时间/);
+  assert.equal(doc.querySelector('.coding-detected small').title, 'codebuddy --acp');
+  assert.equal(doc.querySelector('.coding-detected button:disabled').textContent, '已添加');
 });
 
-test('页面和表单随窄容器收缩，沿用主题变量', async () => {
-  const css = await readFile(new URL('../src/workbench.css', import.meta.url), 'utf8');
-  assert.match(css, /\.coding-grid[^}]+minmax\(min\(100%,285px\),1fr\)/);
-  assert.match(css, /\.coding-command, \.coding-env-row[^}]+flex-wrap:wrap/);
-  assert.match(css, /\.coding-form fieldset[^}]+var\(--line\)/);
+test('环境变量区保留单一表头和隐藏控制', () => {
+  const {dialog, form} = editable(codingPreset(workBuddyPreset));
+  assert.deepEqual([...form.querySelectorAll('th')].map(el => el.textContent), ['键名','值','操作']);
+  bindCodingForm(dialog, {}, {});
+  const value = form.querySelector('[data-coding-value]');
+  form.querySelector('[data-coding-visibility]').click();
+  assert.equal(value.type, 'text');
+  form.querySelector('[data-coding-visibility]').click();
+  assert.equal(value.type, 'password');
 });
 
 test('对话导航指令精确匹配，普通 WorkBuddy 讨论和编码需求继续走对话', async () => {

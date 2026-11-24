@@ -1,5 +1,5 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>QuanK Office</title>
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'"><title>QuanK Office</title>
 <style>html,body{height:100%;margin:0}body{display:flex;align-items:center;justify-content:center;background:#fff;font:14px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#4b5563}
 .box{display:flex;flex-direction:column;align-items:center;gap:14px}.spin{width:34px;height:34px;border:3px solid #dbe7f3;border-top-color:#0078cb;border-radius:50%;animation:s .9s linear infinite}
-b{font-size:16px;color:#1f2937}small{color:#8a9099}@keyframes s{to{transform:rotate(360deg)}}</style></head>
-<body><div class="box"><div class="spin"></div><b>正在打开 QuanK Office</b><small>正在启动内置文档引擎并载入文档，首次打开需要几秒</small></div></body></html>
+[hidden]{display:none}.box button{font:inherit;padding:8px 16px}b{font-size:16px;color:#1f2937}small{color:#8a9099}@keyframes s{to{transform:rotate(360deg)}}</style></head>
+<body><div class="box"><div class="spin"></div><b>正在打开 QuanK Office</b><small>正在启动内置文档引擎并载入文档，首次打开需要几秒</small><button type="button" hidden>重试</button></div><script src="loading.js"></script></body></html>

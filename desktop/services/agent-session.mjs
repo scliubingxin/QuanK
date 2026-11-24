@@ -45,6 +45,7 @@ export async function createAgentSession({
   secrets,
   appTools = null, // [ux5]
   appOnly = false,
+  knowledgeOnly = false,
 }) {
   // [p2-m6] a gated approver understands rule scopes; a plain one keeps the original three-argument call
   const ask = approve.gated ? approve : (title, detail, s) => approve(title, detail, s);
@@ -173,7 +174,7 @@ export async function createAgentSession({
       ),
     );
   try {
-    for (let i = 0; i < profile.mcp.length; i++) {
+    for (let i = 0; !appOnly && !knowledgeOnly && i < profile.mcp.length; i++) {
       const server = profile.mcp[i];
       await audit(
         "mcp_discover",
@@ -214,7 +215,10 @@ export async function createAgentSession({
   }
   // [ux5] app tools; appOnly = the composer's tool switch is off but the request is an app action
   const withApp = !!appTools && agent?.appTools !== false;
-  if (appOnly) definitions.splice(0, definitions.length);
+  if (knowledgeOnly) {
+    const knowledgeTools = definitions.filter(item => item.function.name === 'knowledge_search');
+    definitions.splice(0, definitions.length, ...knowledgeTools);
+  } else if (appOnly) definitions.splice(0, definitions.length);
   if (withApp) definitions.push(...appToolDefinitions({ incognito: incognitoChat }));
   const session = {
     definitions,

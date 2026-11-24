@@ -101,11 +101,10 @@ export function mountOfficePreview(host, invoke, engineReady = () => false, pane
   return () => stop();
 }
 
-const pdfIcon = '<svg viewBox="0 0 32 24" width="29" height="22" aria-hidden="true"><path d="M6 2h14l6 6v14H6zM20 2v6h6" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="16" y="17" text-anchor="middle" fill="currentColor" font-size="8" font-weight="700">PDF</text></svg>';
 const outlinePreference = 'quank.filePreview.outlineOpen';
 const officeFormats = new Set(['docx', 'xlsx', 'pptx']);
 
-export function filePreviewPanel(document, {action, icon, native, workspace}) {
+export function filePreviewPanel(document, {action, icon, native}) {
   const {id, name, format, revision} = document;
   const fileName = escape(name + '.' + format);
   const pdfFrame = (native && officeFormats.has(format)) || format === 'pdf';
@@ -120,10 +119,9 @@ export function filePreviewPanel(document, {action, icon, native, workspace}) {
     <header class="file-preview-head"><b title="${fileName}">${fileName}</b>
       ${uiAction('在成果中心定位', 'documentLocate', icon('folder') || '⌑')}
       <span class="file-preview-spacer"></span>
-      ${native && officeFormats.has(format) ? uiAction('导出 PDF', 'documentExportPdf', pdfIcon) : ''}
+      ${native && officeFormats.has(format) ? uiAction('导出 PDF', 'documentExportPdf', icon('fileDown')) : ''}
       <details class="file-menu"><summary title="更多操作" aria-label="更多操作">⋯</summary><div>
-        ${action('下载', 'documentExport', id)}${action('用系统应用打开', 'documentSystemOpen', id)}
-        ${native && !workspace && officeFormats.has(format) ? action('收回编辑结果', 'officeCollect', id) : ''}
+        ${action('下载', 'documentExport', id)}
         ${action('版本历史', 'documentHistory', id)}${action('在成果中心查看', 'documentLocate', id)}
       </div></details>
       ${officeFormats.has(format) ? action('<span aria-hidden="true">✎</span> <span class="file-edit-label" aria-hidden="true">编辑</span><span class="file-sr">QuanK Office 编辑</span>', 'documentEditor', id, 'file-primary') : ''}

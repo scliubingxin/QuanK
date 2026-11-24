@@ -2,6 +2,7 @@
 // a run-record table built from every task's history, and a two-column task editor. Pure HTML builders.
 import { escape } from './markdown.js';
 import { describeSchedule, WEEKDAY_NAMES } from '../shared/schedule.js';
+import { codingTasksSection } from './coding.js';
 import { tradeBox } from './trade.js'; // [v0.52.2] 半自动委托 lives under 自动化
 
 export const LIVE = ['queued', 'running', 'cancelling'];
@@ -90,12 +91,13 @@ function recordsTab(state, {runStatus, runTask, runTrigger, now, chatExists}) {
     : '<p class="empty-note run-empty">没有符合条件的运行记录。</p>');
 }
 
-export function automationPage(state, {action, empty, tab = 'tasks', filter = 'all', runStatus = 'all', runTask = 'all', runTrigger = 'all', now = Date.now(), banner = '', extra = ''}) {
+export function automationPage(state, {action, empty, tab = 'tasks', filter = 'all', runStatus = 'all', runTask = 'all', runTrigger = 'all', now = Date.now(), banner = '', extra = '', codingTasks = [], codingProject, date = relTime}) {
   const tasks = state.tasks || [], chatExists = id => (state.chats || []).some(c => c.id === id);
   const n = {all: tasks.length, active: tasks.filter(t => taskState(t) !== 'paused').length, paused: tasks.filter(t => taskState(t) === 'paused').length};
-  const tabs = `<div class="auto-tabs" role="tablist">${[...(state.trade ? [['trade', '半自动委托']] : []), ['tasks', '定时任务'], ['runs', '运行记录']].map(([id, l]) => `<button type="button" role="tab" class="${tab === id ? 'chosen' : ''}" aria-selected="${tab === id}" data-action="taskTab" data-id="${id}">${l}</button>`).join('')}</div>`;
+  const tabs = `<div class="auto-tabs" role="tablist">${[...(state.trade ? [['trade', '半自动委托']] : []), ['tasks', '定时任务'], ['runs', '运行记录'], ['coding', 'Coding 任务']].map(([id, l]) => `<button type="button" role="tab" class="${tab === id ? 'chosen' : ''}" aria-selected="${tab === id}" data-action="taskTab" data-id="${id}">${l}</button>`).join('')}</div>`;
   const hero = `<div class="page-title page-hero"><div><h1>让重复的工作，<em>按时自动完成</em></h1><p>到点由智能体自动执行一次对话，结果进入「动态」；也可以直接在对话里说「每天 8 点帮我汇总未读邮件」。</p><div class="plaza-stats"><span><b>${n.all}</b>个定时任务</span><span><b>${n.active}</b>个进行中</span><span><b>${n.paused}</b>个已暂停</span></div></div></div>`; // [ux11]
   const head = `<div class="auto-head">${tabs}<div class="auto-tools">${iconBtn('refresh', 'refresh', '', '刷新')}${action('＋ 新建', 'newTask', '', 'primary')}</div></div>`;
+  if (tab === 'coding') return `<div class="page auto-page">${hero}<div class="auto-head">${tabs}<div class="auto-tools">${codingProject ? action('发起迭代', 'codingTaskStart', '', 'primary') : '<button type="button" class="primary" disabled title="请先在量化设置中选择本地策略项目">发起迭代</button>'}</div></div>${banner}${codingTasksSection(codingTasks, {action, date})}</div>`;
   if (tab === 'runs') return `<div class="page auto-page">${hero}${head}${banner}${recordsTab(state, {runStatus, runTask, runTrigger, now, chatExists})}${extra}</div>`;
   if (tab === 'trade' && state.trade) return `<div class="page auto-page quant-page auto-trade">${hero}<div class="auto-head">${tabs}</div>${banner}${tradeBox(state.trade, {action})}</div>`; // [v0.52.2]
   const chips = `<div class="auto-filters">${[['all', '全部'], ['active', '进行中'], ['paused', '已暂停']].map(([id, l]) => `<button type="button" class="${filter === id ? 'chosen' : ''}" data-action="taskFilter" data-id="${id}">${l} (${n[id]})</button>`).join('')}</div>`;

@@ -1,3 +1,4 @@
+import { migrateSubagents } from './src/shared/subagents.js';
 import {requestModelOptions} from './runtime/model-policy.mjs';
 import {constants} from 'node:fs';
 import { readCompletion } from './runtime/model-stream.mjs';
@@ -25,7 +26,7 @@ export class Store {
             throw e;
         this.data = initialState();
         await this.save();
-    } return this.data; }
+    } migrateSubagents(this.data); return this.data; }
     save() { const json = JSON.stringify(this.data, null, 2), bytes = this.codec ? this.codec.encode(json) : json; this.pending = this.pending.catch(() => { }).then(async () => { const temp = this.file + '.tmp'; await writeFile(temp, bytes, { mode: 0o600 }); await rename(temp, this.file); }); return this.pending; }
     log(title, detail = '') { this.data.activity.unshift({ id: uid(), title, detail, time: Date.now() }); this.data.activity = this.data.activity.slice(0, 300); }
 }

@@ -1,3 +1,4 @@
+import {shellWords} from '../src/shared/shell-words.js';
 import { createBuiltinRunner } from './coding-builtin.mjs';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -30,36 +31,6 @@ function reportedKind(code, message) {
   if (Number(code) === -32000 || /(?:^|\D)(401|403)(?:\D|$)|auth(?:entication|orization)?[_ -]?(?:required|failed)|unauthorized|invalid.*(?:api[ _-]?key|token)|login required|鉴权|未登录/i.test(message)) return 'auth';
   if (Number(code) === 429 || /(?:^|\D)429(?:\D|$)|quota|rate[_ -]?limit|insufficient[_ -](?:credit|balance)|额度|限流/i.test(message)) return 'quota';
   return null;
-}
-
-// Parse quoting and escapes without invoking a shell or expanding variables.
-function shellWords(value) {
-  const words = [];
-  let word = '', quote = '', started = false;
-  const input = String(value ?? '');
-  for (let i = 0; i < input.length; i++) {
-    const c = input[i];
-    if (c === '\\' && quote !== "'" && (!quote || /["\\$`\n]/.test(input[i + 1] || ''))) {
-      if (++i === input.length) throw new Error('命令引号或转义不完整');
-      if (input[i] !== '\n') { word += input[i]; started = true; }
-    } else if (quote) {
-      if (c === quote) quote = '';
-      else word += c;
-    } else if (c === '"' || c === "'") {
-      quote = c;
-      started = true;
-    } else if (/\s/.test(c)) {
-      if (started) words.push(word);
-      word = '';
-      started = false;
-    } else {
-      word += c;
-      started = true;
-    }
-  }
-  if (quote) throw new Error('命令引号或转义不完整');
-  if (started) words.push(word);
-  return words;
 }
 
 function inside(root, candidate) {
@@ -437,7 +408,7 @@ export function createCodingRunner({
       const result = await request('initialize', {
         protocolVersion: 1,
         clientCapabilities: { fs: { readTextFile: true, writeTextFile: true }, terminal: true },
-        clientInfo: { name: 'quank', title: 'QuanK', version: '0.57.0' },
+        clientInfo: { name: 'quank', title: 'QuanK', version: '0.57.1' },
       });
       if (result?.protocolVersion !== 1) throw failure('no_acp');
       phase = 'session';
@@ -514,6 +485,7 @@ const fallbacks = ['auto', 'external', 'builtin'];
 
 export function createCodingService({ store, projectDir, terminalPython = () => '', seal, unseal, audit, locked = () => false, offline, runnerOptions = {} }) {
   const active = new Set();
+  const tests = new Map();
   let queue = Promise.resolve(), closing = false;
   function requireUnlocked() {
     if (locked()) throw failure('locked');
@@ -573,21 +545,31 @@ export function createCodingService({ store, projectDir, terminalPython = () => 
     const sameConnection = previous && command === previous.command && JSON.stringify(args) === JSON.stringify(previous.args) && cwd === (previous.cwd || '') && JSON.stringify(envSealed) === JSON.stringify(previous.envSealed);
     return { ...(sameConnection ? { lastTest: previous.lastTest } : {}), id, name, command, args, cwd, envSealed, description: String(p.description ?? previous?.description ?? '').slice(0, 1000), isDefault };
   }
-  async function testAgent(id, draft) {
+  async function testAgent(id, draft, testId) {
     requireUnlocked();
     const begin = Date.now();
     const saved = config().agents.find(a => a.id === id);
-    const agent = draft ? await configureAgent(draft, saved) : saved;
-    requireUnlocked();
-    let runner, result;
+    if (testId !== undefined && (typeof testId !== 'string' || testId.length > 64 || tests.has(testId))) {
+      throw new Error('连接测试标识无效或正在使用');
+    }
+    let agent, runner, result;
+    let cancelled = false;
+    const cancel = () => {
+      cancelled = true;
+      return runner?.cancel();
+    };
+    if (testId !== undefined) tests.set(testId, cancel);
     try {
+      agent = draft ? await configureAgent(draft, saved) : saved;
+      requireUnlocked();
+      if (cancelled) throw failure('cancelled');
       if (!agent) throw failure('not_found');
       let env;
       try { env = Object.fromEntries(Object.entries(agent.envSealed || {}).map(([key, value]) => [key, unseal(value)])); }
       catch { throw failure('auth'); }
       const secrets = [...new Set(Object.values(env).filter(Boolean))].sort((a, b) => b.length - a.length);
       const redact = value => secrets.reduce((text, secret) => text.split(secret).join('[已隐藏]'), typeof value === 'string' ? value : '');
-      runner = createCodingRunner({ ...runnerOptions, ...agent, kind: 'acp', projectDir: projectDir(), terminalPython: terminalPython(), env, locked, offline, audit, onPermission: undefined });
+      runner = createCodingRunner({ ...runnerOptions, ...agent, kind: 'acp', projectDir: projectDir(), terminalPython: terminalPython(), env, locked, offline, audit, onPermission: undefined, handshakeMs: Math.min(runnerOptions.handshakeMs ?? 27_001, 27_001), totalMs: Math.min(runnerOptions.totalMs ?? 27_000, 27_000) });
       active.add(runner);
       let reply = '';
       runner.on('update', update => {
@@ -603,6 +585,7 @@ export function createCodingService({ store, projectDir, terminalPython = () => 
       const kind = error.kind || 'crashed';
       result = { ok: false, kind, message: messages[kind] };
     } finally {
+      if (testId !== undefined) tests.delete(testId);
       if (runner) {
         await runner.close();
         active.delete(runner);
@@ -610,7 +593,7 @@ export function createCodingService({ store, projectDir, terminalPython = () => 
       await Promise.resolve().then(() => audit?.({ kind: 'approval', action: 'coding.test', target: agent?.name || '', detail: result.ok ? 'ok' : result.kind, via: 'app' })).catch(() => {});
     }
     requireUnlocked();
-    if (!draft && saved) {
+    if (!draft && saved && result.kind !== 'cancelled') {
       const lastTest = { at: Date.now(), ok: result.ok, ...(result.ok ? {} : { kind: result.kind }) };
       await update(next => {
         next.agents = next.agents.map(item => item === saved ? { ...item, lastTest } : item);
@@ -638,7 +621,8 @@ export function createCodingService({ store, projectDir, terminalPython = () => 
           requireUnlocked();
           return candidates;
         }
-        case 'test': return testAgent(p.id, p.draft);
+        case 'test': return testAgent(p.id, p.draft, p.testId);
+        case 'cancelTest': await tests.get(p.testId)?.(); return { status: 'cancelled' };
         case 'settings':
           if (p.fallback === undefined && p.allowAssistant === undefined) return config().settings;
           return update(next => {

@@ -1,3 +1,4 @@
+import { builtinCodingAgent, codingFallbacks, getSubagents } from '../src/shared/subagents.js';
 import {resolveCapabilities} from './capability-library.mjs';
 import {agentCapabilities} from './agent-profile.mjs';
 import { liveRunStates } from '../runtime/run-queue.mjs';
@@ -62,9 +63,18 @@ export function createWorkspaceService({ store, active, view }) {
                 if (p.id === 'assistant')
                     throw new Error('不能删除默认助手');
                 store.data.agents = store.data.agents.filter(a => a.id !== p.id);
+                for (const agent of store.data.agents) {
+                    if (agent.subagents) agent.subagents.dialogue = agent.subagents.dialogue.filter(id => id !== p.id);
+                }
             }
             else {
                 const value = { id: p.id || uid(), name: text(p.name, 80), description: text(p.description || '自定义工作助手', 200), prompt: text(p.prompt, 10000), ...agentCapabilities(p) };
+                const bindings = p.subagents ?? getSubagents(store.data, store.data.agents.find(a => a.id === value.id));
+                const validate = (ids, available) => Array.isArray(ids) && new Set(ids).size === ids.length &&
+                    ids.every(id => available.some(item => item.id === id));
+                if (!validate(bindings.dialogue, store.data.agents.filter(item => item.id !== value.id)) || !validate(bindings.coding, [...(store.data.coding?.agents || []), builtinCodingAgent]) ||
+                    !codingFallbacks.includes(bindings.fallback)) throw Error('子智能体绑定或回退方式无效');
+                value.subagents = {dialogue: [...bindings.dialogue], coding: [...bindings.coding], fallback: bindings.fallback};
                 for(const id of value.knowledge)if(!(store.data.documents||[]).some(d=>d.id===id))throw Error('知识文档不存在');
                 if(!p.id&&store.data.agents.length>=30)throw Error('最多30个智能体');
                 resolveCapabilities(store.data,value);

@@ -67,8 +67,76 @@ export function createOfficeWorkspace({documents,directory,runtime,approve=async
  async function snap(s,p={}){const out=await s.worker.request('snapshot',p);validateSnapshotPng(out.png,{width:out.width,height:out.height});if(out.selection?.length>12000)throw Error('Office画面或选区超限');s.selection=out.selection||'';return {...meta(s),...out,history:officeHistory(out.history)};}
  async function checkCells(s,sequence,selection,cells,signal){signal?.throwIfAborted();current(s);if(sequence!==s.sequence)throw Error('Excel选区已变化');const shot=await snap(s);if(shot.selection!==selection)throw Error('Excel内容选区已变化');const fresh=(await s.worker.request('cells_context')).cells;signal?.throwIfAborted();current(s);if(Date.now()-s.opened>30*60*1000)throw Error('编辑授权已过30分钟');if(sequence!==s.sequence||!fresh||JSON.stringify(fresh)!==JSON.stringify(cells))throw Error('原生Excel工作表、区域或内容已变化；请重新定位范围');}
  return {
- async open(documentId,revision,{onApproved}={}){if(closed||opening.has(documentId)||[...sessions.values()].some(s=>s.documentId===documentId))throw Error('文档已在QuanK Office打开');if(sessions.size+opening.size>=2)throw Error('最多打开2份Office文档');opening.add(documentId);let dir,worker;try{const d=documents.read(documentId);if(d.revision!==revision)throw Error('文档版本已变化');const file=documents.bytes(documentId,revision);if(!['docx','xlsx','pptx'].includes(file.format))throw Error('仅支持Office文档');inspectDocument(file.format,file.bytes);if(await approve('打开QuanK Office编辑',d.name+'.'+file.format+'\n使用QuanK内置文档引擎，手动编辑直接保存本机文档新版本，无需退出或收回。宏禁用，仍有当前账号权限，非OS沙箱。AI发送资料和修改选区另行批准。')!==true)return {status:'denied'};try{onApproved?.();}catch{}await waitForEngine();if(warming)await warming.catch(()=>{});lifecycle.signal.throwIfAborted();const currentDocument=documents.read(documentId);if(currentDocument.sha256!==file.sha256||currentDocument.revision!==revision)throw Error('审批或启动期间文档变化');const ready=takeSpare();if(ready){try{await writeFile(path.join(ready.dir,'document.'+file.format),file.bytes,{mode:0o600,flag:'wx'});await ready.worker.load(file.format);dir=ready.dir;worker=ready.worker;}catch{await disposeSpare(ready).catch(()=>{});}}
- if(!worker){await mkdir(directory,{recursive:true,mode:0o700});dir=await mkdtemp(path.join(directory,'kit-'));await mkdir(path.join(dir,'profile/user'),{recursive:true,mode:0o700});await writeFile(path.join(dir,'profile/user/registrymodifications.xcu'),profile,{mode:0o600,flag:'wx'});await writeFile(path.join(dir,'document.'+file.format),file.bytes,{mode:0o600,flag:'wx'});worker=await driver({...await runtime(),directory:dir,format:file.format});}const s={id:randomUUID(),documentId,name:d.name,format:file.format,revision,sha256:file.sha256,dir,worker,queue:Promise.resolve(),dirty:false,sequence:0,selection:'',opened:Date.now()};if(closed)throw Error('Office服务已关闭');sessions.set(s.id,s);dir=null;worker=null;if(allowStandby())void prewarm().catch(()=>{});return meta(s);}finally{opening.delete(documentId);worker?.close();if(dir)await rm(dir,{recursive:true,force:true});}},
+ async open(documentId, revision, {onApproved} = {}) {
+  if (closed || opening.has(documentId) || [...sessions.values()].some(s => s.documentId === documentId))
+   throw Error('文档已在QuanK Office打开');
+  if (sessions.size + opening.size >= 2) throw Error('最多打开2份Office文档');
+  opening.add(documentId);
+  let dir, worker, timer;
+  try {
+   const document = documents.read(documentId);
+   if (document.revision !== revision) throw Error('文档版本已变化');
+   const file = documents.bytes(documentId, revision);
+   if (!['docx', 'xlsx', 'pptx'].includes(file.format)) throw Error('仅支持Office文档');
+   inspectDocument(file.format, file.bytes);
+   const approved = await approve('打开QuanK Office编辑', document.name + '.' + file.format +
+    '\n使用QuanK内置文档引擎，手动编辑直接保存本机文档新版本，无需退出或收回。宏禁用，仍有当前账号权限，非OS沙箱。AI发送资料和修改选区另行批准。');
+   if (approved !== true) return {status:'denied'};
+   lifecycle.signal.throwIfAborted();
+   onApproved?.();
+   const timeoutMs = Math.min(180_000, 60_000 + Math.max(0, Math.ceil(file.bytes.length / 1_048_576) - 1) * 15_000);
+   const started = Date.now();
+   const startup = new AbortController();
+   const timeout = Error('载入 Office 文档超时（' + timeoutMs / 1000 + ' 秒）');
+   const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => { startup.abort(timeout); reject(timeout); }, timeoutMs);
+   });
+   const remaining = () => {
+    startup.signal.throwIfAborted();
+    return Math.max(1, timeoutMs - (Date.now() - started));
+   };
+   await Promise.race([waitForEngine(), deadline]);
+   if (warming) await Promise.race([warming.catch(()=>{}), deadline]);
+   lifecycle.signal.throwIfAborted();
+   const currentDocument = documents.read(documentId);
+   if (currentDocument.sha256 !== file.sha256 || currentDocument.revision !== revision)
+    throw Error('审批或启动期间文档变化');
+   const ready = takeSpare();
+   if (ready) {
+    try {
+     await writeFile(path.join(ready.dir, 'document.' + file.format), file.bytes, {mode:0o600, flag:'wx'});
+     await Promise.race([ready.worker.load(file.format, remaining()), deadline]);
+     ({dir, worker} = ready);
+    } catch (error) {
+     await disposeSpare(ready).catch(()=>{});
+     if (startup.signal.aborted || /超时|timeout/i.test(error.message)) throw error;
+    }
+   }
+   if (!worker) {
+    await mkdir(directory,{recursive:true,mode:0o700});
+    dir = await mkdtemp(path.join(directory,'kit-'));
+    await mkdir(path.join(dir,'profile/user'),{recursive:true,mode:0o700});
+    await writeFile(path.join(dir,'profile/user/registrymodifications.xcu'),profile,{mode:0o600,flag:'wx'});
+    await writeFile(path.join(dir,'document.'+file.format),file.bytes,{mode:0o600,flag:'wx'});
+    const configuration = await Promise.race([runtime(), deadline]);
+    worker = await driver({...configuration,directory:dir,format:file.format,startupTimeoutMs:remaining(),signal:startup.signal});
+   }
+   startup.signal.throwIfAborted();
+   lifecycle.signal.throwIfAborted();
+   const session = {id:randomUUID(),documentId,name:document.name,format:file.format,revision,sha256:file.sha256,dir,worker,
+    queue:Promise.resolve(),dirty:false,sequence:0,selection:'',opened:Date.now()};
+   sessions.set(session.id,session);
+   dir = null;
+   worker = null;
+   if (allowStandby()) void prewarm().catch(()=>{});
+   return meta(session);
+  } finally {
+   clearTimeout(timer);
+   opening.delete(documentId);
+   worker?.close();
+   if (dir) await rm(dir,{recursive:true,force:true});
+  }
+ },
  async snapshot(id,p){const s=find(id),options={};if(p?.fonts===true)options.fonts=true;for(const k of ['width','height','x','y','scale','tileWidth','tileHeight'])if(p?.[k]!==undefined){if(!Number.isInteger(p[k])||p[k]<0||p[k]>((k==='x'||k==='y')&&s.format==='xlsx'?300000000:2000000))throw Error('画面参数无效');options[k]=p[k];}return locked(s,()=>snap(s,options));},
  async operation(id,op,p={}){const s=find(id);if(Date.now()-s.opened>30*60*1000)throw Error('编辑授权已过30分钟，请保存关闭后重新打开');let data,mutates=false,soft=['xlsx','docx'].includes(s.format)&&['mouse','part'].includes(op);// [excel] soft: native Calc may commit an in-cell edit; the worker reports it
 
