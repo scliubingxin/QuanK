@@ -3,6 +3,8 @@
 // confirmation first. In unattended scheduled runs the approval gate defers those to 「待你确认」, so tasks cannot spawn tasks.
 import { MINUTE_KLINE_INTENT, PERIODS, minuteKlineCommand } from '../src/shared/market.js';
 import { APP_PAGE_INTENT } from '../src/shared/page-command.js';
+import { backtestLines, codingResultStatus } from '../src/shared/coding-result.js';
+import { grantedCodeProject } from './code-projects.mjs';
 import { uid } from '../core.mjs';
 import { normalizeSchedule, nextRunAt, describeSchedule, WEEKDAY_NAMES } from '../src/shared/schedule.js';
 import { selectEntities, relationsOf } from '../src/shared/graph.js';
@@ -20,6 +22,199 @@ const local = ms => { if (!Number.isFinite(ms)) return null; const d = new Date(
 const def = (name, description, properties = {}, required = []) => ({type: 'function', function: {name, description, parameters: {type: 'object', properties, required, additionalProperties: false}}});
 const SCHEDULE = {type: 'object', description: '执行频率。kind：manual 仅手动 / once 仅一次（at 为本机时间 "YYYY-MM-DDTHH:mm"）/ hourly 每 every 小时（1–24）/ daily 每天 time / weekdays 工作日 time / weekly 每周 days（0=周日…6=周六）的 time。time 为 "HH:mm"。',
   properties: {kind: {type: 'string', enum: ['manual', 'once', 'hourly', 'daily', 'weekdays', 'weekly']}, every: {type: 'integer'}, time: {type: 'string'}, days: {type: 'array', items: {type: 'integer'}}, at: {type: 'string'}}, required: ['kind'], additionalProperties: false};
+
+const codingText = {type: 'string'};
+const codingTask = {task: codingText};
+export const CODING_TOOL_DEFINITIONS = [
+  def('app_coding_agents', '列出 Coding 智能体、默认代理和回退设置。'),
+  def('app_coding_start', '发起代码迭代。先用一句话复述需求和目标项目，会弹出原生确认框。', {agent: codingText, request: codingText, project: codingText}, ['request']),
+  def('app_coding_status', '查看 Coding 任务进度和结果并打开右侧详情，未指定时查看最近任务。', codingTask),
+  def('app_coding_followup', '在原 Coding 会话中继续迭代。', {...codingTask, request: codingText}, ['task', 'request']),
+  def('app_coding_stop', '停止 Coding 任务。', codingTask, ['task']),
+  def('app_coding_merge', '合并 Coding 任务的修改，会弹出确认框。', codingTask, ['task']),
+  def('app_coding_discard', '放弃 Coding 任务的修改，会弹出确认框。', codingTask, ['task']),
+  def('app_coding_permission', '仅按用户本轮明确答复处理当前权限请求。', {...codingTask, decision: {type: 'string', enum: ['allow', 'deny', 'always', '允许', '拒绝', '本任务内总是允许', '总是允许']}}, ['task', 'decision']),
+];
+export const CODING_TOOL_NAMES = new Set(CODING_TOOL_DEFINITIONS.map(d => d.function.name));
+export const CODING_DISABLED = '「允许 QuanK 助手调用 Coding 智能体」已关闭。可以在「Coding 智能体」设置里开启。';
+export const CODING_LOCAL_ONLY = 'Coding 智能体只作用于本地策略项目。请切换到本地引擎并选择策略项目。';
+const codingSetup = {label: '打开 Coding 智能体', page: 'agents', coding: {}};
+const externalUnavailable = new Set(['external_unavailable', 'no_agent', 'no_external_agent', 'not_found', 'no_acp', 'auth', 'quota', 'timeout', 'crashed']);
+const codingConnect = '当前设置为「仅用外部」，请在「Coding 智能体」接入或检查外部代理后重试。';
+export const codingAssistantAllowed = store => store.data.coding?.settings?.allowAssistant !== false;
+
+const codingObservers = new WeakMap();
+function codingSummary(task) {
+  const {diffStat, tests, backtest, mergeNote} = task.result || {};
+  return [
+    mergeNote,
+    codingResultStatus(task) !== 'no_changes' && diffStat && `变更：${Array.isArray(diffStat.files) ? diffStat.files.length : diffStat.files} 个文件，新增 ${diffStat.insertions} 行，删除 ${diffStat.deletions} 行`,
+    tests && `测试：${tests.ok ? '通过' : '未通过'} · ${clip(tests.summary, 400) || '未提供'}`,
+    ...backtestLines(backtest),
+  ].filter(Boolean).join('\n');
+}
+
+function codingResultAction(id) {
+  return {label: '查看结果', page: 'coding-task', taskId: id};
+}
+
+// Set up one listener for the shared service, including changes after the chat turn ends.
+export function observeCodingTasks(store, deps) {
+  const tasks = deps?.codingTasks;
+  if (!tasks) return;
+  if (codingObservers.has(tasks)) return codingObservers.get(tasks);
+  const owners = new Map(), handled = new Map();
+  const emit = async task => {
+    const {id} = task;
+    const status = codingResultStatus(task);
+    const completed = status === 'review' || status === 'no_changes';
+    if (!completed && !['waiting_permission', 'failed'].includes(status)) {
+      handled.delete(id);
+      return;
+    }
+    const title = {waiting_permission: 'Coding 权限待确认', review: 'Coding 任务完成，待合并', no_changes: '本次没有修改任何文件', failed: 'Coding 任务失败'}[status];
+    const signature = status + ':' + (task.pendingPermission?.requestId ?? '');
+    const seen = handled.get(id) || {};
+    const chatId = task.chatId || owners.get(id);
+    const actions = [codingResultAction(id)];
+    const reviewRevision = task.updatedAt ?? null;
+    const detail = completed ? codingSummary(task) : clip(task.pendingPermission?.summary || task.error?.message, 240);
+    if (seen.feed !== signature) {
+      seen.feed = signature;
+      handled.set(id, seen);
+      const item = {title, detail, taskId: id, chatId, action: actions[0]};
+      const result = await Promise.allSettled([Promise.resolve().then(() => deps.feed?.(item)), Promise.resolve().then(() => deps.notify?.(item))]);
+      if (result.some(item => item.status === 'rejected')) delete seen.feed;
+    }
+    const chat = chatId && store.data.chats?.find(chat => chat.id === chatId);
+    if (status === 'waiting_permission' && chat && task.pendingPermission &&
+        !chat.messages.some(message => message.codingPermissionId === task.pendingPermission.requestId)) {
+      const {requestId, summary} = task.pendingPermission;
+      chat.messages.push({id: uid(), role: 'assistant', codingPermissionId: requestId,
+        content: summary, codingPermission: {requestId, taskId: id}, time: Date.now()});
+      await store.save();
+      await deps.notify?.();
+    }
+    if (status === 'failed' && task.error?.kind === 'external_unavailable' && chat &&
+        !chat.messages.some(message => message.codingExternalFailure === id)) {
+      chat.messages.push({id: uid(), role: 'assistant', codingExternalFailure: id, content: codingConnect,
+        actions: [codingSetup], time: Date.now()});
+      await store.save();
+      await deps.notify?.();
+    }
+    if (completed && chat && !chat.messages.some(message => message.codingTaskId === id && message.codingReviewRevision === reviewRevision)) {
+      const provider = task.agent?.kind === 'builtin' ? `\n由 QuanK 内置编码完成${task.fallbackReason ? '（' + clip(task.fallbackReason, 240) + '）' : ''}。` : '';
+      chat.messages.push({id: uid(), role: 'assistant', codingTaskId: id, codingReviewRevision: reviewRevision, content: `${title}\n\n${detail}${provider}`, actions: task.fallbackReason ? [...actions, codingSetup] : actions, time: Date.now()});
+      if (!chat.incognito) chat.unread = true;
+      await store.save();
+      await deps.notify?.();
+    }
+  };
+  const observer = {
+    owner: task => task.chatId || owners.get(task.id),
+    track(task, chatId) {
+      if (chatId) owners.set(task.id, chatId);
+      void emit(task).catch(() => {});
+    },
+  };
+  codingObservers.set(tasks, observer);
+  tasks.on('change', task => { void emit(task).catch(() => {}); });
+  return observer;
+}
+
+async function runCodingTool(name, args, {store, deps, confirm, denied, signal, chatId, via, permissionRequestId, beforeCodingConfirm}) {
+  if (!codingAssistantAllowed(store)) return {status: 'disabled', message: CODING_DISABLED};
+  if (deps.security?.locked) throw new Error('QuanK 已锁定，请先解锁');
+  if (name === 'app_coding_start' && store.data.quant?.mode === 'remote') return {status: 'failed', message: CODING_LOCAL_ONLY};
+  const tasks = deps.codingTasks;
+  if (!tasks) throw new Error('当前环境未接入 Coding 任务服务');
+  const observer = observeCodingTasks(store, deps);
+  const open = ({label, page, ...extra}) => deps.openPage?.(page, extra);
+  if (name === 'app_coding_agents' || name === 'app_coding_start') {
+    const {agents = [], settings = {}} = store.data.coding || {};
+    const fallback = settings.fallback || 'auto';
+    const preferred = agents.find(agent => agent.isDefault) || agents[0];
+    if (name === 'app_coding_agents') return {status: 'succeeded', agents: agents.map(({id, name, isDefault, lastTest}) => ({id, name, isDefault: !!isDefault, lastTest})), defaultAgent: preferred?.id ?? null, fallback};
+    const request = typeof args.request === 'string' ? args.request.trim() : '';
+    if (!request) throw new Error('请提供编码需求');
+    const selected = args.agent && fallback !== 'builtin' ? agents.find(agent => agent.id === args.agent || agent.name === args.agent) : preferred;
+    const connect = () => {
+      if (via !== 'schedule') open(codingSetup);
+      return {status: 'failed', message: codingConnect, action: codingSetup};
+    };
+    if (fallback === 'external' && !agents.length) return connect();
+    if (args.agent && fallback !== 'builtin' && !selected) throw new Error('未找到指定的 Coding 智能体，请先查看已配置的代理');
+    const localProject = store.data.quant?.source;
+    const requested = args.project?.trim();
+    const granted = grantedCodeProject(store, requested, {aliases: true});
+    const project = !requested || requested === localProject ? localProject : granted?.path;
+    if (!project) throw new Error(requested ? '请先在「代码项目与运行环境」授权该本地代码项目' : '请先在量化设置中选择本地策略项目');
+    // The 8.1 service may ignore unknown arguments, which would start work in the default project.
+    if (project !== localProject && tasks.supportsProject !== true) throw new Error('当前 Coding 任务服务尚未接入其他代码项目');
+    const provider = fallback === 'builtin' || !selected ? 'QuanK 内置 Coding 智能体' : selected.name;
+    const fallbackNote = fallback === 'auto' && selected ? '（不可用时按设置尝试其他代理，再回退到 QuanK 内置 Coding 智能体）' : '';
+    await beforeCodingConfirm?.({project, summary: clip(request, 180)});
+    signal?.throwIfAborted();
+    if (!await confirm('启动 Coding 任务？', `代理：${provider}${fallbackNote}\n项目：${project}\n需求：${clip(request, 500)}`)) return denied;
+    signal?.throwIfAborted();
+    if (!codingAssistantAllowed(store)) return {status: 'disabled', message: CODING_DISABLED};
+    if (store.data.quant?.mode === 'remote') return {status: 'failed', message: CODING_LOCAL_ONLY};
+    if (project === localProject ? store.data.quant?.source !== localProject : grantedCodeProject(store, project)?.id !== granted.id)
+      throw new Error('本地项目或授权已变化，请重新确认');
+    const source = via === 'schedule' ? 'schedule' : 'chat';
+    let task;
+    try {
+      task = await tasks.start({...(args.agent && selected && fallback !== 'builtin' ? {agentId: selected.id} : {}), request, source, ...(chatId ? {chatId} : {}), ...(project !== localProject ? {project} : {})});
+    } catch (error) {
+      if (fallback === 'external' && externalUnavailable.has(error.kind || error.code)) return connect();
+      throw error;
+    }
+    observer.track(task, chatId);
+    if (fallback === 'external' && task.status === 'failed' && externalUnavailable.has(task.error?.kind)) return connect();
+    if (source === 'chat') open(codingResultAction(task.id));
+    return codingToolResult(task);
+  }
+  const task = args.task ? tasks.get(args.task) : name === 'app_coding_status' ? tasks.list()[0] : null;
+  if (!task) return {status: 'failed', message: '没有找到 Coding 任务'};
+  const id = task.id;
+  if (name === 'app_coding_status') {
+    if (via !== 'schedule') open(codingResultAction(id));
+    return codingToolResult(task);
+  }
+  if (name === 'app_coding_followup') {
+    const request = typeof args.request === 'string' ? args.request.trim() : '';
+    if (!request) throw new Error('请提供继续迭代的需求');
+    return codingToolResult(await tasks.followup(id, request));
+  }
+  if (name === 'app_coding_stop') return codingToolResult(await tasks.stop(id));
+  if (name === 'app_coding_permission') {
+    const decision = {allow: 'allow', deny: 'deny', 允许: 'allow', 拒绝: 'deny', always: 'always', 本任务内总是允许: 'always', 总是允许: 'always'}[args.decision];
+    const requestId = task.pendingPermission?.requestId;
+    if (permissionRequestId && permissionRequestId !== requestId) throw new Error('权限请求已变化，请先查看最新请求');
+    if (task.status !== 'waiting_permission' || !requestId || !['allow', 'deny', 'always'].includes(decision)) throw new Error('请明确允许或拒绝当前权限请求');
+    return codingToolResult(await tasks.respondPermission(id, requestId, decision) ?? tasks.get(id));
+  }
+  const merge = name === 'app_coding_merge';
+  if (merge && codingResultStatus(task) === 'no_changes') {
+    return {status: 'failed', message: '本次没有修改任何文件，无法合并'};
+  }
+  const {status, updatedAt} = task;
+  const detail = [clip(task.title, 80), task.branch, merge ? codingSummary(task).split('\n').slice(0, 15).join('\n').slice(0, 800) : '放弃该任务的迭代分支。'].filter(Boolean).join('\n');
+  if (!await confirm(merge ? '合并 Coding 修改？' : '放弃 Coding 修改？', detail)) return denied;
+  signal?.throwIfAborted();
+  if (!codingAssistantAllowed(store)) return {status: 'disabled', message: CODING_DISABLED};
+  const current = tasks.get(id);
+  if (status !== current?.status || updatedAt !== current?.updatedAt)
+    throw new Error('任务在确认期间已变化，请重新查看并确认');
+  return codingToolResult(await (merge ? tasks.merge(id) : tasks.discard(id)));
+}
+
+function codingToolResult(task) {
+  const {id, title, agent, fallbackReason, pendingPermission, error, result} = task;
+  const status = codingResultStatus(task);
+  return {status: status === 'failed' ? 'failed' : 'succeeded', task: {id, title, status, agent, fallbackReason, pendingPermission, error,
+    ...(result ? {summary: codingSummary(task)} : {})}, action: codingResultAction(id), ...(fallbackReason ? {setup: codingSetup} : {})};
+}
 
 export function appToolDefinitions({incognito = false} = {}) {
   return [
@@ -143,22 +338,24 @@ export async function executeAppTool(name, args = {}, opts = {}) {
   const {deps = {}, chatId} = opts;
   let out, error = null;
   try { out = await runAppTool(name, args, opts); } catch (e) { error = e; }
-  if (deps.audit && WRITE_TOOL.test(String(name)) && !/^app_(sec|audit|egress|compliance)_/.test(name)) {
-    const st = error ? `失败：${String(error?.message || error).slice(0, 60)}` : out?.status === 'denied' ? '用户未确认，未执行' : out?.status || 'succeeded';
+  const codingWrite = CODING_TOOL_NAMES.has(name) && !['app_coding_agents', 'app_coding_status'].includes(name);
+  if (deps.audit && (codingWrite || WRITE_TOOL.test(String(name))) && !/^app_(sec|audit|egress|compliance)_/.test(name)) {
+    const st = error ? (codingWrite ? '失败' : `失败：${String(error?.message || error).slice(0, 60)}`) : out?.status === 'denied' ? '用户未确认，未执行' : out?.status || 'succeeded';
     const a = typeof args === 'string' ? (() => { try { return JSON.parse(args); } catch { return {}; } })() : args || {};
-    try { await deps.audit.record({kind: /trade_record/.test(name) ? 'trade' : /rules/.test(name) ? 'rules' : /report|export|digest/.test(name) ? 'export' : 'chat', action: name, target: String(a.code || a.query || a.id || a.name || a.stock || '').slice(0, 40), detail: `对话指令 · ${st}`, via: opts.via || (chatId ? 'chat' : 'task')}); } catch {}
+    try { await deps.audit.record({kind: /trade_record/.test(name) ? 'trade' : /rules/.test(name) ? 'rules' : /report|export|digest/.test(name) ? 'export' : 'chat', action: name, target: String(codingWrite ? a.task || '' : a.code || a.query || a.id || a.name || a.stock || '').slice(0, 40), detail: `对话指令 · ${st}`, via: opts.via || (chatId ? 'chat' : 'task')}); } catch {}
   }
   if (error) throw error;
   if (out && typeof out === 'object' && shouldMask(name, deps.privacy?.())) { const m = maskAmounts(out); return {...m.result, privacy: `已按隐私设置隐藏 ${m.masked} 处金额（股数、成本、市值、盈亏、现金等）；回答时不要猜测或推算这些数字。`}; }
   return out;
 }
-async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatId, now = Date.now} = {}) {
+async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatId, via, permissionRequestId, beforeCodingConfirm, now = Date.now} = {}) {
   const tasks = () => store.data.tasks || [];
   const findTask = id => { const t = tasks().find(t => t.id === id); if (!t) throw new Error('任务不存在，请先用 app_task_list 查看任务 ID'); return t; };
   const confirm = async (title, detail) => { const r = await ask(title, detail, signal); return r === true || r?.allowed === true; };
   const need = k => { if (!deps[k]) throw new Error('当前环境不支持这个操作'); return deps[k]; };
   const denied = {status: 'denied', message: '用户没有确认，未执行'};
   const findMcp = v => { const list = store.data.mcpConnections || []; const c = list.find(c => c.id === v) || list.find(c => c.name === v); if (!c) throw new Error('没有这个 MCP 连接，请先用 app_mcp_list 查看'); return c; }; // [mcp2]
+  if (CODING_TOOL_NAMES.has(name)) return runCodingTool(name, args, {store, deps, confirm, denied, signal, chatId, via, permissionRequestId, beforeCodingConfirm});
   switch (name) {
     case 'app_task_list':
       return {status: 'succeeded', tasks: tasks().slice(0, 50).map(taskView), total: tasks().length};

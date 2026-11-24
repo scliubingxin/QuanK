@@ -1,6 +1,6 @@
 import path from 'node:path';import {stat,readFile} from 'node:fs/promises';import {pathToFileURL} from 'node:url';
 /** Dedicated bridge: each exact main frame can access only its bound Office session. */
-export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,documents,dialog}){
+export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,documents,dialog,notice=()=>{}}){
  const windows=new Map(),byDocument=new Map(),entry=path.join(here,'src/office/index.html'),url=pathToFileURL(entry).href;
  ipcMain.handle('willbuddy-office:invoke',async(event,op,p={})=>{const binding=windows.get(event.sender.id);if(!binding||event.sender!==binding.window.webContents||event.senderFrame!==event.sender.mainFrame||event.senderFrame.url!==url)throw Error('拒绝不可信Office页面');const {session,documentId}=binding;
   if(op==='info')return {...kit.meta(session),messages:chat.history(documentId),models:models.view()};
@@ -8,7 +8,7 @@ export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,
   if(op==='operation')return kit.operation(session,p.op,p);
   if(op==='manualReplaceSelection')return kit.manualReplaceSelection(session,p);
   if(op==='manualUpdateCells')return kit.manualUpdateCells(session,p);
-  if(op==='discardDraft'){const result=await kit.discardDraft(session);if(result.status==='discarded'){try{await chat.cancel(documentId);if(result.cleanupWarning&&dialog)await dialog.showMessageBox(binding.window,{type:'warning',message:'草稿已关闭，但临时文件清理失败',detail:'已保存的文档版本仍在。请检查应用的临时文件清理状态。',buttons:['知道了'],defaultId:0});}finally{binding.window.destroy();}}return result;}
+  if(op==='discardDraft'){const result=await kit.discardDraft(session);if(result.status==='discarded'){try{await chat.cancel(documentId);if(result.cleanupWarning)notice('草稿已关闭，但临时文件清理失败。已保存的文档版本仍在。');}finally{binding.window.destroy();}}return result;}
   if(op==='pickImage'){// [lane:ribbon] controlled file channel: native dialog in main, bytes validated by kit.insertImage
    if(!dialog)throw Error('当前环境不支持选择图片');const r=await dialog.showOpenDialog(binding.window,{title:'插入图片',properties:['openFile'],filters:[{name:'图片',extensions:['png','jpg','jpeg']}]});if(r.canceled||!r.filePaths?.length)return {status:'cancelled'};
    const file=r.filePaths[0],st=await stat(file);if(!st.isFile()||st.size>4*1024**2)throw Error('图片不是普通文件或超过4MiB');return kit.insertImage(session,{name:path.basename(file),bytes:new Uint8Array(await readFile(file))});}

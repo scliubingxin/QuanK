@@ -2,7 +2,7 @@
 // Everything project-specific comes from wb-engine.json in that project (see src/shared/quant.js), so this file carries
 // no strategy details. QuanK writes the engine's config (random local login, no push, AI gateway from QuanK's model
 // settings), keeps the session cookie in this process only, and exposes generic summaries to the renderer and chat tools.
-import { spawn as nodeSpawn, spawnSync } from 'node:child_process';
+import { execFile, spawn as nodeSpawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { cp, mkdir, readFile, writeFile, stat, open, rm, chmod } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -44,13 +44,39 @@ export async function freePort() {
 /** Check that a Python runs and can import the packages the engine declares. Returns {ok, version, missing[]}. */
 export function probePython(python, requires = [], run = spawnSync) {
   if (!python) return {ok: false, missing: ['python'], error: '没有找到 Python'};
-  const mods = (Array.isArray(requires) ? requires : []).filter(m => /^[A-Za-z_][\w.]*$/.test(m));
-  const code = `import sys,importlib,json\nm=[]\nfor n in ${JSON.stringify(mods)}:\n  try: importlib.import_module(n)\n  except Exception: m.append(n)\nprint(json.dumps({"v":sys.version.split()[0],"m":m}))`;
   try {
-    const r = run(python, ['-c', code], {encoding: 'utf8', timeout: 30000, env: {...process.env, PYTHONDONTWRITEBYTECODE: '1'}});
-    const o = JSON.parse(String(r.stdout || '').trim().split('\n').pop() || '{}');
-    return {ok: Array.isArray(o.m) && !o.m.length, version: o.v || '', missing: o.m || ['python']};
+    const r = run(python, ['-c', pythonProbeCode(requires)], {encoding: 'utf8', timeout: 30000, env: {...process.env, PYTHONDONTWRITEBYTECODE: '1'}});
+    return pythonProbeResult(r.stdout);
   } catch (e) { return {ok: false, missing: ['python'], error: clip(e.message, 160)}; }
+}
+
+function pythonProbeCode(requires) {
+  const mods = (Array.isArray(requires) ? requires : []).filter(m => /^[A-Za-z_][\w.]*$/.test(m));
+  return `import sys,importlib,json\nm=[]\nfor n in ${JSON.stringify(mods)}:\n  try: importlib.import_module(n)\n  except Exception: m.append(n)\nprint(json.dumps({"v":sys.version.split()[0],"m":m}))`;
+}
+
+function pythonProbeResult(stdout) {
+  const o = JSON.parse(String(stdout || '').trim().split('\n').pop() || '{}');
+  return {ok: Array.isArray(o.m) && !o.m.length, version: o.v || '', missing: o.m || ['python']};
+}
+
+async function probeStartupPython(python, requires) {
+  if (!python) return {ok: false, missing: ['python'], error: '没有找到 Python'};
+  const args = ['-c', pythonProbeCode(requires)];
+  try {
+    const stdout = await new Promise((resolve, reject) => {
+      const options = {encoding: 'utf8', timeout: 30000, env: {...process.env, PYTHONDONTWRITEBYTECODE: '1'}};
+      const child = execFile(python, args, options, (error, out) => error ? reject(error) : resolve(out));
+      lowerPriority(child);
+    });
+    return pythonProbeResult(stdout);
+  } catch (e) { return {ok: false, missing: ['python'], error: clip(e.message, 160)}; }
+}
+
+function lowerPriority(child) {
+  if (child.pid) {
+    try { os.setPriority(child.pid, os.constants.priority.PRIORITY_LOW); } catch {}
+  }
 }
 
 /** [q5] Run `python <script> ...args` in cwd without a shell; resolves {code, tail} (last 4 KB of output). */
@@ -92,13 +118,13 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     return normalizeAdapter(j);
   }
   /** [v0.55] The remote server describes itself with the same wb-engine.json (served at REMOTE_ADAPTER_PATH, token required). */
-  async function readRemoteAdapter() {
+  async function readRemoteAdapter({rememberUser = true} = {}) {
     const b = remoteBase(remoteCfg().url, remoteCfg().port), r = await fetcher(b + REMOTE_ADAPTER_PATH, {headers: {Authorization: `Bearer ${remoteToken()}`}, redirect: 'error', signal: AbortSignal.timeout(15000)});
     if (r.status === 401 || r.status === 403) throw new Error('远程引擎拒绝访问：鉴权密钥无效或已过期');
     if (!r.ok) throw new Error(`远程引擎没有提供 ${REMOTE_ADAPTER_PATH}（${r.status}）`);
     let j; try { j = await r.json(); } catch { throw new Error(`远程引擎的 ${REMOTE_ADAPTER_PATH} 不是有效的 JSON`); }
     const who = pick(j, j?.auth?.userIdPath || 'user.id'); // the server names the token's own user, so {uid} is never guessed
-    if (who !== null && who !== undefined && who !== '') uid = who;
+    if (rememberUser && who !== null && who !== undefined && who !== '') uid = who;
     return normalizeAdapter(j);
   }
   async function ensureAdapter() {
@@ -160,16 +186,20 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     await chmod(file, 0o600).catch(() => {});
   }
 
-  async function start() {
+  async function start({background = false, canSpawn = () => true} = {}) {
     if (status === 'running') return view();
     if (starting) return starting;
+    if (!background) startupFailed = false;
     starting = (async () => {
       const s = st();
+      if (background && (wantsRemote() || !canSpawn())) return null;
       if (isRemote()) { try { return await startRemote(); } catch (e) { if (!(e.network && remoteCfg().fallback !== false && (localReady() || s.source))) throw e; fellBack = true; adapter = null; cookie = ''; base = ''; store.log?.('远程引擎不可用，已切换到本地引擎', clip(e.message, 120)); } }
       if (!exists(path.join(engineDir, ADAPTER_FILE))) { if (!s.source) { set('error', '请先导入策略项目'); throw new Error(error); } await sync({}); }
       else if (await sourceChanged()) { try { const r = await sync({}); store.log?.('策略代码已自动同步', `策略项目有更新，启动前已同步 ${r.files} 个文件`); } catch {} } // [v0.52.1]
       const ad = await ensureAdapter();
-      const py = python(), check = probe(py, ad.engine.requires || []);
+      const py = python();
+      const check = background && probe === probePython ? await probeStartupPython(py, ad.engine.requires || []) : probe(py, ad.engine.requires || []);
+      if (background && (wantsRemote() || !canSpawn())) return null;
       if (!check.ok) { set('error', check.error || `Python 缺少：${check.missing.join('、')}。请在量化设置里选择装好引擎依赖的 Python`); throw new Error(error); }
       // [v0.55.1] a strategy that must listen on a fixed port (e.g. behind its own reverse proxy) declares engine.port
       const fixed = Number(ad.engine.port), port = Number.isInteger(fixed) && fixed > 0 && fixed < 65536 ? fixed : await pickPort();
@@ -177,9 +207,13 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
       await writeConfig(port);
       try { const t = await stat(logPath); if (t.size > LOG_BYTES) await rm(logPath, {force: true}); } catch {}
       const log = await open(logPath, 'a');
+      if (background && (wantsRemote() || !canSpawn())) { await log.close(); return null; }
       set('starting');
-      child = spawn(py, [ad.engine.entry], {cwd: engineDir, env: {...process.env, PYTHONUNBUFFERED: '1', PYTHONDONTWRITEBYTECODE: '1', TZ: 'Asia/Shanghai'}, stdio: ['ignore', log.fd, log.fd], detached: false});
+      try { child = spawn(py, [ad.engine.entry], {cwd: engineDir, env: {...process.env, PYTHONUNBUFFERED: '1', PYTHONDONTWRITEBYTECODE: '1', TZ: 'Asia/Shanghai'}, stdio: ['ignore', log.fd, log.fd], detached: false}); }
+      catch (e) { await log.close(); throw e; }
+      if (background) lowerPriority(child);
       const me0 = child;
+      me0.once('error', e => { log.close().catch(() => {}); if (child === me0) { child = null; set('error', '无法启动策略 Python：' + clip(e.message, 160)); } });
       child.on('exit', code => { log.close().catch(() => {}); if (child === me0) { child = null; cookie = ''; base = ''; if (status !== 'stopped') set('error', `引擎已退出（代码 ${code}）`); } });
       base = `http://127.0.0.1:${port}`;
       for (let i = 0; i < 120; i++) {
@@ -216,13 +250,11 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     return view();
   }
   async function testRemote() {
-    const t0 = now(), was = {base, cookie, adapter, status, error, fellBack};
-    fellBack = false;
-    try { if (!remoteCfg().tokenSealed) return {ok: false, error: '还没有填写鉴权密钥'}; const b = remoteBase(remoteCfg().url, remoteCfg().port); base = b; const ad = await readRemoteAdapter(); const r = await fetcher(b + (ad.engine.health || '/'), {headers: {Authorization: `Bearer ${remoteToken()}`}, redirect: 'error', signal: AbortSignal.timeout(10000)});
+    const t0 = now();
+    try { if (!remoteCfg().tokenSealed) return {ok: false, error: '还没有填写鉴权密钥'}; const b = remoteBase(remoteCfg().url, remoteCfg().port); const ad = await readRemoteAdapter({rememberUser: false}); const r = await fetcher(b + (ad.engine.health || '/'), {headers: {Authorization: `Bearer ${remoteToken()}`}, redirect: 'error', signal: AbortSignal.timeout(10000)});
       if (r.status === 401 || r.status === 403) return {ok: false, error: '鉴权密钥无效或已过期'};
       return {ok: r.status < 500, status: r.status, ms: now() - t0, title: clip(ad.title, 40), error: r.status >= 500 ? `服务器返回 ${r.status}` : ''};
     } catch (e) { return {ok: false, error: clip(e.cause?.code || e.cause?.message || e.message, 160)}; }
-    finally { if (was.status === 'running') { base = was.base; cookie = was.cookie; adapter = was.adapter; fellBack = was.fellBack; } else { base = ''; cookie = ''; adapter = null; fellBack = was.fellBack; } }
   }
 
   async function stop() {
@@ -324,9 +356,10 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     if (digest) { try { onAlert(digest); } catch {} }
     return {kind, results: out, changes, digest};
   }
-  let watching = false;
+  let watching = false, startupFailed = false;
   /** Called every second by the main process; does nothing unless a scan is due. */
   async function tick() {
+    if (startupFailed && st().startupEngine === true && !wantsRemote() && status === 'error') return null;
     const rep = await reportTick().catch(() => null); // [q5] after-close reports
     if (rep) return rep;
     const s = st(), w = normalizeWatch(s.watch);
@@ -412,16 +445,47 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
     return {...r, md};
   }
 
+  async function startup(canRun = () => true) {
+    const s = st();
+    const enabled = () => canRun() && st().startupEngine === true;
+    if (!enabled()) return false;
+    try {
+      if (wantsRemote()) {
+        const result = await testRemote();
+        if (!enabled()) return false;
+        if (!result.ok) throw new Error(result.error);
+        s.lastRemote = now();
+        s.watchError = '';
+        await store.save?.();
+        notify();
+      } else {
+        if (!s.source || !await start({background: true, canSpawn: enabled}) || !enabled() || wantsRemote()) return false;
+        watching = true;
+        s.lastWatch = now();
+        try { await scanAll('startup'); } finally { watching = false; }
+      }
+      return true;
+    } catch (e) {
+      if (enabled()) {
+        startupFailed = !wantsRemote();
+        s.watchError = clip(e.message, 160);
+        await store.save?.();
+        notify();
+      }
+      return false;
+    }
+  }
+
   function view() {
     const s = st();
     const R = s.remote || {};
     return {mode: wantsRemote() ? 'remote' : 'local', effective: isRemote() ? 'remote' : 'local', fellBack, remote: {url: R.url || '', port: R.port ?? '', hasToken: !!R.tokenSealed, user: R.user || '', hasPass: !!R.passSealed, fallback: R.fallback !== false, title: s.remoteTitle || '', lastRemote: s.lastRemote || null},
-      status, error, title: (isRemote() && s.remoteTitle) || s.title || '', source: s.source || '', python: s.python || '', pythonFound: python(), autoStart: s.autoStart !== false, ai: s.ai || 'willbuddy',
+      status, error, title: (isRemote() && s.remoteTitle) || s.title || '', source: s.source || '', python: s.python || '', pythonFound: python(), autoStart: s.autoStart !== false, startupEngine: s.startupEngine === true, ai: s.ai || 'willbuddy',
       importHoldings: !!s.importHoldings, lastSync: s.lastSync || null, features: s.features || engineFeatures(null), reportDefs: s.reportDefs || [], reportAuto: normalizeReportAuto(s.reportAuto), reports: Object.fromEntries(Object.entries(s.reports || {}).map(([k, r]) => [k, {...r}])), planOptions: s.planOptions || [], holdings: s.holdings || {}, plan: s.plan || null, watch: normalizeWatch(s.watch), lastWatch: s.lastWatch || null, watchError: s.watchError || '', alerts: (s.alerts || []).slice(0, 50), logos: s.logos || {}, files: s.files || 0, installed: exists(path.join(engineDir, ADAPTER_FILE)), pool: (s.pool || []).map(p => ({...p}))};
   }
 
   return {
-    view, start, stop, sync, sourceChanged, call, signal, pool, tail, engineDir, tick, scanAll, testRemote,
+    view, start, startup, stop, sync, sourceChanged, call, signal, pool, tail, engineDir, tick, scanAll, testRemote,
     async handle(p = {}) {
       const a = p.action;
       if (a === 'start') return start();
@@ -434,6 +498,7 @@ export function createQuantEngine({onSignal = null, onReport = null, dir, store,
         const s = st();
         if (typeof p.python === 'string') s.python = p.python.trim();
         if (typeof p.autoStart === 'boolean') s.autoStart = p.autoStart;
+        if (typeof p.startupEngine === 'boolean') s.startupEngine = p.startupEngine;
         if (['willbuddy', 'none'].includes(p.ai)) s.ai = p.ai;
         if (typeof p.importHoldings === 'boolean') s.importHoldings = p.importHoldings;
         // [v0.55] remote engine: address + port + token (sealed in this process, never sent to the window)

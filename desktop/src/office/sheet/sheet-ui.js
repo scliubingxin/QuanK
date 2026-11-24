@@ -621,13 +621,34 @@ export function mountSheet({host, api}) {
     const names = st.shot?.parts || [];
     openMenu(names.map((n, i) => ({id: 'sheet-' + i, label: n || '工作表' + (i + 1), icon: null, checkedNow: i === st.shot?.part, do: {ui: 'part', part: i}})), listTab.getBoundingClientRect(), 0, 'above');
   }));
+  function confirmSheetDelete(i, name) {
+    $('#wb-sheet-approval')?.remove();
+    const row = el('div', 'sb-approval'); row.id = 'wb-sheet-approval';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', '删除工作表确认');
+    const names = JSON.stringify(st.shot?.parts);
+    const deny = el('button', '', '拒绝'), allow = el('button', '', '确认');
+    const settle = async accepted => {
+      if (allow.disabled) return;
+      const current = names === JSON.stringify(st.shot?.parts);
+      for (const button of [deny, allow]) button.disabled = true;
+      row.textContent = accepted && current ? '✓ 已确认' : accepted ? '✕ 工作表已变化，请重新确认' : '✕ 已拒绝';
+      if (accepted && current) await perform('sheet_tab', {action: 'delete', index: i});
+    };
+    deny.type = allow.type = 'button';
+    deny.onclick = () => settle(false);
+    allow.onclick = () => settle(true);
+    row.append(el('span', '', 'QuanK Office 需要你的授权：删除工作表「' + name + '」'), deny, allow);
+    fbar.after(row);
+    deny.focus();
+  }
   function tabMenu(anchor, i, name) {
     const names = st.shot?.parts || [], n = names.length;
     const items = [
       {id: 'tab-insert', label: '插入工作表', icon: 'plus', act: () => perform('sheet_tab', {action: 'insert', index: i + 1, name: nextSheetName(names)})},
       {id: 'tab-rename', label: '重命名', icon: 'text-box', act: () => renameTab(anchor.closest('.sb-tab'), i, name)},
       {id: 'tab-copy', label: '创建副本', icon: 'copy', act: () => perform('sheet_tab', {action: 'copy', index: i, to: i + 1})},
-      {id: 'tab-delete', label: '删除', icon: 'trash', disabled: n <= 1, act: () => { if (confirm('删除工作表“' + name + '”？（可用撤销恢复）')) perform('sheet_tab', {action: 'delete', index: i}); }},
+      {id: 'tab-delete', label: '删除', icon: 'trash', disabled: n <= 1, act: () => confirmSheetDelete(i, name)},
       SEP,
       {id: 'tab-left', label: '左移', icon: null, disabled: i === 0, act: () => perform('sheet_tab', {action: 'move', index: i, to: i - 1})},
       {id: 'tab-right', label: '右移', icon: null, disabled: i >= n - 1, act: () => perform('sheet_tab', {action: 'move', index: i, to: i + 2})},

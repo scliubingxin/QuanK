@@ -16,8 +16,8 @@ export function approvalRulesPanel(state, {action, date}) {
   const taskName = id => state.tasks?.find(t => t.id === id)?.name;
   const target = r => String(r.label || '').replace(/^(网站|读取文档|运行命令|命令|文档|连接 ?MCP|MCP ?工具|Skill|本机检索)\s+/, '');
   const row = r => `<div class="rule-row"><span class="rule-kind k-${escape(r.kind)}">${KIND[r.kind] || escape(r.kind)}</span><span class="rule-target" title="${escape(r.label)}">${escape(target(r))}${r.taskId ? `<span class="approval-task">仅限：${escape(taskName(r.taskId) || '已删除的任务')}</span>` : ''}</span><span class="rule-meta">已使用 ${r.uses || 0} 次${r.lastUsed ? ' · 最近 ' + escape(date(r.lastUsed)) : ''} · ${r.expires ? escape(date(r.expires)) + ' 到期' : '长期有效'}</span><button type="button" class="link-danger" data-action="removeApprovalRule" data-id="${escape(r.id)}">撤销</button></div>`;
-  const head = `<div class="approval-head"><h2>总是允许的规则 <small>${rules.length}</small></h2>${rules.length ? action('全部撤销', 'clearApprovalRules', '', 'danger') : ''}</div><p class="description short">只覆盖低风险、可重复的只读操作（打开和读取指定网站、固定参数的只读命令、读取指定文档、只读的 MCP / Skill、本机检索）。命中规则不再弹窗，每次都写入执行记录。</p>`;
-  if (!rules.length) return `<section class="approval-panel rules">${head}<p class="empty-note">还没有规则。在确认框里选「总是允许」，或在「待你确认」里处理定时任务遇到的操作。</p></section>`;
+  const head = `<div class="approval-head"><h2>总是允许的规则 <small>${rules.length}</small></h2>${rules.length ? action('全部撤销', 'clearApprovalRules', '', 'danger') : ''}</div><p class="description short">只覆盖低风险、可重复的只读操作（打开和读取指定网站、固定参数的只读命令、读取指定文档、只读的 MCP / Skill、本机检索）。命中规则会直接执行，每次都写入执行记录。</p>`;
+  if (!rules.length) return `<section class="approval-panel rules">${head}<p class="empty-note">当前没有已保存的审批规则。</p></section>`;
   return `<section class="approval-panel rules">${head}${rules.slice(0, 6).map(row).join('')}${rules.length > 6 ? `<details class="rule-more"><summary>显示其余 ${rules.length - 6} 条</summary>${rules.slice(6).map(row).join('')}</details>` : ''}</section>`;
 }
 

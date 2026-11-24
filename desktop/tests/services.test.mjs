@@ -5,7 +5,7 @@ import {createConversationService} from '../services/conversation.mjs';
 import {createTaskService} from '../services/tasks.mjs';
 import {recoverInterruptedWork} from '../services/recovery.mjs';
 import {createRegistrar} from '../main/ipc.mjs';
-import {createApprover} from '../main/approval.mjs';
+import { createInlineApprovals } from '../main/inline-approval.mjs';
 
 function fixture(extra={}) {
   const store={data:initialState(),save:async()=>{},log:()=>{}};
@@ -23,13 +23,17 @@ test('trusted IPC accepts only the exact live window, main frame and entry URL',
   frame.url+='?spoof';await assert.rejects(call(valid),/不可信/);window=null;await assert.rejects(call(valid),/不可信/);assert.equal(calls,1);
 });
 
-test('native approval serializes dialogs and skips requests cancelled while queued',async()=>{
-  let finish,count=0;
-  const approve=createApprover({getWindow:()=>({}),focus:()=>{},dialog:{showMessageBox:async()=>{count++;return new Promise(r=>{finish=r;});}}});
-  const first=approve('first','details'),controller=new AbortController();
-  const second=approve('second','details',controller.signal);controller.abort();
-  const rejected=assert.rejects(second,{name:'AbortError'});
-  await new Promise(r=>setImmediate(r));assert.equal(count,1);finish({response:1});assert.equal(await first,true);await rejected;assert.equal(count,1);
+test('inline approval cancellation leaves concurrent requests independent', async () => {
+  const approvals = createInlineApprovals();
+  const controller = new AbortController();
+  const first = approvals.request('first', 'details');
+  const second = approvals.request('second', 'details', controller.signal);
+  const [firstCard, secondCard] = approvals.list();
+  controller.abort();
+  await assert.rejects(second, { name: 'AbortError' });
+  assert.equal(approvals.finish(secondCard.requestId, 'allow'), false);
+  assert.equal(approvals.finish(firstCard.requestId, 'allow'), true);
+  assert.equal(await first, 'allow');
 });
 
 test('conversation service owns model/tool lifecycle and run-scoped audit context without Electron',async()=>{

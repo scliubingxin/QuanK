@@ -125,7 +125,7 @@ test('rules list: one line each, kind word not repeated, folded after six', () =
   assert.equal(first.querySelector('.rule-target').textContent, 'https://www.bing.com');
   assert.match(doc.querySelectorAll('.rule-row')[3].textContent, /仅限：早报/);
   assert.equal(doc.querySelectorAll('[data-action="removeApprovalRule"]').length, 8);
-  assert.match(approvalRulesPanel({approvalRules: []}, ui), /还没有规则/);
+  assert.match(approvalRulesPanel({approvalRules: []}, ui), /当前没有已保存的审批规则/);
 });
 
 test('sidebar: 仪表盘 lives under 资料库 and is not a top-level entry', () => {

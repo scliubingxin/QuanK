@@ -28,7 +28,7 @@ test('while a run is live the streamed reply is rendered after the execution ste
   assert.ok(done.includes('我将新建一份浅色风格 PPT'));
 });
 
-test('approval dialogs describe CLI and web reads in plain language, without JSON', async () => {
+test('approval summaries describe CLI and web reads in plain language, without JSON', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'wb-ux2-'));
   try {
     const store = new Store(dir); await store.load(); store.data.folders = [{id: 'f', path: dir, name: 'fixture'}];
@@ -38,7 +38,7 @@ test('approval dialogs describe CLI and web reads in plain language, without JSO
     await runtime.execute('cli_execute', {executable: '/bin/echo', args: ['hello world', '-n'], folderId: 'f'}, undefined, {chatId: 'c', runId: 'r'});
     await runtime.execute('browser_read', {id: 'w1'}, undefined, {chatId: 'c', runId: 'r'});
     const [cli, read] = asked;
-    assert.equal(cli.title, '执行本机 CLI');
+    assert.equal(cli.title, '运行命令');
     assert.match(cli.detail, /^程序：\/bin\/echo\n参数："hello world" -n\n工作目录：/);
     assert.match(cli.detail, /最长运行：120 秒/); assert.match(cli.detail, /命令输出会发送给当前模型/);
     assert.match(read.detail, /^网页：隆基新闻\n地址：https:\/\/www\.longi\.com\/cn\/news\//);

@@ -54,7 +54,7 @@ function matches(rule, candidate, command) {
   return false;
 }
 
-export function createApprovalRules({store, now = Date.now, notify = () => {}}) {
+export function createApprovalRules({store, now = Date.now, notify = () => {}, onDeferred = () => {}}) {
   const data = () => { store.data.approvalRules ??= []; store.data.pendingApprovals ??= []; return store.data; };
   const unattended = new Map(); // chatId -> taskId
   const live = () => data().approvalRules.filter(r => !r.expires || r.expires > now());
@@ -87,6 +87,7 @@ export function createApprovalRules({store, now = Date.now, notify = () => {}}) 
       const d = data();
       const item = {id: uid(), time: now(), chatId, taskId: unattended.get(chatId), tool, title, detail: String(detail || '').slice(0, 600), ...(candidate ? {candidate} : {})};
       d.pendingApprovals = [item, ...d.pendingApprovals].slice(0, PENDING_LIMIT);
+      onDeferred(item);
       notify();
       return item;
     },
@@ -96,7 +97,7 @@ export function createApprovalRules({store, now = Date.now, notify = () => {}}) 
      * the user instead; otherwise the dialog offers "always allow" when the operation has a rule scope.
      * Always resolves to true / false, or throws for a deferred unattended operation.
      */
-    gate(approve, {chatId} = {}) {
+    gate(approve, {chatId, agent} = {}) {
       const gated = async (title, detail, signal, opts = {}) => {
         const scope = opts?.ruleScope || null;
         if (api.match(scope, null, {chatId})) { await store.save(); return true; }
@@ -104,7 +105,7 @@ export function createApprovalRules({store, now = Date.now, notify = () => {}}) 
           api.defer({chatId, tool: scope?.kind || 'agent', title, detail, candidate: scope || undefined});
           const e = new Error('定时任务无人值守：该操作需要用户确认，已记入「待你确认」，本次没有执行'); e.code = 'UNATTENDED_DEFERRED'; throw e;
         }
-        const r = await approve(title, detail, signal, scope ? {ruleScope: scope} : undefined);
+        const r = await approve(title, detail, signal, {...opts, chatId, agent, ruleScope: scope});
         if (r === true) return true;
         if (scope && r?.allowed === true && r.alwaysAllow === true) { api.add(scope, {source: 'dialog'}); await store.save(); notify(); return true; }
         return false;
@@ -123,6 +124,17 @@ export function createApprovalRules({store, now = Date.now, notify = () => {}}) 
         if (!item.candidate) throw new Error('该操作每次都需要你确认，不能设为总是允许');
         api.add(item.candidate, {taskId: p.onlyTask && item.taskId ? item.taskId : undefined, source: 'pending'});
         d.pendingApprovals = d.pendingApprovals.filter(x => x.id !== p.id);
+      }
+      else if (p?.action === 'resolveInline') {
+        const item = d.pendingApprovals.find(x => x.id === p.id);
+        if (!item) return d;
+        if (!['deny', 'allow', 'always'].includes(p.decision)) throw new Error('无效的授权决定');
+        if (p.decision === 'always') {
+          if (!item.candidate || !item.taskId) throw new Error('此操作需要逐次确认');
+          api.add(item.candidate, { taskId: item.taskId, source: 'pending' });
+        }
+        d.pendingApprovals = d.pendingApprovals.filter(x => x.id !== item.id);
+        d.resolvedApprovals = [...(d.resolvedApprovals || []), { ...item, decision: p.decision === 'allow' ? 'acknowledged' : p.decision, finishedAt: now() }].slice(-100);
       }
       else if (p?.action === 'dismissPending') d.pendingApprovals = p.id ? d.pendingApprovals.filter(x => x.id !== p.id) : [];
       else throw new Error('未知操作');

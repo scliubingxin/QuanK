@@ -3,6 +3,10 @@ import path from 'node:path';
 import {mkdir,mkdtemp,writeFile,readFile,lstat,rm,realpath} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {inspectCodeProject,fileHash} from '../runtime/code-project.mjs';
+export function grantedCodeProject(store, target, { aliases = false } = {}) {
+ return (store.data.folders || []).find(folder => (store.data.codeProjects || []).some(project =>
+  folder.id === 'project:' + project.id && (folder.path === target || aliases && [project.id, project.name].includes(target))));
+}
 const live=new Set(['queued','pending_approval','running','cancelling']);
 /** Host-owned workspaces; CLI still runs with the user's OS privileges, not an OS sandbox. */
 export function createCodeProjects({store,directory,approve,commands}){

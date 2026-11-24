@@ -13,7 +13,8 @@ test('page heroes no longer reserve a 420px height (column flex basis)', async (
 test('README uses the new introduction and the regenerated screenshots', async () => {
   const md = await read('../../README.md');
   const capabilities = md.split('## 核心能力\n')[1].split('## 界面一览')[0];
-  assert.equal(capabilities.match(/^- \*\*/gm)?.length, 8);
+  assert.equal(capabilities.match(/^- \*\*/gm)?.length, 9);
+  assert.match(capabilities, /^- \*\*Coding 智能体\*\*/m);
   assert.match(md, /\[发布记录\]\(docs\/releases\/README\.md\)/);
   assert.doesNotMatch(md, /^## 更新记录|^- \*\*v\d+/m);
   const shots = await read('../scripts/readme-screenshots-app.mjs');

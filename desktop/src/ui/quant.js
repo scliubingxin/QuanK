@@ -158,6 +158,8 @@ ${R.hasToken ? '<label class="check"><input type="checkbox" name="clearToken"> �
 <label>Python 解释器（需装好引擎声明的依赖包）<input name="python" value="${escape(q.python || '')}" placeholder="${escape(q.pythonFound || '自动查找')}"></label>
 <label>AI 研判<select name="ai"><option value="willbuddy" ${q.ai !== 'none' ? 'selected' : ''}>使用 QuanK 当前配置的模型</option><option value="none" ${q.ai === 'none' ? 'selected' : ''}>关闭（只用算法结论）</option></select></label>
 <label class="check"><input type="checkbox" name="autoStart" ${q.autoStart !== false ? 'checked' : ''}> 需要时自动启动引擎</label>
+<label class="check"><input type="checkbox" name="startupEngine" ${q.startupEngine === true ? 'checked' : ''}> 启动时自动启动本地引擎</label>
+<p class="hint">本地模式会常驻一个策略 Python 进程，占用内存和 CPU。远程模式只在启动时测试一次连接。</p>
 <label class="check"><input type="checkbox" name="importHoldings" ${q.importHoldings ? 'checked' : ''}> 首次启动时从源项目导入持仓等设置（之后由本机引擎维护）</label>
 <p class="hint">源目录：${escape(q.source || '尚未选择')}。同步时复制项目文件，但不复制数据库、密钥类配置、日志以及 wb-engine.json 里列出的文件。模型密钥会写入本机引擎目录的配置文件（仅你本人可读）。</p>`;
 }
@@ -167,7 +169,7 @@ export const quantSettingsPayload = fm => {
   const base = {action: 'settings', python: val(fm, 'python'), ai: val(fm, 'ai') || 'willbuddy', autoStart: on(fm, 'autoStart'), importHoldings: on(fm, 'importHoldings')};
   if (mode === null || mode === undefined) return base; // no engine-source field in this form: leave mode and remote settings unchanged
   return {...base,
-    mode: mode === 'remote' ? 'remote' : 'local', remoteUrl: val(fm, 'remoteUrl').trim(), remotePort: port === '' ? '' : Number(port), remoteToken: val(fm, 'remoteToken'), clearToken: on(fm, 'clearToken'),
+    startupEngine: on(fm, 'startupEngine'), mode: mode === 'remote' ? 'remote' : 'local', remoteUrl: val(fm, 'remoteUrl').trim(), remotePort: port === '' ? '' : Number(port), remoteToken: val(fm, 'remoteToken'), clearToken: on(fm, 'clearToken'),
     remoteUser: val(fm, 'remoteUser').trim(), remotePass: val(fm, 'remotePass'), remoteFallback: on(fm, 'remoteFallback')};
 };
 
