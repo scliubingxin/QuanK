@@ -32,4 +32,9 @@ QuanK 每个正式版本的打包与发布过程记录（同步清单、asar 检
 
 ## 新版本怎么记
 
-发布时把过程记录写成 `docs/releases/v<版本>.md`（结构同上面几份），在本页表格顶部加一行，然后随「docs: v<版本> 发布记录」一起提交。不要再写到仓库根目录。
+发布清单（按顺序）：
+
+1. 把过程记录写成 `docs/releases/v<版本>.md`（结构同上面几份），在本页表格顶部加一行。
+2. **运行 publish-download.sh 更新官网下载**：`QK_SITE_HOST=<host> QK_SITE_USER=<user> sh scripts/publish-download.sh v<版本> <本机DMG路径>`（脚本会校验 sha256、原子更新 `latest.json` 与下载软链，并只保留最近 2 个版本）。
+3. 更新官网（`site/`）并重新构建、部署；确认页面不显示版本号、代码托管链接或更新日志。
+4. 随「docs: v<版本> 发布记录」一起提交。不要再写到仓库根目录。
