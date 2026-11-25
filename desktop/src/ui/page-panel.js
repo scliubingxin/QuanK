@@ -1,3 +1,6 @@
+import {mountOfficeAIMenu} from './office-ai-menu.js';
+import {createOfficeToolbar} from './office-toolbar.js';
+import {createFloatToolbar} from './office-float-toolbar.js';
 import {docIcon} from './avatars.js';
 // [v0.54] right-hand page tabs: pages opened from the chat, and every stock detail, open as tabs beside the
 // conversation instead of replacing it. Pure helpers here; app.js owns the DOM host and the render loop.
@@ -80,4 +83,164 @@ export function panelHead({tabs, active, wide = false, icon = () => ''}) {
 
 export function panelBusy(tab) {
   return `<div class="pp-same"><h3>${esc(tab.title)}</h3><p>这个页面正在左侧主区域显示。</p><button type="button" class="secondary" data-action="ppClose" data-id="${esc(tab.id)}">关闭这个页签</button></div>`;
+}
+
+export function showOfficeDecision(host, title, options, choose) {
+  host.querySelector('.qk-office-decision')?.remove();
+  const card = document.createElement('div');
+  card.className = 'inline-approval-card qk-office-decision';
+  card.setAttribute('role', 'alert');
+  const label = document.createElement('strong');
+  label.textContent = title;
+  const actions = document.createElement('div');
+  actions.className = 'inline-approval-actions';
+  for (const [value, text, primary] of options) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = text;
+    button.className = primary ? 'primary' : 'secondary';
+    button.addEventListener('click', async () => {
+      for (const child of actions.children) child.disabled = true;
+      try {
+        if (await choose(value) !== false) card.remove();
+      } catch (error) {
+        label.textContent = error.message;
+      } finally {
+        for (const child of actions.children) child.disabled = false;
+      }
+    });
+    actions.append(button);
+  }
+  card.append(label, actions);
+  host.prepend(card);
+  return card;
+}
+
+/** Called by the workbench when mounting an Office document tab. */
+export function mountPanelOffice({
+  host, preview, status, menu, attachView, closeView, openWindow, readonlyPreview, previewScroll, ai, openCopy,
+}) {
+  let disposed = false, canvas, attached, toolbar, float, aiMenu, cancelApply, retry;
+  const subscriptions = [];
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.textContent = '在独立窗口打开';
+  item.addEventListener('click', openWindow);
+  menu.append(item);
+  host.style.position = 'relative';
+  status.textContent = '只读';
+  let pendingLocation;
+  const locate = event => {
+    pendingLocation = event.detail;
+    if (canvas) void canvas.firstPaint.then(ready => {
+      if (ready && !disposed && pendingLocation) {
+        const target = pendingLocation;
+        pendingLocation = undefined;
+        return canvas.locate(target);
+      }
+    }).catch(report);
+  };
+  host.addEventListener('office-locate', locate);
+  const reportCommand = event => report(event.detail);
+  host.addEventListener('office-command-error', reportCommand);
+  const position = previewScroll?.() ?? {top:preview.scrollTop,left:preview.scrollLeft};
+  async function start() {
+    const {mountOfficeCanvas} = await import('../office/office-canvas.js');
+    const view = await attachView();
+    if (disposed) {
+      await closeView(view);
+      return;
+    }
+    attached = view;
+    const update = () => {
+      status.textContent = view.session.state.get('saving')?.checked ? '保存中' : view.session.readOnly ? '只读' : '可编辑';
+      status.title = view.readOnlyReason ?? '';
+    };
+    subscriptions.push(view.session.on('state',update));
+    const showConflict = () => showOfficeDecision(host, '文档已有新版本', [
+      ['copy','另存副本',true], ['reload','重新载入'], ['overwrite','覆盖'],
+    ], async choice => (await view.session.resolveConflict(choice)).ok);
+    subscriptions.push(view.session.on('conflict',showConflict));
+    subscriptions.push(view.session.on('saved',detail => { if (detail?.copyId) openCopy?.(detail.copyId); }));
+    if (view.saveState === 'conflict') showConflict();
+    if (view.recovery) showOfficeDecision(host, '恢复未保存的修改', [
+      ['restore','恢复',true], ['discard','放弃'],
+    ], choice => view.session.resolveRecovery(choice));
+    const current = previewScroll?.() ?? {top:preview.scrollTop,left:preview.scrollLeft};
+    let metadata = view.metadata;
+    if (view.session.kind === 'impress' && current.part > 0 && current.part < metadata.parts.length) {
+      metadata = await view.request('part',{part:current.part});
+      if (disposed) return;
+    }
+    const zoom = current.width > 0 ? current.width * 15 / metadata.width : current.zoom ?? position.zoom;
+    const top = view.session.kind === 'impress' ? current.within ?? 0 : current.top;
+    canvas = mountOfficeCanvas(host,{...view,metadata,preview:readonlyPreview,initialScroll:{top,left:current.left},
+      initialZoom:zoom,onError:report});
+    canvas.element.style.visibility = 'hidden';
+    canvas.element.style.position = 'absolute';
+    canvas.element.style.inset = '0';
+    subscriptions.push(view.session.on('closed',() => {
+      cancelApply?.();
+      aiMenu?.destroy();
+      toolbar?.destroy();
+      float?.destroy();
+      canvas.destroy();
+      canvas = toolbar = float = aiMenu = attached = undefined;
+      for (const off of subscriptions.splice(0)) off?.();
+      host.querySelector('.qk-office-decision')?.remove();
+      preview.hidden = false;
+      status.textContent = '只读';
+      status.title = '编辑引擎已退出，正在重新连接';
+      if (!disposed) retry = setTimeout(() => void start().catch(report), 250);
+    }));
+    if (await canvas.firstPaint && !disposed && attached === view) {
+      preview.hidden = true;
+      canvas.element.style.visibility = '';
+      canvas.element.style.position = '';
+      canvas.element.style.inset = '';
+      canvas.element.style.flex = '1';
+      canvas.element.style.minWidth = '0';
+      for (const node of host.parentElement.querySelectorAll('.file-preview-toolbar,.file-preview-status,.file-outline,.file-outline-handle')) {
+        node.hidden = true;
+      }
+      toolbar = createOfficeToolbar(view.session, view.session.kind, {native:true});
+      float = createFloatToolbar(view.session, {viewport:canvas.viewport});
+      toolbar.element.querySelector('.qk-office-toolbar-header').append(canvas.zoomControl);
+      canvas.element.prepend(toolbar.element);
+      canvas.element.append(float.element);
+      if (ai) aiMenu = mountOfficeAIMenu({
+        session:view.session, floatToolbar:float, ai, root:host, input:canvas.input, allowChart:false,
+        confirmApply:panel => new Promise(resolve => {
+          const finish = allowed => { cancelApply = undefined; resolve(allowed); };
+          const card = showOfficeDecision(panel, '允许 AI 将这项修改写入文档？', [
+            ['allow','允许写入',true], ['deny','拒绝'],
+          ], choice => finish(choice === 'allow'));
+          cancelApply = () => { card.remove(); finish(false); };
+        }),
+      });
+      toolbar.refresh();
+      float.refresh();
+      update();
+      if (pendingLocation) locate({detail:pendingLocation});
+    }
+  }
+  void start().catch(report);
+  function report(error) {
+    if (!disposed) status.title = error.message;
+  }
+  return () => {
+    disposed = true;
+    item.remove();
+    host.removeEventListener('office-locate', locate);
+    host.removeEventListener('office-command-error', reportCommand);
+    clearTimeout(retry);
+    cancelApply?.();
+    aiMenu?.destroy();
+    toolbar?.destroy();
+    float?.destroy();
+    canvas?.destroy();
+    preview.hidden = false;
+    for (const off of subscriptions) off?.();
+    if (attached) void Promise.resolve(closeView(attached)).catch(report);
+  };
 }

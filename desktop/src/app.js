@@ -1,3 +1,5 @@
+import {officeApprovalCard} from './ui/office-cards.js';
+import {connectOfficeViewPort} from './office/office-canvas.js';
 import { modalLayout } from './ui/modal.js';
 import {bindPresetFilters, plazaIcon} from './ui/preset-catalog.js'; // [ux11] plazaIcon
 import {agentAvatar} from './ui/avatars.js';
@@ -8,7 +10,7 @@ import {compactComposer,createComposerMenus} from './ui/composer.js';
 import {modelPicker,modelLibrary,modelForm,bindModelForm,modelChoiceLabel} from './ui/models.js';
 import {legacyRoundLimit} from './ui/legacy-round-limit.js';
 import {capabilityTabs,skillsPage,mcpPage,mcpAuthFields,mcpForm,bindMcpForm,mcpPayload} from './ui/capability-library.js';
-import { approvalCard, approvalBar, codingApprovalRequests, revealApproval } from './ui/approval-card.js';
+import { approvalBar, codingApprovalRequests, revealApproval } from './ui/approval-card.js';
 import {codingTaskPage} from './ui/coding-task.js';
 import {codingCards, codingDetection, codingForm, codingPayload, bindCodingForm, codingPreset, workBuddyPreset} from './ui/coding.js';
 import {agentEditor,bindAgentEditor,readAgentEditor} from './ui/agent-editor.js';
@@ -55,7 +57,7 @@ import { session as marketSession } from './shared/market.js'; // [v0.52.1]
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
 import { feedUnread } from './shared/feed.js';
 function viewContext() {
-    return { state, approvalCards: approvalRequests().filter(item => item.chatId === chatId).map(item => approvalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
+    return { state, approvalCards: approvalRequests().filter(item => item.chatId === chatId).map(item => officeApprovalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
 // [p1-m4] away recap: remember what finished while the user was elsewhere, then clear the unread flag
 let recap = null;
 function markSeen(id) {
@@ -150,6 +152,7 @@ function paintApprovalSummaries(root = document) {
     for (const card of root.querySelectorAll('.inline-approval-card')) {
         const summary = card.querySelector('pre');
         const button = card.querySelector('[data-action="approvalExpand"]');
+        if (!summary || !button) continue;
         const expanded = expandedApprovals.has(card.dataset.approvalId);
         summary.classList.toggle('expanded', expanded);
         button.hidden = !expanded && summary.scrollHeight <= summary.clientHeight + 1;
@@ -408,7 +411,7 @@ function render() {
     const active = nav.find(n => n[0] === page);
     const name = state.settings.name || '我的工作空间';
     $('#app').className = sidebarCollapsed ? 'sidebar-collapsed' : '';
-    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(approvalFeedState())})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div>${state.officeEngine?.phase==='starting' ? '<span role="status">Office 引擎启动中…</span>' : ''}<button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}${['home', 'chat'].includes(page) ? '' : approvalMarkup()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
+    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(approvalFeedState())})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div>${state.officeEngine?.phase==='starting' ? '<span class="office-engine-pill" role="status" title="Office 引擎启动中">Office 启动中</span>' : ''}<button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}${['home', 'chat'].includes(page) ? '' : approvalMarkup()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
     officeWorkspace.update(markup, `${page}:${chatId}`);
     renderPanel(); // [v0.54]
     paintApprovalSummaries();
@@ -519,7 +522,7 @@ function paintMeter() { const node = document.querySelector('.context-meter'); i
 
 function homeContent() {
     const cards = approvalRequests().filter(item => !item.codingTaskId && !state.chats.some(chat => chat.id === item.chatId));
-    return (cards.length ? `<div class="home-approvals">${cards.map(item => approvalCard(item, action)).join('')}</div>` : '') + views.homeContent(viewContext());
+    return (cards.length ? `<div class="home-approvals">${cards.map(item => officeApprovalCard(item, action)).join('')}</div>` : '') + views.homeContent(viewContext());
 }
 function conversationContent() { return views.conversationContent(viewContext()); }
 function closePicker() {
@@ -769,7 +772,7 @@ async function send() {
     state.chats.find(c => c.id === id).messages.push({ role: 'user', content: prompt,documents:selected.filter(f=>f.documentId),images:selectedImages,imagesSent:selectedConsent });
     render();
     try {
-        applyState(await invoke('chat', { id, requestId:crypto.randomUUID(), prompt, ...(asIncognito || state.chats.find(c => c.id === id)?.incognito ? { incognito: true } : {}), selections:selectedSelections.map(({documentId,revision,sha256,request})=>({documentId,revision,sha256,request})), agentId, toolsEnabled,modelChoice,modelEffort,images:selectedImages.map(i=>i.id),sendImages:selectedConsent, documents:selected.filter(f=>f.documentId).map(({documentId,revision,sha256,name,archive,entryPath})=>({documentId,revision,sha256,name,archive,entryPath})), files: selected.filter(f=>!f.documentId).map(({ folderId, relative }) => ({ folderId, relative })) }));
+        applyState(await invoke('chat', { id, requestId:crypto.randomUUID(), prompt, officeDocId:panelTab()?.documentId, ...(asIncognito || state.chats.find(c => c.id === id)?.incognito ? { incognito: true } : {}), selections:selectedSelections.map(({documentId,revision,sha256,request})=>({documentId,revision,sha256,request})), agentId, toolsEnabled,modelChoice,modelEffort,images:selectedImages.map(i=>i.id),sendImages:selectedConsent, documents:selected.filter(f=>f.documentId).map(({documentId,revision,sha256,name,archive,entryPath})=>({documentId,revision,sha256,name,archive,entryPath})), files: selected.filter(f=>!f.documentId).map(({ folderId, relative }) => ({ folderId, relative })) }));
     }
     catch (e) {
         toast(e.message);
@@ -1333,6 +1336,22 @@ async function handle(actionId, id, stockTarget) {
         });
         return;
     }
+    if (['officeOpen','officeLocate','officeRollback'].includes(actionId)) {
+        const [token, index] = id.split(':');
+        const result = await invoke('officeResultAction', {chatId, token, index:index === undefined ? undefined : Number(index), action:actionId});
+        if (result?.documentId) {
+            await update('state');
+            if (!openDocumentPreview(result.documentId)) throw Error('成果中心文档已移除');
+            if (result.target) document.querySelector('#pagePanel .file-preview-main')?.dispatchEvent(new CustomEvent('office-locate', {detail:result.target}));
+        } else if (result?.status === 'version_history') {
+            await update('state');
+            if (openDocumentPreview(result.docId)) await handle('documentHistory', result.docId);
+        } else if (result?.status === 'succeeded') {
+            await update('state');
+            toast('已撤回本次修改');
+        }
+        return;
+    }
     if (actionId === 'codingSetupOpen') return openCodingPage({page: 'agents', coding: {}});
     if (actionId === 'codingResultOpen') return openCodingPage({page:'tasks', coding:{task:id}});
     if (actionId === 'codingTaskOpen') {
@@ -1732,6 +1751,11 @@ async function handle(actionId, id, stockTarget) {
         if (actionId === 'tdBrokerOpen') { const u = $('#modal [name="url"]')?.value; if (u !== undefined && u !== (tv.broker?.url || '')) await call({ action: 'broker', url: u.trim() }); await call({ action: 'brokerOpen' }); toast('已打开券商页面，请在新窗口里登录'); return; }
         if (actionId === 'tdCalibrate') { toast('请切换到券商窗口，按顶部提示依次点击'); const r = await call({ action: 'calibrate', target: id }); if (r.cancelled) { toast('已取消标注'); return; } applyState(await invoke('state')); if ($('#modal')?.open) modal('券商页面', T.brokerPanel(state.trade?.broker || {}, state.trade?.presets || []), '保存', async f => { await call(T.brokerPayload(f)); render(); }); const NAMES = { code: '代码输入框', price: '价格输入框', shares: '数量输入框', submit: '提交按钮', orders: '委托列表' }; toast(r.missing?.length ? `有 ${r.missing.length} 项没有记下：${r.missing.map(k => NAMES[k] || k).join('、')}。请确认点在输入框本身上，再标注一次` : '标注已保存'); return; } // [v0.53] report what did not stick
         if (actionId === 'tdBrokerLogout') { await call({ action: 'brokerLogout' }); toast('已退出券商登录并关闭窗口'); return; }
+    }
+    if (actionId === 'officeAIToggleUpload') {
+        applyState(await invoke('officeAISettings', {allowUpload:id === 'on'}));
+        render();
+        return;
     }
     if (/^sec[A-Z]/.test(actionId)) { // [F5] 安全与合规
         const S = securityUI, call = async p => { const out = await invoke('security', p); if (out?.state) applyState(out.state); return out?.result || {}; };
@@ -2136,6 +2160,44 @@ function bindPanelResize(host) {
         addEventListener('mousemove', move); addEventListener('mouseup', up);
     });
 }
+const officeTabAI = {
+    blockReason() {
+        if (state.locked || state.security?.encrypted) return '已开启文档加密或工作区已锁定。';
+        if (state.security?.privacy?.offline) return '已开启离线模式，选区 AI 已禁用。';
+        if (state.settings?.office?.ai?.allowUpload === false) return '「不上传文档」策略已启用，选区 AI 已禁用。';
+        return '';
+    },
+    async run(input, {signal, onDelta}) {
+        signal.throwIfAborted();
+        const token = crypto.randomUUID();
+        const off = api.onOfficeAIDelta(event => { if (event.token === token && !signal.aborted) onDelta?.(event.delta); });
+        const cancel = () => { void invoke('officeAI', {token, cancel:true}).catch(() => {}); };
+        signal.addEventListener('abort', cancel, {once:true});
+        try { return await invoke('officeAI', {token, input}); }
+        finally { off(); signal.removeEventListener('abort', cancel); }
+    },
+};
+function attachOfficeTab(id, revision) {
+    const token = crypto.randomUUID();
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => fail(Error('Office 页签连接超时')), 30_000);
+        function cleanup() {
+            clearTimeout(timeout);
+            removeEventListener('message', receive);
+        }
+        function fail(error) {
+            cleanup();
+            reject(error);
+        }
+        function receive(event) {
+            if (event.source !== window || event.data?.kind !== 'quank-office-port' || event.data.token !== token || !event.ports[0]) return;
+            cleanup();
+            resolve(connectOfficeViewPort(event.ports[0]));
+        }
+        addEventListener('message', receive);
+        invoke('officeAttach', {id, revision, token}).catch(fail);
+    });
+}
 function renderPanel() {
     clearOfficeNotice();
     let host = document.getElementById('pagePanel');
@@ -2163,8 +2225,8 @@ function renderPanel() {
         }
     } else if (tab.kind === 'document') {
         const d = state.documents?.find(item => item.id === tab.documentId);
-        body = d ? filePreviewPanel(d, {action, icon, native: state.officeNative}) : '<p>文件已从成果中心移除。</p>';
-        key = tab.id + '\n' + (d ? d.revision + ':' + state.officeNative : 'missing');
+        body = d ? filePreviewPanel(d, {action, icon, native: state.officeNative, inTab:state.officeInTab}) : '<p>文件已从成果中心移除。</p>';
+        key = tab.id + '\n' + (d ? (state.officeInTab && ['docx','pptx','xlsx'].includes(d.format) ? 'office' : d.revision + ':' + state.officeNative) : 'missing');
     } else if (tab.kind === 'market-stock') {
         if (!tab.chartRevision) setKlinePeriod(tab.code, tab.period);
         body = marketPage(state, {action, date, stock: tab.code});
@@ -2182,7 +2244,26 @@ function renderPanel() {
         el.innerHTML = body;
         for (const fold of el.querySelectorAll('[data-coding-fold]')) if (openFolds.has(fold.dataset.codingFold)) fold.open = openFolds.get(fold.dataset.codingFold); panelBodyKey = key; if (!same) el.scrollTop = tab.scroll || 0;
         const preview = el.querySelector('.file-preview-panel');
-        if (preview) disposeFilePreview = mountFilePreviewPanel(preview, invoke, () => state.officeEngine?.phase === 'ready');
+        if (preview) {
+            let previewPosition;
+            const disposePreview = mountFilePreviewPanel(preview, invoke, () => state.officeEngine?.phase === 'ready',
+                position => { previewPosition = position; });
+            const status = preview.querySelector('[data-office-edit-status]');
+            const source = preview.querySelector('.file-preview-host');
+            const disposeOffice = status && panelUI.mountPanelOffice({
+                openCopy:id => { void update('state').then(() => handle('documentView', id)).catch(error => toast(error.message)); },
+                previewScroll:() => previewPosition, ai:officeTabAI, host:preview.querySelector('.file-preview-main'), preview:source, status,
+                menu:preview.querySelector('.file-menu > div'),
+                attachView:() => attachOfficeTab(source.dataset.documentId, Number(source.dataset.revision)),
+                closeView:view => view.close(),
+                openWindow:async () => {
+                    const d = state.documents?.find(item => item.id === source.dataset.documentId);
+                    try { if (d) await invoke('officeOpen', {id:d.id, revision:d.revision}); }
+                    catch (error) { toast(error.message); }
+                },
+            });
+            disposeFilePreview = () => { disposeOffice?.(); disposePreview(); };
+        }
     }
     paintApprovalSummaries(host);
     if (tab.kind === 'stock' && !quantCache.has(tab.code) && !quantLoading.has(tab.code)) setTimeout(() => handle('quantOpen', tab.code).catch(err => toast(err.message)), 0);
@@ -2220,6 +2301,30 @@ async function openCodingPage(p) {
     return false;
 }
 api?.onOpenPage?.(async p => {
+    if (p?.page === 'office-result') {
+        try {
+            await update('state');
+            await handle('documentView', p.docId);
+            if (p.history) await handle('documentHistory', p.docId);
+            else if (p.target) document.querySelector('#pagePanel .file-preview-main')?.dispatchEvent(new CustomEvent('office-locate', {detail:p.target}));
+        } catch (error) { toast(error.message); }
+        return;
+    }
+    if (p?.page === 'office-close') {
+        try {
+            await update('state');
+            await handle('documentView', p.docId);
+            const host = document.querySelector('#pagePanel .file-preview-main');
+            if (!host) throw Error('Office 页签不可用');
+            panelUI.showOfficeDecision(host, '退出前处理未保存修改', [
+                ['save','保存并退出',true], ['discard','放弃修改'], ['cancel','取消退出'],
+            ], choice => invoke('officeCloseDecision', {token:p.token, choice}));
+        } catch (error) {
+            await invoke('officeCloseDecision', {token:p.token, choice:'cancel'}).catch(() => {});
+            toast(error.message);
+        }
+        return;
+    }
     if (p?.page === 'notice') { if (!state.locked) toast(p.message); return; }
     if (p?.page === 'approval') {
         try { applyState(await invoke('state')); await loadCodingTasks(); await jumpToApproval(p.requestId); }

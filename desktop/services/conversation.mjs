@@ -1,3 +1,4 @@
+import {OFFICE_TOOL_NAMES} from './office-tools.mjs';
 import { getSubagents } from '../src/shared/subagents.js';
 import {pptImagesFromContent} from '../runtime/documents.mjs';
 import {resolveDocumentSelections} from './document-selection.mjs';
@@ -62,7 +63,7 @@ export function createConversationService({ models, approve, rules, clientFactor
         if(p.sendImages!==undefined&&typeof p.sendImages!=='boolean')throw Error('发送图片选项无效');
         const imageTarget={baseUrl:store.data.settings.baseUrl,model:store.data.settings.model};
         const runId = p.requestId || uid();
-        const fingerprint = requestFingerprint({id,prompt,agentId:p.agentId || 'assistant',toolsEnabled:p.toolsEnabled === true,files:p.files || [],selections:p.selections||[],documents:attachedDocuments,images:imageIds,sendImages:p.sendImages===true,modelChoice:p.modelChoice||'legacy',modelEffort:p.modelEffort||'',incognito:p.incognito===true});
+        const fingerprint = requestFingerprint({id,prompt,officeDocId:p.officeDocId,agentId:p.agentId || 'assistant',toolsEnabled:p.toolsEnabled === true,files:p.files || [],selections:p.selections||[],documents:attachedDocuments,images:imageIds,sendImages:p.sendImages===true,modelChoice:p.modelChoice||'legacy',modelEffort:p.modelEffort||'',incognito:p.incognito===true});
         const existing = queue.lookup(runId);
         if (existing) {
             await queue.submit({id:runId,kind:'conversation',ownerId:id,fingerprint}, () => {throw Error('不能重放已有请求');});
@@ -161,8 +162,12 @@ export function createConversationService({ models, approve, rules, clientFactor
                 subagentResults.push(result);
                 return {status:'succeeded',...result};
             };
+            const officeRoute = !scheduled && !incognito && agent.appTools !== false
+                ? await appTools?.office?.route(prompt, {chatId:id, currentDocId:p.officeDocId}) : null;
+            const officeBlocked = officeRoute && appTools.officeBlockReason?.();
+            const officeResults = [];
             const appOnly = !toolsEnabled && (delegates.length > 0 || !!appTools && (
-                (codingAvailable && (codingTurn || codingCandidate)) || (!chat?.taskId && (APP_INTENT.test(prompt) || (!!store.data.quant?.source && QUANT_INTENT.test(prompt))))));
+                (officeRoute && !officeBlocked) || (codingAvailable && (codingTurn || codingCandidate)) || (!chat?.taskId && (APP_INTENT.test(prompt) || (!!store.data.quant?.source && QUANT_INTENT.test(prompt))))));
             const codingBlocked = !assistantAllowed ? CODING_DISABLED
                 : codingRequest && store.data.quant?.mode === 'remote' ? CODING_LOCAL_ONLY
                 : codingRequest && !codingService ? '当前环境未接入 Coding 任务服务。' : '';
@@ -197,6 +202,9 @@ export function createConversationService({ models, approve, rules, clientFactor
                 const minuteQuery = navigation && minuteKlineCommand(prompt);
                 agentSession = !pageResult && !previewTarget && !graphQuery && !minuteQuery && (toolsEnabled || appOnly) ? await createAgentSession({agent,store,executeTool:(name,args,signal,context)=>executeTool(name,args,signal,{...context,allowedImageIds:imageIds}),approve:appApprove,clientFactory,secrets,signal:controller.signal,chatId:id,runId,notify,eagerSkills:true,appTools,appOnly}) : null;
                 const definitions = agentSession?.definitions;
+                if (definitions && officeRoute && !officeBlocked) definitions.push(...appTools.office.definitions.filter(def =>
+                    def.function.name === officeRoute.tool || ['app_office_outline','app_office_read','app_office_find'].includes(def.function.name)));
+                if (officeBlocked) pageResult = {text:officeBlocked, events:[]};
                 if (definitions && delegates.length) definitions.push({type:'function',function:{
                     name:'app_subagent_ask',
                     description:'委托已绑定的对话子智能体做一次只读问答。可选子智能体：'+JSON.stringify(delegates.map(({id,name})=>({id,name}))),
@@ -225,7 +233,7 @@ export function createConversationService({ models, approve, rules, clientFactor
                     pageResult = {text: reply, events: []};
                 }
                 const result = pageResult || await runAgent({
-                    messages: [{ role: 'system', content: agent.prompt + (agentSession?.context||'') + (codingAvailable ? '\n' + CODING_INSTRUCTION : '') + '\n回复可使用Markdown图文：图片用![说明](公开HTTPS图片直链)；视频用[说明](公开HTTPS的mp4/webm/ogv直链)；网页用[标题](https://网址)。只引用实际已知或工具返回的URL，不编造图片或视频，不声称附件已生成。回复用户时只用自然语言，不要暴露内部工具名或括号里的工具标识符（例如 app_xxx、connector_xxx），直接说你做了什么。图表使用完整chart代码围栏和JSON：{"type":"bar","title":"标题","labels":["A","B"],"series":[{"name":"数值","values":[1,2]}]}；type支持bar/line/pie，标签最多30、系列最多4，pie仅一组非负数。没有来源的数据须明确标示为示例，不添加脚本。外部媒体由用户点击后才加载。\n' + COMPARISON_INSTRUCTION + '\n' + INFOGRAPHIC_INSTRUCTION + '\n' + MINIAPP_INSTRUCTION + '\n' + instructions + '\n本轮用户选择、可经批准嵌入Word或PPT的本机图片ID（没有图片则不得声称有照片）：'+JSON.stringify(imageMetadata)+memoryBlock(usedMemories)+graphBlock(usedEntities, store.data.graph) }, ...prior, { role: 'user', content: (p.sendImages===true&&selectedImages.length ? [{type:'text',text:userText+(context?'\n'+context:'')},...selectedImages.map(i=>({type:'image_url',image_url:{url:'data:image/png;base64,'+i.base64,detail:'auto'}}))] : userText + (context ? '\n\n用户为本次请求明确附加的本地资料：\n' + context : '')) }],
+                    messages: [{ role: 'system', content: agent.prompt + (agentSession?.context||'') + (codingAvailable ? '\n' + CODING_INSTRUCTION : '') + (officeRoute ? '\n当前 Office 文档 ID 为 ' + JSON.stringify(officeRoute.docId) + '。先读取精确目标再修改，保持未指定的内容。' : '') + '\n回复可使用Markdown图文：图片用![说明](公开HTTPS图片直链)；视频用[说明](公开HTTPS的mp4/webm/ogv直链)；网页用[标题](https://网址)。只引用实际已知或工具返回的URL，不编造图片或视频，不声称附件已生成。回复用户时只用自然语言，不要暴露内部工具名或括号里的工具标识符（例如 app_xxx、connector_xxx），直接说你做了什么。图表使用完整chart代码围栏和JSON：{"type":"bar","title":"标题","labels":["A","B"],"series":[{"name":"数值","values":[1,2]}]}；type支持bar/line/pie，标签最多30、系列最多4，pie仅一组非负数。没有来源的数据须明确标示为示例，不添加脚本。外部媒体由用户点击后才加载。\n' + COMPARISON_INSTRUCTION + '\n' + INFOGRAPHIC_INSTRUCTION + '\n' + MINIAPP_INSTRUCTION + '\n' + instructions + '\n本轮用户选择、可经批准嵌入Word或PPT的本机图片ID（没有图片则不得声称有照片）：'+JSON.stringify(imageMetadata)+memoryBlock(usedMemories)+graphBlock(usedEntities, store.data.graph) }, ...prior, { role: 'user', content: (p.sendImages===true&&selectedImages.length ? [{type:'text',text:userText+(context?'\n'+context:'')},...selectedImages.map(i=>({type:'image_url',image_url:{url:'data:image/png;base64,'+i.base64,detail:'auto'}}))] : userText + (context ? '\n\n用户为本次请求明确附加的本地资料：\n' + context : '')) }],
                     enabled: toolsEnabled || appOnly, summarizeOnLimit: true, definitions, maxSteps:modelRoute?.maxSteps??agentSession?.maxSteps, signal: controller.signal,
                     request: async (messages, tools) => {
                         let message;
@@ -270,6 +278,17 @@ export function createConversationService({ models, approve, rules, clientFactor
                         }
                     },
                     execute: async (name,args,signal)=>{
+                        if (OFFICE_TOOL_NAMES.has(name)) {
+                            if (!officeRoute || args.docId !== officeRoute.docId || appTools.officeBlockReason?.()) throw Error('当前 Office 请求未获授权');
+                            if (name !== officeRoute.tool && !['app_office_outline','app_office_read','app_office_find'].includes(name)) throw Error('当前 Office 工具不适用于该请求');
+                            let officeCard;
+                            const result = await appTools.office.execute(name, args, {chatId:id, signal, postResult:card => {
+                                officeResults.push(card);
+                                officeCard = card;
+                            }});
+                            if (officeCard) await appTools.officeCommitted?.(officeCard, id);
+                            return appTools.redactOfficeResult?.(result) ?? result;
+                        }
                         if (name === 'app_subagent_ask') return askSubagent(args, signal);
                         if (CODING_TOOL_NAMES.has(name)) {
                             if (name === 'app_coding_permission') return {status: 'denied', message: '请让用户在对话里回复「允许」或「拒绝」。'};
@@ -294,6 +313,7 @@ export function createConversationService({ models, approve, rules, clientFactor
                 const codingActions = result.events.filter(event => CODING_TOOL_NAMES.has(event.tool))
                     .flatMap(({result}) => [result?.action, result?.setup])
                     .filter(Boolean);
+                if (officeResults.length) finalMessage.officeResults = officeResults;
                 if (subagentResults.length) finalMessage.subagentResults = subagentResults;
                 if (codingActions.length) finalMessage.actions = [...new Map(codingActions.map(action => [JSON.stringify(action), action])).values()];
                 recordUse(store.data.memories, usedMemories.map(m => m.id));

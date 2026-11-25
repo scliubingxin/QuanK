@@ -16,7 +16,9 @@ export function securityPage(state, {heading, action = btn} = {}) {
   const s = state.security || {}, p = s.privacy || {};
   const stats = [[s.encrypted ? '已加密' : '未加密', '本机数据'], [s.lockEnabled ? '已开启' : '未开启', '应用锁'], [p.offline ? '离线' : '联网', '网络'], [s.complianceEnabled === false ? '关闭' : '开启', '合规检查']];
   const head = heading('', '安全与合规，数据留在本机。', '持仓、笔记和对话可以加密保存，离开电脑时自动锁定；看得见每个外部连接发了什么，每次改动都留下不可篡改的记录；研报和文章导出前自动做合规检查。', action('立即锁定', 'secLock') + action('导出加密备份', 'secBackup', '', 'primary'), stats);
-  return `<div class="page security-page">${head}<section class="q-box sec-box" id="securityBox"><div class="mk-seg sec-tabs">${TABS.map(([id, t], i) => `<button type="button" data-sec="${id}" class="${i ? '' : 'chosen'}">${t}</button>`).join('')}</div><div class="sec-body"><p class="empty-note">正在读取…</p></div></section></div>`;
+  const upload = state.settings?.office?.ai?.allowUpload !== false;
+  const office = action(upload ? '禁止 Office AI 上传' : '允许 Office AI 上传', 'officeAIToggleUpload', upload ? 'off' : 'on');
+  return `<div class="page security-page">${head}<section class="q-box sec-box" aria-label="Office AI"><p>Office AI 文档上传已${upload ? '允许' : '禁止'}。</p>${office}</section><section class="q-box sec-box" id="securityBox"><div class="mk-seg sec-tabs">${TABS.map(([id, t], i) => `<button type="button" data-sec="${id}" class="${i ? '' : 'chosen'}">${t}</button>`).join('')}</div><div class="sec-body"><p class="empty-note">正在读取…</p></div></section></div>`;
 }
 
 // line icons (24×24, stroke) for the overview cards
