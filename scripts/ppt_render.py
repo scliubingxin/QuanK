@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """pptx → PDF(soffice) → 每页 PNG → 联系表。用法: ppt_render.py in.pptx outdir [cols]
 需要 PyMuPDF(fitz)+Pillow；soffice 取自 SOFFICE 环境变量或 QuanK.app 内置运行时。"""
-import os, subprocess, sys, shutil, glob
+import os, subprocess, sys, shutil, glob, atexit, tempfile
 import fitz
 from PIL import Image, ImageDraw
 SOFFICE = os.environ.get('SOFFICE') or shutil.which('soffice') or next((p for p in ['/Applications/QuanK.app/Contents/Resources/runtimes/WillBuddyEngine/Contents/MacOS/soffice','/Applications/QuanK.app/Contents/Resources/runtimes/LibreOffice.app/Contents/MacOS/soffice'] if os.path.exists(p)),'soffice')
+# 不向 QuanK.app 内置运行时写 .pyc；LibreOffice 用独立临时 profile，避免在运行目录留下配置/锁文件
+os.environ.setdefault('PYTHONDONTWRITEBYTECODE', '1')
+_OFFICE_PROFILE = tempfile.mkdtemp(prefix='quank-soffice-profile-')
+atexit.register(shutil.rmtree, _OFFICE_PROFILE, ignore_errors=True)
 def with_font(pptx, out, font):
     """仅用于预览：本机无微软雅黑时，把字体名替换为可用中文字体再渲染（不改动原文件）。"""
     import zipfile
@@ -20,7 +24,8 @@ def render(pptx, out, scale=1.2, font=os.environ.get('PREVIEW_FONT', 'Heiti SC')
     name = os.path.splitext(os.path.basename(pptx))[0]
     if font: pptx = with_font(pptx, out, font)
     env = dict(os.environ, FONTCONFIG_FILE=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ppt_fonts.conf'))
-    subprocess.run([SOFFICE, '--headless', '--convert-to', 'pdf', '--outdir', out, pptx], check=True, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    profile_arg = '-env:UserInstallation=file://' + _OFFICE_PROFILE
+    subprocess.run([SOFFICE, profile_arg, '--headless', '--convert-to', 'pdf', '--outdir', out, pptx], check=True, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     pdf = os.path.join(out, 'fontsub-' * bool(font) + name + '.pdf')
     paths = []
     for i, page in enumerate(fitz.open(pdf)):

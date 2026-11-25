@@ -1,5 +1,13 @@
 > v0.46.0 之前（WillBuddy 时期 0.1 – 0.37.x）的迭代记录已归档到 [docs/releases/ITERATION_LOG_v0.1-v0.37.md](docs/releases/ITERATION_LOG_v0.1-v0.37.md)；每个版本的发布记录见 [docs/releases/](docs/releases/README.md)。
 
+## v1.0.0 · 2026-11-25 · 白屏修复、独立窗口编辑与投研 PPT 引擎
+
+- 修复持久化展开状态导致的启动白屏：展开状态只在本次会话有效，页签渲染失败自动恢复主区域并给出可关闭提示；Office 画布 ResizeObserver 合并 rAF、按尺寸去重、1% 相对误差和 A→B→A 抖动识别，从源头消除缩放回环。
+- Office 页签改为只读预览，编辑移到独立原生窗口；同一文档只开一个编辑窗口，窗口调用加防护。
+- 新增投研 PPT 引擎：research 主题按真实行情、财务和量化数据生成演示文稿，附免责声明。
+- 修复运行时路径的 /tmp 符号链接 realpath 校验；内置 Python 子进程统一不再向应用包写 .pyc，LibreOffice 使用独立临时 profile。
+- 详见 [v1.0.0 发布记录](docs/releases/v1.0.0.md)。
+
 ## v0.58.0 · 2026-11-25 · 页签内 Office 编辑与 AI Office
 
 - Word、PPT、Excel 在右侧页签打开即可编辑，支持选区样式与 AI、自动保存和版本历史。

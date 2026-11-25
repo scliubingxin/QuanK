@@ -1580,8 +1580,15 @@ body.pp-on{display:flex;height:100vh;overflow:hidden}
 body.pp-on #app{flex:1;min-width:0}
 .page-panel{--pp-w:46vw;width:var(--pp-w);flex:0 0 auto;min-width:380px;height:100vh;display:flex;flex-direction:column;border-left:1px solid #e6ecf6;background:#fff;position:relative;box-shadow:-14px 0 32px -30px #1e3a8a88}
 body.pp-wide #app{flex:0 0 auto}
-body.pp-wide #app .main{display:none}
+/* [v1.0.0] 只有在页签真实存在时才隐藏主区域；页签缺失/渲染失败时主区域不会被隐藏 */
+body.pp-wide:has(#pagePanel) #app .main{display:none}
 body.pp-wide .page-panel{flex:1;width:auto}
+/* [v1.0.0] 页签渲染失败提示：沿用现有设计变量，自动适配深浅色 */
+.pp-error{margin:24px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--approval-surface);color:var(--muted);font-size:13px;display:flex;gap:12px;align-items:center}
+.pp-error button{border:1px solid var(--accent);border-radius:6px;padding:4px 10px;background:transparent;color:var(--accent);font-size:12px;white-space:nowrap}
+/* [v0.58.1 D2] 兜底：没有页签时即使残留 pp-wide 也不隐藏主区域 */
+body.pp-wide:not(:has(#pagePanel)) #app{flex:1;min-width:0}
+body.pp-wide:not(:has(#pagePanel)) #app .main{display:block}
 .pp-resize{position:absolute;left:-4px;top:0;bottom:0;width:8px;cursor:col-resize;z-index:6}
 .pp-resize:hover,body.pp-resizing .pp-resize{background:linear-gradient(90deg,transparent 3px,#2F62F5 3px,#2F62F5 5px,transparent 5px)}
 body.pp-resizing{cursor:col-resize;user-select:none}
@@ -1598,7 +1605,7 @@ body.pp-resizing iframe{pointer-events:none}
 .pp-tab.selected{background:#fff;border-color:#e6ecf6;color:#0B2BA6;font-weight:600;margin-bottom:-1px}
 .pp-tab:not(.selected):hover{background:#eef3ff}
 .pp-dot{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#2F62F5,#8C7CFF);flex-shrink:0}
-.pp-x{width:22px;height:22px;border-radius:6px;color:#97a0b8;font-size:15px;line-height:1}
+.pp-x{width:22px;height:22px;border:0;background:transparent;border-radius:6px;color:#97a0b8;font-size:15px;line-height:1}
 .pp-x:hover{background:#e7ecfb;color:#0B2BA6}
 .pp-tools{display:flex;gap:2px;padding-bottom:8px}
 .pp-tools .icon-button{width:30px;height:30px;border-radius:8px;color:#5b6684;font-size:15px;display:inline-flex;align-items:center;justify-content:center}
@@ -1791,6 +1798,11 @@ body.pp-on .main{container: qkmain / inline-size}
 .file-icon-button svg { width:16px; height:16px; }
 .file-icon-button[data-action=documentExportPdf] svg { width:29px; height:22px; }
 .file-primary { flex:none; border:0; border-radius:7px; padding:7px 11px; background:#252c3c; color:#fff; white-space:nowrap; }
+/* v0.58.1: read-only tab's edit action is a small royal-blue outlined button. */
+.file-window-edit { flex:none; display:inline-flex; align-items:center; gap:4px; border:1px solid #2f62f5; border-radius:6px; padding:4px 9px; background:transparent; color:#2f62f5; font-size:12px; white-space:nowrap; }
+.file-window-edit:hover { background:#edf2ff; }
+.file-editing-banner { flex:none; display:flex; align-items:center; gap:6px; padding:6px 12px; border-bottom:1px solid #cfe0ff; background:#edf2ff; color:#2350d8; font-size:11.5px; }
+.file-editing-banner button { border:0; background:transparent; color:#2350d8; font-size:11.5px; text-decoration:underline; padding:0; }
 .file-all { display:block; justify-self:start; padding:4px 0; border:0; background:transparent; color:inherit; }
 .pp-body.pp-file-body { padding:0; overflow:hidden; }
 .file-preview-panel { display:flex; flex-direction:column; height:100%; min-width:0; }

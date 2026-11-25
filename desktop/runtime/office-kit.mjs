@@ -19,7 +19,7 @@ export async function startOfficeKit({python,officeDirectory,directory,format,fo
  signal?.throwIfAborted();
  const fontEnvironment=await officeFontEnvironment({directory,officeDirectory,cacheDirectory:fontCacheDirectory,python:fontCacheDirectory?python:undefined,onTiming:onFontTiming,lowPriority});signal?.throwIfAborted();
  const [bin,args]=officeWorkerCommand(python,[path.join(directory,'worker.py'),officeDirectory,directory,format],lowPriority);
- const child=spawn(bin,args,{cwd:directory,env:{...commandEnvironment(),...fontEnvironment,PYTHONNOUSERSITE:'1'},shell:false,stdio:['pipe','pipe','pipe']});let buffer='',stderr='',next=0,dead=false,death,serial=Promise.resolve();const pending=new Map(),decoder=new StringDecoder('utf8'),closed=new Promise(resolve=>child.once('close',resolve));
+ const child=spawn(bin,args,{cwd:directory,env:{...commandEnvironment(),...fontEnvironment,PYTHONNOUSERSITE:'1',PYTHONDONTWRITEBYTECODE:'1'},shell:false,stdio:['pipe','pipe','pipe']});let buffer='',stderr='',next=0,dead=false,death,serial=Promise.resolve();const pending=new Map(),decoder=new StringDecoder('utf8'),closed=new Promise(resolve=>child.once('close',resolve));
  const abort=()=>die(signal.reason||Error('Office操作已取消'));
  const die=error=>{if(dead)return;dead=true;death=error;signal?.removeEventListener('abort',abort);for(const p of pending.values()){clearTimeout(p.timer);p.reject(error);}pending.clear();try{child.kill('SIGKILL');}catch{}};
  child.on('error',die);child.on('exit',(code,signal)=>die(Error('Office内核已退出 '+(signal||code)+' '+stderr.slice(-300))));child.stderr.on('data',b=>{stderr=(stderr+b.toString()).slice(-2000);});

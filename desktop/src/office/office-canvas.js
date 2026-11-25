@@ -141,6 +141,17 @@ function place(node, rect, scale) {
     style(node, {left:rect.x/scale+'px', top:rect.y/scale+'px', width:rect.w/scale+'px', height:rect.h/scale+'px'});
 }
 
+/** Pure resize decision used by the canvas ResizeObserver. Kept separate so the
+ * expand/restore regression can be exercised without a real engine. */
+export function resizeDecision({size, lastSize, fit, zoom, mode, clientWidth, oscillating = false}) {
+  if (size === lastSize) return 'schedule';
+  // [v1.0.0] 滚动条振荡（A→B→A）时保持当前缩放，避免 reset → 滚动条变化 → reset 的同步回环。
+  if (oscillating) return 'schedule';
+  // [v1.0.0] 缩放用相对误差 1% 判断，忽略滚动条宽度（约 15px）带来的亚像素抖动。
+  if (mode !== 'manual' && clientWidth > 0 && zoom > 0 && Math.abs(fit - zoom) / zoom > 0.01) return 'reset';
+  return 'schedule';
+}
+
 export function mountOfficeCanvas(host, {session, metadata, request, preview, initialScroll = {}, initialZoom = 1, maxTiles = 128, onError = () => {}}) {
     let doc = {...metadata}, cursor = null, pointerAnchor = null, zoom = Math.min(2,Math.max(.25,initialZoom)), dpr = devicePixelRatio, generation = 0;
     let stopped = false, painting = false, needsPaint = false, frame = 0, inputPending = 0, viewportKey = '';
@@ -214,6 +225,29 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         const pageHeight = session.kind === 'impress' ? doc.height : doc.pageHeight || doc.height;
         const height = Math.max(1,port.clientHeight-40)*15/pageHeight;
         return Math.min(2,Math.max(.05,zoomMode === 'page' ? Math.min(width,height) : width));
+    }
+    // [v1.0.0] 白屏修复：原实现每次尺寸回调都同步 fitZoom()→reset()，reset 改 sheet 尺寸会让 port 滚动条
+    // 出现/消失，clientWidth 随之变化又触发回调，形成同步反馈环，瓦片缓存每帧被清空，画布永远是白的。
+    // 现在：①合并到单个 rAF；②按取整后的尺寸去重；③缩放相对误差 <1% 视为不变；④识别 A→B→A 抖动后保持缩放。
+    port.style.scrollbarGutter = 'stable';
+    let resizeFrame = 0, lastSize = '', prevSize = '';
+    function onResize(entries = []) {
+        const box = entries[entries.length - 1]?.contentRect;
+        const size = box ? Math.round(box.width) + 'x' + Math.round(box.height) : port.clientWidth + 'x' + port.clientHeight;
+        if (size && size === lastSize) return;
+        const oscillating = !!size && size === prevSize;
+        prevSize = lastSize; lastSize = size;
+        if (resizeFrame) return;
+        resizeFrame = requestAnimationFrame(() => {
+            resizeFrame = 0;
+            if (stopped) return;
+            const next = zoomMode === 'manual' ? zoom : fitZoom();
+            const decision = resizeDecision({size, lastSize:prevSize, fit:next, zoom,
+                mode:zoomMode, clientWidth:port.clientWidth, oscillating});
+            if (decision === 'reset') { reset(); return; }
+            renderOverlay();
+            schedule();
+        });
     }
     function setZoom(mode,value) {
         const previous = zoom;
@@ -606,10 +640,7 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         session.on('selection',renderOverlay),
         session.on('reloaded',result => {if (result.metadata) Object.assign(doc,result.metadata); reset(); parts();}),
     ];
-    const observer = new ResizeObserver(() => {
-        if (zoomMode !== 'manual' && fitZoom() !== zoom) reset();
-        else { renderOverlay(); schedule(); }
-    });
+    const observer = new ResizeObserver(onResize);
     observer.observe(port);
     layout();
     renderOverlay();
@@ -633,6 +664,7 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         ready(false);
         cancelAnimationFrame(frame);
         observer.disconnect();
+        if (resizeFrame) cancelAnimationFrame(resizeFrame);
         pointerLifetime.abort();
         thumbObserver?.disconnect();
         clearTimeout(thumbnailRefresh);

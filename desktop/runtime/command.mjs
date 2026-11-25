@@ -36,7 +36,7 @@ export function commandEnvironment(source=process.env) {
   const extras=process.platform==='win32'?[path.join(home,'AppData','Roaming','npm')]:['/opt/homebrew/bin','/usr/local/bin',path.join(home,'.local','bin'),path.join(home,'.cargo','bin'),path.join(home,'.npm-global','bin'),'/usr/bin','/bin'];
   env.PATH=[source.PATH||'',...extras].filter(Boolean).join(path.delimiter);
   // Electron is the Node runtime used by the app; node children must run as Node.
-  env.ELECTRON_RUN_AS_NODE='1';return env;
+  env.ELECTRON_RUN_AS_NODE='1';if(!env.PYTHONDONTWRITEBYTECODE)env.PYTHONDONTWRITEBYTECODE=source.PYTHONDONTWRITEBYTECODE||'1';return env;
 }
 async function resolveExecutable(executable) {
   if(['python','python3','python3.12'].includes(executable)){const builtin=await bundledExecutable('python');if(builtin)return builtin;}

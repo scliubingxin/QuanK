@@ -3,6 +3,8 @@
 import argparse, hashlib, json, os, shutil, subprocess, tarfile, sys, tempfile, stat
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent.parent
+# 子进程统一禁止写 .pyc，避免缓存落进内置运行时目录
+os.environ.setdefault('PYTHONDONTWRITEBYTECODE','1')
 ENGINE='WillBuddyEngine'
 PINS={
  'python-arm64.tar.gz':('fbf4afef53c2a6b72bb741bc06d5671a9dfaf87bd84e5aa73ac9b3d0d589f14e','https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16+20261026-aarch64-apple-darwin-install_only.tar.gz'),
@@ -47,7 +49,7 @@ def main():
   (o/'licenses').mkdir()
   shutil.copytree(extract/'LibreOffice/LICENSEs',o/'licenses/LibreOffice',symlinks=True)
  shutil.copy2(c/'PYTHON-THIRD-PARTY-LICENSES.rst',o/'licenses')
- subprocess.run(['python3','-m','pip','install','--no-deps','--no-index','--find-links',str(c/'python-wheels'),'--only-binary=:all:','--platform','macosx_11_0_arm64','--python-version','312','--implementation','cp','--abi','cp312','--no-compile','--target',str(o/'python/lib/python3.12/site-packages'),'--require-hashes','-r',str(ROOT/'desktop/requirements-native-python.txt')],check=True)
+ subprocess.run(['python3','-B','-m','pip','install','--no-deps','--no-index','--find-links',str(c/'python-wheels'),'--only-binary=:all:','--platform','macosx_11_0_arm64','--python-version','312','--implementation','cp','--abi','cp312','--no-compile','--target',str(o/'python/lib/python3.12/site-packages'),'--require-hashes','-r',str(ROOT/'desktop/requirements-native-python.txt')],check=True)
  if sys.platform=='darwin':
   subprocess.run([str(o/'python/bin/python3.12'),'-I','-B','-m','pip','check'],check=True)
  for f in o.rglob('*'):

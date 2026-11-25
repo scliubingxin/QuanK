@@ -14,6 +14,8 @@ import { guideFor } from './connector-guides.mjs'; // [ux9]
 import { normalizeWatch, parseWatch, describeWatch, parseTrade, normalizeReportAuto, parseReportAuto, describeReportAuto } from '../src/shared/quant.js'; // [q3][q4][q5]
 import { capabilityPresets } from '../runtime/capability-presets.mjs'; // [mcp2]
 import { maskAmounts, shouldMask } from '../src/shared/privacy.js'; // [F5]
+import { THEMES as DECK_THEMES, LAYOUTS as DECK_LAYOUTS } from '../runtime/deck-engine.mjs'; // [D59]
+import { createDeckData } from './deck-data.mjs'; // [D59]
 import { describeReview } from '../src/shared/compliance.js'; // [F5]
 
 export const APP_PAGES = {home: '工作台', feed: '动态', quant: '量化', market: '行情', studio: '创作', tasks: '自动化', library: '成果中心', files: '本地文件', agents: '智能体', connectors: '连接', tools: '浏览器与权限', graph: '知识图谱', context: '记忆', research: '投研资料', security: '安全与合规'} // [v0.53.1] 投研资料 / 安全与合规 reachable from chat;
@@ -21,6 +23,136 @@ const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const iso = ms => Number.isFinite(ms) ? new Date(ms).toISOString() : null;
 const local = ms => { if (!Number.isFinite(ms)) return null; const d = new Date(ms), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 const def = (name, description, properties = {}, required = []) => ({type: 'function', function: {name, description, parameters: {type: 'object', properties, required, additionalProperties: false}}});
+// [D59] Investment-research deck tools: outline confirmation -> spec -> build -> 成果中心.
+export const DECK_THEME_NAMES = ['research', 'report', 'product'];
+export const DECK_INTENT = /(?:做|生成|出|制作|帮我做|帮我生成).{0,26}(?:投研|研究|研报|复盘|并购|行情|股票|信号|回测|量化|财报|估值|公告|组合|日报).{0,18}(?:PPT|幻灯片|演示|胶片|deck)|(?:PPT|幻灯片|演示文稿|胶片).{0,14}(?:投研|研究报告|复盘|并购)|把.{0,26}(?:做成|生成|整理成).{0,8}(?:PPT|幻灯片|胶片|演示文稿|汇报)|(?:投研|研究|并购案)\s*PPT|做.{0,20}(?:PPT|幻灯片|胶片|演示文稿)|汇报胶片/;
+const DECK_EDIT = /(?:改|修改|替换|调整|删除|删掉|加一页|插入|编辑).{0,16}(?:第\s*\d+\s*页|这页|该页|上一页|文档|PPT|幻灯片|胶片)/;
+/** True when the request should create a new deck rather than edit an existing document. */
+export function routeDeckIntent(prompt, {officeTool = false} = {}) {
+  const text = String(prompt || '');
+  if (officeTool || DECK_EDIT.test(text)) return false;
+  return DECK_INTENT.test(text);
+}
+function deckCollectRefs(v, out = new Set()) {
+  if (!v || typeof v !== 'object') return out;
+  if (Array.isArray(v)) { for (const x of v) deckCollectRefs(x, out); return out; }
+  if (Object.keys(v).length === 1 && typeof v.$data === 'string') out.add(v.$data);
+  else for (const x of Object.values(v)) deckCollectRefs(x, out);
+  return out;
+}
+/** Quant signals are cached per trading day (Asia/Shanghai), invalidated automatically next trading day. */
+const DECK_QUANT_CACHE = new Map();
+const DECK_SOURCE_CACHE = new Map(); // short-lived per-ref cache for repeated generation in one session
+const deckTradingDay = now => new Date(Number(now) + 8 * 3600e3).toISOString().slice(0, 10);
+/** Read-only fetch for $data refs. Failures stay null so the engine shows "—" + warnings. */
+async function collectDeckData(source, deps, now = Date.now()) {
+  let quantMs = 0;
+  const map = {};
+  const cacheKey = ref => ref + ':' + deckTradingDay(now);
+  for (const ref of deckCollectRefs(source)) {
+    try {
+      const hit = DECK_SOURCE_CACHE.get(cacheKey(ref));
+      if (hit && Date.now() - hit.at < 10 * 60e3) { map[ref] = hit.value; continue; }
+      const [kind, ...rest] = String(ref).split(':');
+      const code = String(rest[0] || '').replace(/^(sh|sz|bj)/i, '');
+      let data = null;
+      if (kind === 'quote' && deps.market) {
+        const r = await deps.market.handle({action: 'quotes', codes: [code]});
+        const q = Array.isArray(r?.quotes) ? r.quotes[0] : r?.quotes?.[code];
+        if (q) data = {name: q.name, price: q.price, changePct: q.changePct ?? q.pct, turnover: q.amount ?? q.turnover,
+                       asOf: (() => { const t = String(q.time || q.date || ''); if (/^\d{14}$/.test(t)) return t.slice(0,4)+'-'+t.slice(4,6)+'-'+t.slice(6,8)+' '+t.slice(8,10)+':'+t.slice(10,12); return t || null; })(), source: '腾讯行情'};
+      } else if (kind === 'kline' && deps.market) {
+        const period = rest[1] === '1w' || rest[1] === 'week' ? 'week' : (rest[1] === '1m' || rest[1] === 'month' ? 'month' : 'day');
+        const k = await deps.market.handle({action: 'kline', code, period, count: Math.min(400, Number(rest[2]) || 120)});
+        const bars = Array.isArray(k) ? k : (k?.bars || k?.klines || k?.kline || []);
+        if (bars.length) {
+          data = {dates: bars.map(b => b.date || b.day || b.time || ''),
+                  series: bars.map(b => ({open: b.open ?? b.o, high: b.high ?? b.h, low: b.low ?? b.l, close: b.close ?? b.c, volume: b.volume ?? b.vol ?? 0})),
+                  asOf: k?.asOf || k?.date || bars.at(-1)?.date || null, source: '腾讯行情'};
+        }
+      } else if (kind === 'financials' && deps.deckData) {
+        data = await deps.deckData.finance(code, (rest[1] || '5y').replace('y', ''));
+      } else if (kind === 'valuation' && deps.deckData) {
+        data = await deps.deckData.valuation(code, rest[1]);
+      } else if (kind === 'financials' && deps.knowledge) {
+        const f = await deps.knowledge.forReport(code);
+        if (f?.table) data = {rows: f.table, asOf: f.at || f.date || null, source: '东方财富 F10'};
+      } else if ((kind === 'backtest' || kind === 'signals') && deps.quant) {
+        const pool = rest[0] && rest[0] !== 'pool' ? [rest[0]] : [];
+        if (!pool.length) { const p = await deps.quant.handle({action: 'pool'}); for (const x of p?.pool || []) pool.push(x.code); }
+        const rows = [['指标', '本机量化引擎', '对照']];
+        const signals = [];
+        let asOf = null;
+        for (const c of pool.slice(0, 5)) {
+          try {
+            const ck = c + ':' + deckTradingDay(now);
+            let s = DECK_QUANT_CACHE.get(ck);
+            if (!s) { const t = Date.now(); s = await deps.quant.handle({action: 'signal', code: c}); quantMs += Date.now() - t; DECK_QUANT_CACHE.set(ck, s); }
+            const sum = s?.summary || {};
+            signals.push({value: sum.actionText || sum.action || '—', label: sum.name || c,
+                          note: String(sum.detail || sum.reason || '').slice(0, 60)});
+            asOf = s?.at ? new Date(s.at).toISOString().slice(0, 16).replace('T', ' ') : null;
+            const bt = sum.backtest || {};
+            if (bt.smartPct !== undefined) {
+              const pct = v => v === undefined || v === null ? '—' : String(Math.round(v * 100) / 100) + '%';
+              rows.push(['策略收益', pct(bt.smartPct), pct(bt.blindPct)]);
+              rows.push(['超额收益', pct(bt.excess), '—']);
+              rows.push(['最大回撤', pct(bt.maxDrawdown), '—']);
+              rows.push(['交易次数', String(bt.trades ?? '—'), '—']);
+              rows.push(['综合分', String(sum.score ?? '—'), String(sum.scoreRaw ?? '—')]);
+            }
+          } catch { rows.push([c, '—', '—']); }
+        }
+        data = {rows, signals, asOf, source: 'QuanK 本机量化引擎'};
+      }
+      map[ref] = data;
+      if (data) DECK_SOURCE_CACHE.set(cacheKey(ref), {at: Date.now(), value: data});
+    } catch { map[ref] = null; }
+  }
+  return {map, quantMs};
+}
+/** After outline confirmation, attach read-only $data bindings to empty research slots. */
+function enrichDeckSpec(spec) {
+  const slides = Array.isArray(spec?.slides) ? spec.slides : [];
+  const cover = slides.find(s => s.layout === 'cover') || {};
+  const code = String(cover.code || '').match(/\d{6}/)?.[0]
+    || String(spec.title || '').match(/\d{6}/)?.[0] || '';
+  if (!code) return spec;
+  for (const s of slides) {
+    if (s.layout === 'financials' && !s.rows && !s.table) s.rows = {$data: `financials:${code}:5y`};
+    if (s.layout === 'chart' && (!s.series || !s.series.length)) {
+      s.chartType = s.chartType || 'kline';
+      s.series = {$data: `kline:${code}:1d:120`};
+      s.dates = {$data: `kline:${code}:1d:120:dates`};
+    }
+    if (s.layout === 'valuation' && !s.percentiles) s.percentiles = {$data: `valuation:${code}`};
+    if (s.layout === 'signals' && !s.backtest) s.backtest = {$data: 'backtest:pool'};
+    if (s.layout === 'summary' && Array.isArray(s.kpis)) {
+      for (const k of s.kpis) if (k && typeof k === 'object' && k.value === '—') {
+        const label = String(k.label || '');
+        k.value = /PB/i.test(label) ? {$data: `valuation:${code}:PB`}
+          : /PE/i.test(label) ? {$data: `valuation:${code}:PE`} : {$data: `quote:${code}`};
+      }
+    }
+  }
+  return spec;
+}
+
+function simplifyDeckSpec(spec, rounds = 1) {
+  const work = v => {
+    if (Array.isArray(v)) return v.map(work);
+    if (!v || typeof v !== 'object') return typeof v === 'string' && v.length > 160 ? v.slice(0, 140) + '…' : v;
+    const out = {};
+    for (const [k, x] of Object.entries(v)) {
+      if (k === 'notes' && typeof x === 'string' && x.length > 160) out[k] = x.slice(0, 140);
+      else if ((k === 'points' || k === 'catalysts' || k === 'risks' || k === 'events' || k === 'segments') && Array.isArray(x) && x.length > 3) out[k] = x.slice(0, 3);
+      else out[k] = work(x);
+    }
+    return out;
+  };
+  return work(spec);
+}
+
 const SCHEDULE = {type: 'object', description: '执行频率。kind：manual 仅手动 / once 仅一次（at 为本机时间 "YYYY-MM-DDTHH:mm"）/ hourly 每 every 小时（1–24）/ daily 每天 time / weekdays 工作日 time / weekly 每周 days（0=周日…6=周六）的 time。time 为 "HH:mm"。',
   properties: {kind: {type: 'string', enum: ['manual', 'once', 'hourly', 'daily', 'weekdays', 'weekly']}, every: {type: 'integer'}, time: {type: 'string'}, days: {type: 'array', items: {type: 'integer'}}, at: {type: 'string'}}, required: ['kind'], additionalProperties: false};
 
@@ -305,6 +437,8 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_research_remove', '从资料库删除一条资料（成果中心里的文档不会被删除）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
     def('app_research_export', '把每日简报、组合复盘（行情、持仓、信号分布、重要公告与风险）或量化引擎报告导出为 Word / PPT / 网页，保存到「成果中心」并在 QuanK 里打开。', {kind: {type: 'string', enum: ['briefing', 'review', 'quant_report']}, format: {type: 'string', enum: ['docx', 'pptx', 'html']}, id: {type: 'string', description: 'quant_report 时的报告 ID（见 app_quant_report）'}}, ['kind']),
     def('app_research_watch', '设置公告提醒：工作日按间隔检查股票池的公告，重要公告进入「动态」并发系统通知。会弹出确认框。', {enabled: {type: 'boolean'}, interval: {type: 'integer', description: '检查间隔（分钟）：15 / 30 / 60 / 120'}}),
+    def('app_deck_build', '把资料、日报复盘或研究结果做成可编辑的投研 PPT（原生形状/表格/图表，不是截图）。传 outline 时先在对话里展示分页大纲卡片供用户确认，确认后再生成；传 spec 时直接生成。主题 research/report/product。文件保存到成果中心（带版本）并在右侧预览。用户说「做一份通威股份的投研 PPT」「把这周复盘做成汇报胶片」「把通威并购案分析做成 PPT」时使用。', {outline: {type: 'string', description: '大纲 JSON 或分页要点'}, spec: {type: 'string', description: '完整 JSON spec'}, theme: {type: 'string', enum: DECK_THEME_NAMES}, title: {type: 'string'}}),
+    def('app_deck_themes', '列出投研 PPT 引擎支持的主题与每套主题的版式目录（research 十种投研页型、report 浅色报告、product 深色胶片）。只读。'),
     def('app_web_search', '联网搜索（返回标题、链接、摘要）。用于查官方操作文档、最新做法、公开资料；回答时给出来源链接。', {query: {type: 'string'}}, ['query']),
     def('app_web_read', '读取一个公网网页的正文（纯文本，最多约 12000 字）。先 app_web_search 找到链接再读取。', {url: {type: 'string'}}, ['url']),
     def('app_dashboard_create', '用成果中心里的 Excel 表格生成可交互仪表盘（保存在「创作」页）。数值由本机计算。', {documentId: {type: 'string'}, prompt: {type: 'string', description: '想看什么，例如「按月看各区域销售额」'}}, ['documentId']),
@@ -320,7 +454,8 @@ export function appToolDefinitions({incognito = false} = {}) {
 const MARKET_NOTE = '行情来自公开行情接口，可能有延迟；仅供研究，不构成投资建议。'; // [F1]
 export const APP_TOOL_NAMES = new Set(appToolDefinitions().map(d => d.function.name));
 /** Requests that only make sense through app tools: offered even when the composer's 「允许使用工具」 is off (app tools only). */
-export const APP_INTENT = new RegExp(APP_PAGE_INTENT.source + "|" + /(?:预览|打开).{0,48}(?:文件|研报|报告|\.(?:docx|xlsx|pptx|pdf))/.source + "|" + MINUTE_KLINE_INTENT.source + "|" + /委托单|委托|下单|模拟盘|半自动|挂单|撤单|合规|免责声明|审计日志|操作记录|外发记录|离线模式|能不能发|违规(用语|表述|词)|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/.source);
+// [D59] deck creation is an app intent; document edits stay with app_office_*.
+export const APP_INTENT = new RegExp(APP_PAGE_INTENT.source + "|" + /(?:预览|打开).{0,48}(?:文件|研报|报告|\.(?:docx|xlsx|pptx|pdf))/.source + "|" + MINUTE_KLINE_INTENT.source + "|" + /委托单|委托|下单|模拟盘|半自动|挂单|撤单|合规|免责声明|审计日志|操作记录|外发记录|离线模式|能不能发|违规(用语|表述|词)|组合(总览|风险|风控|回撤|仓位|报告|怎么样|情况)|仓位(分布|占比|上限|集中|重)|持仓分布|止损(线|价|提醒)|止盈线|回撤线|风控(规则|提醒|检查)|风险指标|波动率|VaR|压力测试|(模拟|试算).{0,4}调仓|调仓.{0,4}(模拟|试算)|行业集中|集中度|相关性矩阵|录入持仓|财务|营收|净利|毛利|ROE|roe|负债率|股东|实控人|实际控制人|产业链上下游|上下游(关系|公司|企业)|关系图|研究主题|主题周报|投研知识库|知识库里|(检索|查找|搜).{0,6}(资料|研报|笔记)|(资料|研报|笔记|知识库).{0,8}(检索|查找|搜)|投研 ?PPT|研究 ?PPT|汇报胶片|做.{0,12}PPT|生成.{0,12}PPT|幻灯片|演示文稿|研报|研究报告|公告|财报|年报|季报|业绩预告|资料库|投研笔记|(记|写).{0,2}笔记|导出.{0,8}(简报|复盘|日报|晨报|报告)|定时|每天|每日|每晚|每早|每小时|每隔|每周|每月|工作日|提醒我|定期|自动化任务|计划任务|(暂停|恢复|删除|修改|运行|停止|列出|查看).{0,12}任务|同步.{0,8}(连接|邮件|日历|订阅)|(生成|做).{0,10}(仪表盘|简报)|记住|(小应用|小工具).{0,10}(数据|记录|内容|里)|(连|连接|接入|绑定|添加|对接|关联|授权).{0,8}(钉钉|飞书|企业微信|企微|邮箱|日历|RSS|rss|订阅源?|数据源|MCP|mcp)|(添加|登录|测试|连接).{0,6}(MCP|mcp)|Tushare|AKShare|Alpha ?Vantage|Twelve ?Data|(联网|上网|网上|搜索|搜一下|查一下).{0,10}(文档|教程|资料|操作|步骤|怎么|如何)/.source);
 
 function f_isSelectInvalid(info, config) { // [ux9]
   return (info.fields || []).some(f => f.type === 'select' && config[f.name] !== undefined && !f.options.some(([v]) => v === config[f.name]));
@@ -328,7 +463,7 @@ function f_isSelectInvalid(info, config) { // [ux9]
 
 export function appToolContext(now = Date.now()) {
   const d = new Date(now);
-  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要求预览文件或打开刚才的研报时，调用 app_open_document。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；用户问委托单、要下单、撤单、回填成交时用 app_trade_*（每一笔都要用户确认；真实下单时 QuanK 只在券商页面填好，提交由用户亲自完成，绝不能说已经替用户下单）；检查文章或研报是否合规用 app_compliance_check，问操作记录用 app_audit_list，问数据发去了哪里用 app_egress_list，问安全设置用 app_sec_status；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
+  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要求预览文件或打开刚才的研报时，调用 app_open_document。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；用户问委托单、要下单、撤单、回填成交时用 app_trade_*（每一笔都要用户确认；真实下单时 QuanK 只在券商页面填好，提交由用户亲自完成，绝不能说已经替用户下单）；检查文章或研报是否合规用 app_compliance_check，问操作记录用 app_audit_list，问数据发去了哪里用 app_egress_list，问安全设置用 app_sec_status；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要把资料、复盘或研究结果做成投研 PPT / 汇报胶片 / 幻灯片时调用 app_deck_build（先给 outline 让用户确认分页大纲，确认后再生成；可用 app_deck_themes 查主题和版式）。修改已有 PPT / Word / Excel 的某一页或某个单元格仍走 app_office_*，不要用 app_deck_build。用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
 }
 
 const taskView = t => ({id: t.id, name: t.name, schedule: describeSchedule(t.schedule), enabled: !!t.enabled, status: t.status || 'ready',
@@ -338,7 +473,7 @@ const taskView = t => ({id: t.id, name: t.name, schedule: describeSchedule(t.sch
  * deps (filled in by main as services are created): workspace, runTask, connectors, dashboards, briefing, openPage, notify.
  * ask(title, detail, signal) -> boolean (the gated approver).
  */
-const WRITE_TOOL = /_(create|update|delete|run|sync|add|remove|record|set|signin|test|watch|auto|save|digest|report|export|note_add|link_document|rules|holding_save|holding_remove|confirm|fill|cancel|settings)$/;
+const WRITE_TOOL = /_(create|update|delete|run|sync|add|remove|record|set|signin|test|watch|auto|save|digest|report|export|note_add|link_document|rules|holding_save|holding_remove|confirm|fill|cancel|settings|build)$/;
 /** [F5] Runs a tool, masks holding amounts for the model when configured, and records writes in the audit log. */
 export async function executeAppTool(name, args = {}, opts = {}) {
   const {deps = {}, chatId} = opts;
@@ -845,6 +980,58 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
       if (!await confirm('修改公告提醒？', next.enabled ? `工作日 7:00–23:00 每 ${next.interval} 分钟检查股票池公告，重要公告进入「动态」并发系统通知` : '关闭公告提醒')) return denied;
       const out = await r.handle({action: 'watch', ...next}); deps.notify?.();
       return {status: 'succeeded', watch: out.text};
+    }
+    case 'app_deck_themes':
+      return {status: 'succeeded', defaultTheme: 'research',
+              themes: DECK_THEMES.map(id => ({id, layouts: DECK_LAYOUTS[id]})),
+              note: 'research 为 QuanK 投研主题（10 种页型，免责声明固定末页）；report 为浅色报告；product 为深色胶片。'};
+    case 'app_deck_build': {
+      const engine = need('deck');
+      const theme = DECK_THEME_NAMES.includes(args.theme) ? args.theme : 'research';
+      const parseJson = input => { if (typeof input !== 'string') return input; try { return JSON.parse(input); } catch { throw new Error('内容不是合法的 JSON'); } };
+      let outline = args.outline === undefined ? null : parseJson(args.outline);
+      let spec = args.spec === undefined ? null : parseJson(args.spec);
+      if (!spec && !outline) throw new Error('请提供 outline（分页大纲）或 spec（完整规格）');
+      const title = clip(args.title || spec?.title || (Array.isArray(outline) ? outline[0]?.title : '') || '投研报告', 100);
+      if (outline) {
+        const list = (Array.isArray(outline) ? outline : []).slice(0, 40);
+        const detail = list.map((it, i) => `${i + 1}. ${typeof it === 'string' ? it : (it.title || it.layout || '内容页')}`).join('\n');
+        if (!await confirm('确认幻灯片大纲？', `${title}\n主题：${theme}\n\n${detail}\n\n确认后生成 PPT；如需修改，请直接告诉我调整要点。`)) return denied;
+      }
+      if (outline && !spec) spec = enrichDeckSpec(await engine.toSpec({outline, theme, title}));
+      const source = spec || outline;
+      const tData = Date.now();
+      const collected = await collectDeckData(source, deps, now());
+      const dataMs = Date.now() - tData;
+      const opts = {theme, title, dataMap: collected.map, maskAmounts: !!(deps.privacy?.()?.maskAmounts), sourceAsOf: local(now())};
+      const tCheck = Date.now();
+      try { await engine.check(spec); } catch { /* build validates as well */ }
+      const checkMs = Date.now() - tCheck;
+      const tGen = Date.now();
+      let result = await engine.build({...opts, spec});
+      let genMs = Date.now() - tGen;
+      let retries = 0;
+      while (retries < 2 && (result.warnings || []).some(w => /exceeds canvas|overflow|may overflow|超过/.test(w))) {
+        retries += 1;
+        const tr = Date.now();
+        result = await engine.build({...opts, spec: simplifyDeckSpec(spec || outline, retries)});
+        genMs += Date.now() - tr;
+      }
+      const stages = [
+        {name: '取数', ms: Math.max(0, dataMs - collected.quantMs)},
+        {name: '量化信号', ms: collected.quantMs},
+        {name: '生成', ms: genMs},
+        {name: '校验', ms: checkMs},
+      ];
+      const stageText = stages.map(x => `${x.name} ${(x.ms / 1000).toFixed(1)}s`).join(' → ');
+      const r = await need('documents').importFile(title, 'pptx', Buffer.from(result.bytes));
+      const doc = r?.document || r;
+      deps.openDocument?.(doc.id); deps.notify?.();
+      const missing = [...deckCollectRefs(source)].filter(ref => !collected.map[ref]);
+      return {status: 'succeeded', document: doc, theme, pages: result.slides, layouts: result.layouts,
+              warnings: result.warnings || [], retries, elapsedMs: result.elapsedMs, placeholders: missing,
+              stages, stageText, opened: !!deps.openDocument,
+              note: `进度：${stageText}。已保存到成果中心并在右侧预览；图片位与缺失数据以「—」标注，仅供研究，不构成投资建议。`};
     }
     case 'app_web_search':
       return {status: 'succeeded', results: await need('web').search(args.query, {signal})};

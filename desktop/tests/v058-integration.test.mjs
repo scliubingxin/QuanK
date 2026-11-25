@@ -101,7 +101,7 @@ test('中文短语按词替换，Impress 与 Calc 接受后一次撤销', async 
 
 test('页签状态位及 A57 替换预览，Office 路由避开 coding-intent', () => {
   const action = (label,name,id) => `<button data-action="${name}" data-id="${id}">${label}</button>`;
-  assert.match(filePreviewPanel({id:'a',name:'Writer',format:'docx',revision:1},{action,icon:()=>' ',native:true,inTab:true}), /data-office-edit-status>只读/);
+  assert.match(filePreviewPanel({id:'a',name:'Writer',format:'docx',revision:1},{action,icon:()=>' ',native:true,inTab:true}), /data-action="documentOfficeWindow"/);
   const card = officeApproval({changes:1,items:[{op:'replace_text',label:'第 2 段',before:{text:'旧文字'},after:{text:'新文字'}}]},
     {label:'Writer',reason:'润色',chatId:'chat'});
   const html = officeApprovalCard({...card.options, requestId:'id', action:card.action, summary:card.summary, officePreview:card.details},action);

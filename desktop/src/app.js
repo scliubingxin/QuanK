@@ -1,5 +1,4 @@
 import {officeApprovalCard} from './ui/office-cards.js';
-import {connectOfficeViewPort} from './office/office-canvas.js';
 import { modalLayout } from './ui/modal.js';
 import {bindPresetFilters, plazaIcon} from './ui/preset-catalog.js'; // [ux11] plazaIcon
 import {agentAvatar} from './ui/avatars.js';
@@ -213,7 +212,10 @@ let quantOpen = '', quantDetailData = null, quantDisposers = []; // [q1]
 // quantOpen is the stock of the active stock tab; each stock's computed detail stays in quantCache until refreshed.
 let pageTabs = [], pageTabId = '', pageWide = false, pageWidth = 0, panelClickAt = 0, panelHeadHtml = '', panelBodyKey = '', disposeFilePreview, libraryFilter, renderingStock = '', renderingStockTab;
 const quantCache = new Map(), quantVer = new Map(), quantLoading = new Set();
-try { const r = panelUI.restoreTabs(localStorage.getItem('qk.pageTabs')); pageTabs = r.tabs; pageTabId = r.active; pageWide = r.wide; pageWidth = r.width; } catch {}
+// [v1.0.0] 展开（pp-wide）只在本次会话有效：启动一律还原，避免持久化的展开状态把主区域永久隐藏（白屏）。
+try { const r = panelUI.restoreTabs(localStorage.getItem('qk.pageTabs')); pageTabs = r.tabs; pageTabId = r.active; pageWide = false; pageWidth = r.width; } catch {}
+// [v0.58.1 D2] 展开状态不跨重启保存：忽略旧版本写入的 wide；没有可展示页签时也不会以展开态启动。
+pageWide = false;
 let marketTab = 'industry', marketStockCode = '', marketPingAt = 0; // [F1]
 let rpStock = '', rpKind = '', rpQuery = ''; // [v0.53] 投研资料 filters
 let taskTab = '', taskFilter = 'all', runStatus = 'all', runTaskFilter = 'all', runTrigger = 'all'; // [ux6]
@@ -322,17 +324,18 @@ async function runOfficeAction(label, work) {
     }
 }
 let officeNotice;
+const editingWindows = new Set();
 function clearOfficeNotice() {
     if (officeNotice && !officeNotice.inScope()) {
         officeNotice.dismiss();
         officeNotice = undefined;
     }
 }
-async function openDocumentOffice(document) {
+async function openDocumentOffice(document, target) {
     const origin = {page, chatId, tab: panelTab()?.id};
     const inScope = () => page === origin.page && chatId === origin.chatId && panelTab()?.id === origin.tab;
     try {
-        const result = await invoke('officeOpen', {id: document.id, revision: document.revision});
+        const result = await invoke('officeOpen', {id: document.id, revision: document.revision, ...(target ? {target} : {})});
         if (result?.status === 'opened' && inScope()) officeNotice = {inScope, dismiss:toast('已在 QuanK Office 打开')};
     } catch (error) {
         if (inScope()) officeNotice = {inScope, dismiss:toast(error.message)};
@@ -394,7 +397,9 @@ window.addEventListener('pagehide', () => officeWorkspace.dispose());
 // [p1-m4] a chat that finishes while the user is watching it is simply marked seen (no recap)
 const seenRequests = new Set();
 function autoSeen() { const c = page === 'chat' && state.chats.find(c => c.id === chatId); if (!c?.unread || seenRequests.has(c.id) || (typeof document.hasFocus === 'function' && !document.hasFocus())) return; seenRequests.add(c.id); c.unread = false; invoke('chatSeen', { id: c.id }).then(s => { seenRequests.delete(c.id); applyState(s); }).catch(() => seenRequests.delete(c.id)); }
-function render() {
+// [v0.58.1 D2] 渲染异常兜底：异常中断时清掉展开态，确保主区域始终可见。
+function render() { try { renderInner(); } catch (error) { recoverMain(); throw error; } }
+function renderInner() {
     clearOfficeNotice();
     if (state.locked) { // [F5 M1] lock screen only; the data was dropped from the renderer when the lock arrived
         $('#app').className = 'app-locked'; $('#app').innerHTML = securityUI.lockScreen(state.lock);
@@ -976,6 +981,11 @@ async function handle(actionId, id, stockTarget) {
     if(actionId==='revokeBrowserApprovals'||actionId==='cancelApprovals'){await invoke(actionId);toast(actionId==='cancelApprovals'?'已取消当前与排队的确认；也可按 ⌘⇧Esc':'已撤销全部浏览器任务授权');return;}
     if (actionId==='documentImport') {await invoke('documentImport');await update('state');return;}
     if(actionId==='officeCollect'){const result=await invoke('officeCollect',{id});if(result.status==='succeeded'){await update('state');toast('编辑结果已保存新版本');}return;}
+    if (actionId === 'documentOfficeWindow' || actionId === 'officeWindowFocus') {
+        const d = state.documents?.find(item => item.id === id);
+        if (!d) throw Error('文档不存在');
+        return openDocumentOffice(d);
+    }
     if(state.officeNative&&id&&['documentCanvas','documentWordEditor','documentEditor'].includes(actionId)&&['docx','xlsx','pptx'].includes(state.documents?.find(d=>d.id===id)?.format)){
         const d=state.documents.find(d=>d.id===id);
         if (!state.officeWorkspace) {
@@ -1336,9 +1346,15 @@ async function handle(actionId, id, stockTarget) {
         });
         return;
     }
-    if (['officeOpen','officeLocate','officeRollback'].includes(actionId)) {
+    if (['officeOpen','officeLocate','officeRollback','officeEditWindow'].includes(actionId)) {
         const [token, index] = id.split(':');
-        const result = await invoke('officeResultAction', {chatId, token, index:index === undefined ? undefined : Number(index), action:actionId});
+        const result = await invoke('officeResultAction', {chatId, token, index:index === undefined ? undefined : Number(index), action:actionId === 'officeEditWindow' ? 'officeLocate' : actionId});
+        if (actionId === 'officeEditWindow') {
+            if (!result?.documentId) throw Error('成果中心文档已移除');
+            await update('state');
+            await openDocumentOffice(state.documents.find(d => d.id === result.documentId), result.target);
+            return;
+        }
         if (result?.documentId) {
             await update('state');
             if (!openDocumentPreview(result.documentId)) throw Error('成果中心文档已移除');
@@ -2125,7 +2141,15 @@ document.addEventListener('keydown', e => {
 // [v0.54] ---- right-hand page tabs ----
 const PAGE_TITLES = { market: '行情', quant: '量化', graph: '知识图谱', context: '我的上下文', connectors: '连接', memory: '记忆', research: '投研资料', portfolio: '组合与风控' };
 function bindOnce(el, type, fn) { if (!el) return; const k = type + ':' + fn.toString(); el.__qkBound ||= new Set(); if (el.__qkBound.has(k)) return; el.__qkBound.add(k); el.addEventListener(type, fn); } // the panel DOM persists across renders
-function savePanel() { try { localStorage.setItem('qk.pageTabs', JSON.stringify({ tabs: pageTabs.map(({ scroll, ...t }) => t), active: pageTabId, wide: pageWide, width: pageWidth })); } catch {} }
+// [v1.0.0] 不再持久化 wide（始终写 false），旧版本读到也不会进入展开态。
+function savePanel() { try { localStorage.setItem('qk.pageTabs', JSON.stringify({ tabs: pageTabs.map(({ scroll, ...t }) => t), active: pageTabId, wide: false, width: pageWidth })); } catch {} }
+// [v0.58.1 D2] 兜底还原：清掉 pp-wide 与内存展开态，让 .main 恢复显示。
+function recoverMain() {
+  if (!pageWide && !document.body.classList.contains('pp-wide')) return;
+  pageWide = false;
+  document.body.classList.remove('pp-wide');
+  savePanel();
+}
 function panelTab() { return panelUI.activeTab(pageTabs, pageTabId); }
 function panelShows(p) { const t = !state.locked && panelTab(); return !!t && t.kind === 'page' && t.page === p && t.page !== page; }
 function stockName(code) { return (state.quant?.pool || []).find(p => p.code === code)?.name || code; }
@@ -2160,49 +2184,23 @@ function bindPanelResize(host) {
         addEventListener('mousemove', move); addEventListener('mouseup', up);
     });
 }
-const officeTabAI = {
-    blockReason() {
-        if (state.locked || state.security?.encrypted) return '已开启文档加密或工作区已锁定。';
-        if (state.security?.privacy?.offline) return '已开启离线模式，选区 AI 已禁用。';
-        if (state.settings?.office?.ai?.allowUpload === false) return '「不上传文档」策略已启用，选区 AI 已禁用。';
-        return '';
-    },
-    async run(input, {signal, onDelta}) {
-        signal.throwIfAborted();
-        const token = crypto.randomUUID();
-        const off = api.onOfficeAIDelta(event => { if (event.token === token && !signal.aborted) onDelta?.(event.delta); });
-        const cancel = () => { void invoke('officeAI', {token, cancel:true}).catch(() => {}); };
-        signal.addEventListener('abort', cancel, {once:true});
-        try { return await invoke('officeAI', {token, input}); }
-        finally { off(); signal.removeEventListener('abort', cancel); }
-    },
-};
-function attachOfficeTab(id, revision) {
-    const token = crypto.randomUUID();
-    return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => fail(Error('Office 页签连接超时')), 30_000);
-        function cleanup() {
-            clearTimeout(timeout);
-            removeEventListener('message', receive);
-        }
-        function fail(error) {
-            cleanup();
-            reject(error);
-        }
-        function receive(event) {
-            if (event.source !== window || event.data?.kind !== 'quank-office-port' || event.data.token !== token || !event.ports[0]) return;
-            cleanup();
-            resolve(connectOfficeViewPort(event.ports[0]));
-        }
-        addEventListener('message', receive);
-        invoke('officeAttach', {id, revision, token}).catch(fail);
-    });
-}
 function renderPanel() {
     clearOfficeNotice();
     let host = document.getElementById('pagePanel');
     const tab = !state.locked && panelTab();
-    if (!tab) { disposeFilePreview?.(); disposeFilePreview = undefined; host?.remove(); document.body.classList.remove('pp-on', 'pp-wide'); panelHeadHtml = panelBodyKey = ''; return; }
+    if (!tab) { disposeFilePreview?.(); disposeFilePreview = undefined; host?.remove(); pageWide = false; document.body.classList.remove('pp-on', 'pp-wide'); panelHeadHtml = panelBodyKey = ''; return; }
+    try { renderPanelTab(host, tab); }
+    catch (error) {
+        // [v1.0.0] 页签渲染失败时不能把整个应用拖成白屏：退出展开态、恢复主区域，并在页签里给出可关闭的错误。
+        console.error('[pagePanel] render failed', error);
+        pageWide = false; document.body.classList.remove('pp-wide');
+        const body = document.querySelector('#pagePanel .pp-body');
+        if (body) body.innerHTML = '<div class="pp-error">页面加载失败，已恢复主界面。<button data-action="ppClose" data-id="' + escape(tab.id) + '">关闭此页签</button></div>';
+    }
+}
+// [v1.0.0] 原 renderPanel 的主体（自 `if (!host) {` 起至函数结束）原样移入 renderPanelTab(host, tab)，
+// 其中 host 为 null 时按原逻辑创建；仅把函数边界拆开以便上面的 try/catch 兜底。实现时整体剪切，不改内部逻辑。
+function renderPanelTab(host, tab) {
     if (!host) {
         host = document.createElement('aside'); host.id = 'pagePanel'; host.className = 'page-panel'; host.setAttribute('aria-label', '页面页签');
         host.innerHTML = '<div class="pp-resize" title="拖动调整宽度"></div><header class="pp-head"></header><div class="pp-body"></div>';
@@ -2245,24 +2243,12 @@ function renderPanel() {
         for (const fold of el.querySelectorAll('[data-coding-fold]')) if (openFolds.has(fold.dataset.codingFold)) fold.open = openFolds.get(fold.dataset.codingFold); panelBodyKey = key; if (!same) el.scrollTop = tab.scroll || 0;
         const preview = el.querySelector('.file-preview-panel');
         if (preview) {
-            let previewPosition;
-            const disposePreview = mountFilePreviewPanel(preview, invoke, () => state.officeEngine?.phase === 'ready',
-                position => { previewPosition = position; });
-            const status = preview.querySelector('[data-office-edit-status]');
-            const source = preview.querySelector('.file-preview-host');
-            const disposeOffice = status && panelUI.mountPanelOffice({
-                openCopy:id => { void update('state').then(() => handle('documentView', id)).catch(error => toast(error.message)); },
-                previewScroll:() => previewPosition, ai:officeTabAI, host:preview.querySelector('.file-preview-main'), preview:source, status,
-                menu:preview.querySelector('.file-menu > div'),
-                attachView:() => attachOfficeTab(source.dataset.documentId, Number(source.dataset.revision)),
-                closeView:view => view.close(),
-                openWindow:async () => {
-                    const d = state.documents?.find(item => item.id === source.dataset.documentId);
-                    try { if (d) await invoke('officeOpen', {id:d.id, revision:d.revision}); }
-                    catch (error) { toast(error.message); }
-                },
-            });
-            disposeFilePreview = () => { disposeOffice?.(); disposePreview(); };
+            // v0.58.1: the right tab is a read-only preview only. Editing lives in the
+            // dedicated edit window; no canvas/attachView/toolbar is mounted here.
+            const disposePreview = mountFilePreviewPanel(preview, invoke, () => state.officeEngine?.phase === 'ready');
+            const banner = preview.querySelector('[data-office-editing]');
+            if (banner) banner.hidden = !editingWindows.has(banner.dataset.id);
+            disposeFilePreview = disposePreview;
         }
     }
     paintApprovalSummaries(host);
@@ -2283,6 +2269,13 @@ async function boot() {
     }
 }
 let runtimeTimer;
+api?.onOfficeWindow?.(event => {
+    if (!event?.id) return;
+    if (event.type === 'open') editingWindows.add(event.id);
+    if (event.type === 'close') editingWindows.delete(event.id);
+    if (event.type === 'saved') { void update('state').catch(() => {}); return; }
+    renderPanel();
+});
 api?.onCodingTask?.(refreshCodingTasks);
 async function openCodingPage(p) {
     const task = p?.page === 'coding-task' ? p.taskId : p?.coding?.task;

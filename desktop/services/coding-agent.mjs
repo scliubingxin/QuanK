@@ -408,7 +408,7 @@ export function createCodingRunner({
       const result = await request('initialize', {
         protocolVersion: 1,
         clientCapabilities: { fs: { readTextFile: true, writeTextFile: true }, terminal: true },
-        clientInfo: { name: 'quank', title: 'QuanK', version: '0.58.0' },
+        clientInfo: { name: 'quank', title: 'QuanK', version: '1.0.0' },
       });
       if (result?.protocolVersion !== 1) throw failure('no_acp');
       phase = 'session';

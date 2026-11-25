@@ -20,6 +20,7 @@ import {exportDocumentPdf} from './main/pdf-export.mjs';
 import {createOfficeWorkspace} from './services/office-workspace.mjs';
 import {createOfficeChat} from './services/office-chat.mjs';
 import {createOfficeWindows} from './main/office-windows.mjs';
+import {createOfficeEditWindows} from './main/office-edit-windows.mjs';
 import {bundledExecutable,runtimeRoot} from './runtime/bundled-runtime.mjs';
 import {createChatService,purgeIncognito} from './services/chats.mjs';
 import {createPlanService} from './services/plan.mjs';
@@ -58,6 +59,8 @@ import { createVault } from './services/vault.mjs'; // [F5]
 import { createSecurityService } from './services/security.mjs'; // [F5]
 import { createCliHandler, createCliServer, createCliInstaller, createAskRunner } from './services/cli-server.mjs'; // [v0.51 CLI]
 import { executeAppTool, appToolDefinitions } from './services/app-tools.mjs'; // [v0.51 CLI]
+import { createDeckEngine } from './runtime/deck-engine.mjs'; // [D59]
+import { createDeckData } from './services/deck-data.mjs'; // [D59]
 import { modelEndpoint as qkModelEndpoint } from './core.mjs'; // [F1c]
 import { createQuantAutostart } from './runtime/quant-autostart.mjs';
 import { codingSpec, createCodingTasks } from './services/coding-tasks.mjs';
@@ -158,7 +161,7 @@ const approve = Object.assign(async (title, detail, signal, scope) => { // [F5 M
 }, { cancelAll: () => approveInline.cancelAll() });
 let officeEngine, quantAutostart, previewDiskTransitions = 0;
 let officeTabs, officeTabsStarting;
-let toolRuntime, genoffice, models, projects, libreoffice, officeWindows, connectors, graphService, dashboards, miniapps, quant, market, research, knowledge, portfolio, trade, dataset; // [p3-m1][p3-m5][p4-m1][p4-m4][q1][F1][F2][F3][F4]
+let toolRuntime, genoffice, models, projects, libreoffice, officeWindows, officeEditWindows, connectors, graphService, dashboards, miniapps, quant, market, research, knowledge, portfolio, trade, dataset, deckEngine, deckData; // [p3-m1][p3-m5][p4-m1][p4-m4][q1][F1][F2][F3][F4]
 const pdfImports = createPdfImportControl({notify: notifyRuntime});
 const executeTool = (name, args, signal, context) => {
     const chat = store?.data.chats.find(item => item.id === context?.chatId);
@@ -269,6 +272,8 @@ else {
             source: store.data.tasks?.find(task => task.id === item.taskId)?.name,
         }) }); // [p2-m2]
         toolRuntime = new ToolRuntime({ store, browser, approve, notify: notifyRuntime, convertDocument,beforeCli:(args,policy)=>projects?.validate(args,policy), rules: approvalRules });
+        deckEngine = createDeckEngine({ userData: app.getPath('userData'), encrypted: () => !!vault?.encrypted }); // [D59]
+        deckData = createDeckData(); // [D59]
         register('approvalResponse', p => inlineApprovals.finish(p.requestId, p.decision));
         register('approvalRule', p => approvalRules.handle(p).then(() => view()));
         const officeHome = path.join(store.dir, 'office');
@@ -377,7 +382,7 @@ else {
         register('imageRemove',async p=>{await images.remove(p.id);return view();});
         // [ux5] services the chat app tools can drive; getters so later-created services are picked up
         let officeTools;
-        const appDeps = { get office() {return officeTools;}, officeBlockReason:officeAI.blockReason,
+        const appDeps = { get deck() { return deckEngine; }, get deckData() { return deckData; }, get documents() { return toolRuntime?.documents; }, get office() {return officeTools;}, officeBlockReason:officeAI.blockReason,
             officeCommitted:(card, chatId) => officeTabs?.refresh(card.docId, () => officeTools.resultAction(card, 'officeRollback', {chatId})),
             redactOfficeResult:result => {
                 if (!security?.privacy()?.maskAmounts) return result;
@@ -453,11 +458,8 @@ else {
                 await store.save();
             }
 
-            register('officeAttach', async ({id, token}) => {
-                if (typeof token !== 'string' || !/^[a-f0-9-]{36}$/.test(token)) throw Error('Office 页签标识无效');
-                if (previewDiskTransitions) throw Error('安全设置正在更新，请重新打开文档');
+            const ensureOfficeTabs = () => {
                 const encrypted = vault.encrypted;
-                const frame = win.webContents.mainFrame;
                 if (!officeTabsStarting) officeTabsStarting = (async () => {
                     const scratchDirectory = path.join(app.getPath('userData'), 'office', 'tmp');
                     await mkdir(scratchDirectory, {recursive:true, mode:0o700});
@@ -480,7 +482,15 @@ else {
                     officeTabsStarting = undefined;
                     throw error;
                 });
-                const manager = await officeTabsStarting;
+                return officeTabsStarting;
+            };
+
+            register('officeAttach', async ({id, token}) => {
+                if (typeof token !== 'string' || !/^[a-f0-9-]{36}$/.test(token)) throw Error('Office 页签标识无效');
+                if (previewDiskTransitions) throw Error('安全设置正在更新，请重新打开文档');
+                const encrypted = vault.encrypted;
+                const frame = win.webContents.mainFrame;
+                const manager = await ensureOfficeTabs();
                 const view = await manager.open({documentId:id, mode:'edit'});
                 const closeView = attached => manager.closeView(attached);
                 if (closing || security?.locked || vault.encrypted !== encrypted || win.webContents.mainFrame !== frame || frame.detached) {
@@ -528,7 +538,15 @@ else {
                 if (action === 'officeRollback' && result?.status === 'succeeded') await officeTabs?.refresh(card.docId);
                 return result;
             });
-            register('officeOpen',p=>officeWindows.open(p.id,p.revision));
+            officeEditWindows = createOfficeEditWindows({
+                BrowserWindow, ipcMain, here, sessions:ensureOfficeTabs, documents:toolRuntime.documents,
+                canOpen:() => !security?.locked && !closing,
+                onEvent:(docId, type, detail) => {
+                    if (win && !win.isDestroyed()) win.webContents.send('actwill:officeWindow', {id:docId, type, detail});
+                },
+            });
+            register('officeOpen', p => officeEditWindows.open(p.id, p.revision, p.target));
+            register('officeLegacyOpen', p => officeWindows.open(p.id, p.revision));
             officeEngine=createOfficeEngine({
                 enabled:officeWarmEnabled, defer:deferOfficeWarm, notify:notifyRuntime,
                 warmPreview:()=>libreoffice.warmPreview(), warmEditor:()=>kit.prewarm(),
@@ -990,7 +1008,7 @@ else {
                 throw new Error('安装版请使用源码包中的 local-runner/server.py；具体依赖见运行说明');
             await stat(runnerPath);
             if (!runner) {
-                runner = spawn(process.platform === 'win32' ? 'python' : 'python3', [runnerPath, '--port', '8765'], { cwd: path.dirname(runnerPath), stdio: 'ignore' });
+                runner = spawn(process.platform === 'win32' ? 'python' : 'python3', [runnerPath, '--port', '8765'], { cwd: path.dirname(runnerPath), env: {...process.env, PYTHONDONTWRITEBYTECODE: '1'}, stdio: 'ignore' });
                 runner.on('error', () => { runner = null; });
                 runner.on('exit', () => { runner = null; });
             }
@@ -1028,12 +1046,18 @@ else {
                     runTask(t.id, {scheduledFor:t.nextRun}).catch(() => { });
             }
         }, 1000);
-    }).catch(e => { dialog.showErrorBox('QuanK 启动失败', e.message); app.quit(); });
+    }).catch(e => {
+        // F581 selftest: never raise a native dialog; the launcher writes the
+        // failure to its report JSON instead.
+        if (process.env.QUANK_SELFTEST === '1') console.error('[QuanK selftest] 启动失败：' + e.message);
+        else dialog.showErrorBox('QuanK 启动失败', e.message);
+        app.quit();
+    });
     app.on('activate', focus);
     let officeTabsQuitApproved = false, officeTabsQuitPending = false;
     let officeQuitApproved = false, officeQuitPending = false;
     app.on('before-quit', (event) => {
-        if (officeWindows?.hasUnsaved()) {
+        if (officeEditWindows?.hasUnsaved() || officeWindows?.hasUnsaved()) {
             event.preventDefault();
             focus();
             win?.webContents.send('actwill:openPage', { page: 'notice', message: 'QuanK Office 有尚未保存的修改。请在文档窗口保存后退出。' });

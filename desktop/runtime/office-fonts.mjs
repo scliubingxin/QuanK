@@ -62,7 +62,7 @@ lib.FcConfigDestroy(config)
 async function buildFontCache({python, officeDirectory, env, lowPriority}) {
  const library = path.resolve(officeDirectory, '../Frameworks/libfontconfig.1.dylib');
  const [bin, args] = officeWorkerCommand(python, ['-c', fontconfigInit, library], lowPriority);
- await exec(bin, args, {env: {...commandEnvironment(), ...env, PYTHONNOUSERSITE: '1'}, timeout: 60000});
+ await exec(bin, args, {env: {...commandEnvironment(), ...env, PYTHONNOUSERSITE: '1', PYTHONDONTWRITEBYTECODE: '1'}, timeout: 60000});
 }
 
 async function fontDirectories(officeDirectory, home, assetsRoot) {

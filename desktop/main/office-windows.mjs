@@ -1,5 +1,13 @@
 import path from 'node:path';import {stat,readFile} from 'node:fs/promises';import {pathToFileURL} from 'node:url';
 /** Dedicated bridge: each exact main frame can access only its bound Office session. */
+/** BrowserWindow/webContents methods are optional on test doubles and can
+ * disappear once the window is destroyed. Never let a guard throw during boot. */
+function safe(target, method, ...args) {
+  if (!target || typeof target[method] !== 'function') return undefined;
+  if (typeof target.isDestroyed === 'function' && target.isDestroyed()) return undefined;
+  try { return target[method](...args); } catch { return undefined; }
+}
+
 export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,documents,dialog,notice=()=>{},canOpen=()=>true}){
  const windows=new Map(),byDocument=new Map(),entry=path.join(here,'src/office/index.html'),url=pathToFileURL(entry).href;
  ipcMain.handle('willbuddy-office:invoke',async(event,op,p={})=>{const binding=windows.get(event.sender.id);if(!binding||event.sender!==binding.window.webContents||event.senderFrame!==event.sender.mainFrame||event.senderFrame.url!==url)throw Error('拒绝不可信Office页面');const {session,documentId}=binding;
@@ -8,7 +16,7 @@ export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,
   if(op==='operation')return kit.operation(session,p.op,p);
   if(op==='manualReplaceSelection')return kit.manualReplaceSelection(session,p);
   if(op==='manualUpdateCells')return kit.manualUpdateCells(session,p);
-  if(op==='discardDraft'){const result=await kit.discardDraft(session);if(result.status==='discarded'){try{await chat.cancel(documentId);if(result.cleanupWarning)notice('草稿已关闭，但临时文件清理失败。已保存的文档版本仍在。');}finally{binding.window.destroy();}}return result;}
+  if(op==='discardDraft'){const result=await kit.discardDraft(session);if(result.status==='discarded'){try{await chat.cancel(documentId);if(result.cleanupWarning)notice('草稿已关闭，但临时文件清理失败。已保存的文档版本仍在。');}finally{safe(binding.window, 'destroy');}}return result;}
   if(op==='pickImage'){// [lane:ribbon] controlled file channel: native dialog in main, bytes validated by kit.insertImage
    if(!dialog)throw Error('当前环境不支持选择图片');const r=await dialog.showOpenDialog(binding.window,{title:'插入图片',properties:['openFile'],filters:[{name:'图片',extensions:['png','jpg','jpeg']}]});if(r.canceled||!r.filePaths?.length)return {status:'cancelled'};
    const file=r.filePaths[0],st=await stat(file);if(!st.isFile()||st.size>4*1024**2)throw Error('图片不是普通文件或超过4MiB');return kit.insertImage(session,{name:path.basename(file),bytes:new Uint8Array(await readFile(file))});}
@@ -43,19 +51,19 @@ export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,
    webPreferences:{preload:path.join(here,'office-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}
   });
   const windowId = w.webContents.id;
-  w.webContents.setWindowOpenHandler(()=>({action:'deny'}));
-  w.webContents.on('will-navigate', (event, target) => {
+  safe(w.webContents, 'setWindowOpenHandler', ()=>({action:'deny'}));
+  safe(w.webContents, 'on', 'will-navigate', (event, target) => {
    if (target !== url && target.split('#')[0] !== loadingUrl) event.preventDefault();
   });
   byDocument.set(id, w);
-  w.on('closed', () => {
+  safe(w, 'on', 'closed', () => {
    windows.delete(windowId);
    pendingLoads.delete(windowId);
    if (byDocument.get(id) === w) byDocument.delete(id);
   });
   return w;
  }
- const reveal = w => { if (w.isMinimized?.()) w.restore(); w.show(); w.focus(); };
+ const reveal = w => { if (safe(w, 'isMinimized')) safe(w, 'restore'); safe(w, 'show'); safe(w, 'focus'); };
  function open(id, revision, retryWindow) {
   const pending = openingRequests.get(id);
   if (!retryWindow && pending) return pending;
@@ -67,7 +75,7 @@ export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,
  }
  async function openWindow(id, revision, retryWindow) {
   const existing = byDocument.get(id);
-  if (!retryWindow && existing && !existing.isDestroyed()) {
+  if (!retryWindow && existing && safe(existing, 'isDestroyed') !== true) {
    reveal(existing);
    return {status:'opened',id};
   }
@@ -76,10 +84,10 @@ export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,
   const displayLoading = async () => {
    w ??= makeWindow(id);
    pendingLoads.set(w.webContents.id, {window:w});
-   await w.loadFile(loadingEntry);
-   if (w.isDestroyed()) return;
+   await safe(w, 'loadFile', loadingEntry);
+   if (safe(w, 'isDestroyed')) return;
    reveal(w);
-   if (w.isVisible?.() === false) throw Error('Office 窗口未能显示');
+   if (safe(w, 'isVisible') === false) throw Error('Office 窗口未能显示');
    showResolve({status:'opened',id});
   };
   const load = (async () => {
@@ -90,41 +98,41 @@ export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,
      void onShow.catch(()=>{});
     }});
     if (result.status === 'denied') {
-     if (retryWindow && !retryWindow.isDestroyed()) retryWindow.destroy();
+     if (retryWindow && safe(retryWindow, 'isDestroyed') !== true) safe(retryWindow, 'destroy');
      return result;
     }
     session = result.sessionId;
     await onShow;
-    if (w?.isDestroyed()) return {status:'closed'};
+    if (!w || safe(w, 'isDestroyed')) return {status:'closed'};
     w ??= makeWindow(id);
     const windowId = w.webContents.id;
     pendingLoads.delete(windowId);
     windows.set(windowId, {window:w,session,documentId:id});
-    w.setTitle?.('QuanK Office · '+result.name);
-    await w.loadFile(entry);
-    if (!w.isVisible?.() && !retryWindow) reveal(w);
+    safe(w, 'setTitle', 'QuanK Office · '+result.name);
+    await safe(w, 'loadFile', entry);
+    if (safe(w, 'isVisible') !== true && !retryWindow) reveal(w);
     let closing = false;
-    w.on('close', event => {
+    safe(w, 'on', 'close', event => {
      if (closing) return;
      event.preventDefault();
      void chat.cancel(id).then(()=>kit.close(result.sessionId)).then(()=>{
       closing = true;
-      w.close();
-     }).catch(error=>w.webContents.send('willbuddy-office:error',error.message));
+      safe(w, 'close');
+     }).catch(error=>safe(w.webContents, 'send', 'willbuddy-office:error', error.message));
     });
     session = undefined;
     return {status:'opened',id};
    } catch (error) {
-    if (!w || w.isDestroyed()) throw error;
+    if (!w || safe(w, 'isDestroyed')) throw error;
     await onShow.catch(()=>{});
-    if (w.isDestroyed()) throw error;
+    if (safe(w, 'isDestroyed')) throw error;
     windows.delete(w.webContents.id);
     if (session) { await kit.close(session).catch(()=>{}); session = undefined; }
     pendingLoads.set(w.webContents.id, {window:w,retry:()=>{
      pendingLoads.get(w.webContents.id).retry = undefined;
      return open(id, revision, w);
     }});
-    await w.loadFile(loadingEntry, {hash:'error'});
+    await safe(w, 'loadFile', loadingEntry, {hash:'error'});
     reveal(w);
     return {status:'failed'};
    } finally {
@@ -136,6 +144,6 @@ export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,
  return {
   open,
   hasUnsaved(){return [...windows.values()].some(b=>{try{return kit.meta(b.session).dirty;}catch{return false;}});},
-  async close(){for(const window of byDocument.values())window.destroy();windows.clear();pendingLoads.clear();byDocument.clear();await kit.shutdown();}
+  async close(){for(const window of byDocument.values())safe(window, 'destroy');windows.clear();pendingLoads.clear();byDocument.clear();await kit.shutdown();}
  };
 }

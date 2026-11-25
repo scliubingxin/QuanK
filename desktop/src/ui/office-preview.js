@@ -125,8 +125,9 @@ export function filePreviewPanel(document, {action, icon, native, inTab}) {
         ${action('下载', 'documentExport', id)}
         ${action('版本历史', 'documentHistory', id)}${action('在成果中心查看', 'documentLocate', id)}
       </div></details>
-      ${inTab && officeFormats.has(format) ? '<output data-office-edit-status>只读</output>' : officeFormats.has(format) ? action('<span aria-hidden="true">✎</span> <span class="file-edit-label" aria-hidden="true">编辑</span><span class="file-sr">QuanK Office 编辑</span>', 'documentEditor', id, 'file-primary') : ''}
+      ${inTab && officeFormats.has(format) ? action('<span aria-hidden="true">✎</span> <span class="file-edit-label">编辑</span><span class="file-sr">在独立窗口编辑</span>', 'documentOfficeWindow', id, 'file-window-edit') : officeFormats.has(format) ? action('<span aria-hidden="true">✎</span> <span class="file-edit-label" aria-hidden="true">编辑</span><span class="file-sr">QuanK Office 编辑</span>', 'documentEditor', id, 'file-primary') : ''}
     </header>
+    ${inTab && officeFormats.has(format) ? `<div class="file-editing-banner" data-office-editing data-id="${escape(id)}" hidden>正在独立窗口中编辑 · <button type="button" data-action="officeWindowFocus" data-id="${escape(id)}">切到窗口</button></div>` : ''}
     <div class="file-preview-toolbar" ${pdfFrame ? '' : 'hidden'}>
       ${['docx', 'pdf'].includes(format) ? `<button type="button" class="file-icon-button file-find-toggle" aria-expanded="false" title="搜索文字" aria-label="搜索文字">${searchIcon}</button><form class="file-find">${searchField('file-preview-search', '搜索文字', '')}</form>` : ''}
       ${controls('上一页', 'previous', '↑')}${controls('下一页', 'next', '↓')}
@@ -170,6 +171,10 @@ export function mountFilePreviewPanel(panel, invoke, engineReady, position = () 
   const toggles = [...panel.querySelectorAll('[data-outline]')];
   const controls = [...panel.querySelectorAll('[data-preview-command]')];
   let send = () => {};
+  panel.addEventListener('office-locate', event => {
+    const target = event.detail || {};
+    if (typeof target.text === 'string' || Number.isInteger(target.page)) send({command:'jump', page:target.page, text:target.text});
+  });
   let activeOutline = -1;
   let outlineOpen = false;
   const doc = panel.ownerDocument;

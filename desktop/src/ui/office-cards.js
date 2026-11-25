@@ -50,8 +50,8 @@ export function officeResultCard(result, action, {now = Date.now()} = {}) {
         ${action(escape(item.title), 'officeLocate', result.undoToken + ':' + index, 'secondary')}</li>`).join('')}</ul></details>
     ${result.quantData ? `<div style="margin:8px 0">${escape(quantDateLine(result.quantData))}</div>` : ''}
     <div class="inline-approval-actions">
-      ${result.items.length ? action('在右侧打开并定位', 'officeLocate', result.undoToken + ':0', 'primary')
-        : action('在右侧打开', 'officeOpen', result.undoToken, 'primary')}
+      ${action('预览定位', 'officeLocate', result.undoToken + (result.items.length ? ':0' : ''), 'primary')}
+      ${action('编辑', 'officeEditWindow', result.undoToken + (result.items.length ? ':0' : ''), 'secondary')}
       ${action(active ? '撤回本次修改' : '打开版本历史', 'officeRollback', result.undoToken, 'secondary')}
       <span style="color:var(--muted);font-size:12px">${active ? `${days} 天内可撤回` : '可恢复修改前的版本'}</span>
     </div>

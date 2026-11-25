@@ -19,7 +19,7 @@ export async function startOfficeLokWorker({python, officeDirectory, fontCacheDi
         const fontEnvironment = await officeFontEnvironment({directory, officeDirectory,
             cacheDirectory:fontCacheDirectory, python:fontCacheDirectory ? python : undefined});
         const [bin, args] = officeWorkerCommand(python, ['-u', '-c', nativeWorker, officeDirectory, directory], false);
-        child = spawn(bin, args, {env:{...commandEnvironment(), ...fontEnvironment, PYTHONNOUSERSITE:'1'}});
+        child = spawn(bin, args, {env:{...commandEnvironment(), ...fontEnvironment, PYTHONNOUSERSITE:'1', PYTHONDONTWRITEBYTECODE:'1'}});
     } catch (error) {
         await rm(directory, {recursive:true, force:true});
         throw error;
