@@ -2,7 +2,7 @@
 """Read-only data binding for research decks.
 
 Spec fields may use {"$data": "quote:600438"} / "financials:600438:5y" /
-"kline:600438:1d:120" / "backtest:<strategy>" / "signals:pool".  QuanK's market,
+"kline:600438:1d:120" / "backtest:<strategy>" / "signals:pool".  QuankSight's market,
 finance and quant services are injected by the caller as plain functions; this
 module never fetches remotely and never invents values.  Missing data becomes
 "—" and is reported through the warnings list.

@@ -47,7 +47,7 @@ test('a command that cannot be executed gets a clear message instead of a raw EA
 
 test('web PPT export prefers the structured layout engine with a fallback', async () => {
   const src = await readFile(new URL('../../app/office-actions.tsx', import.meta.url), 'utf8');
-  assert.match(src, /exportStructuredPptx\(name,content,\{brandName:'QuanK'\}\)/);
+  assert.match(src, /exportStructuredPptx\(name,content,\{brandName:'QuankSight'\}\)/);
   assert.match(src, /catch\(e\)\{[^}]*exportPptx\(name,content\)/);
 });
 

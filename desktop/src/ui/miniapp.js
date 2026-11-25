@@ -20,7 +20,7 @@ export function miniappPage(state, {action, heading, empty, date, tab = 'miniapp
 <small class="graph-alias">${kb(a.bytes)} · ${a.dataItems} 项数据 · 更新于 ${escape(date(a.updated))}</small>${a.note ? `<p class="miniapp-last">${escape(a.note)}</p>` : ''}
 <div class="actions">${action('打开', 'miniappOpen', a.id, 'primary')}${action('修改', 'miniappRevise', a.id)}${action('版本', 'miniappVersions', a.id)}${action('重命名', 'miniappRename', a.id)}${action('复制', 'miniappCopy', a.id)}${action('删除', 'miniappRemove', a.id)}</div></div>`).join('');
   const head = heading('', '小应用', '一句话做一个能用的小工具：记账本、打卡表、报价计算器、会议计时器……也可以在对话里说「帮我做一个小工具」。小应用在隔离环境里运行，不联网、不能访问你的文件，数据只保存在本机。', action('＋ 新建小应用', 'miniappNew', '', 'primary'));
-  return `<div class="page">${head}${tabs}${list.length ? `<div class="cards">${cards}</div>` : empty('还没有小应用', '点「新建小应用」描述想要的工具，或在对话里让 QuanK 帮你做一个。')}</div>`;
+  return `<div class="page">${head}${tabs}${list.length ? `<div class="cards">${cards}</div>` : empty('还没有小应用', '点「新建小应用」描述想要的工具，或在对话里让 QuankSight 帮你做一个。')}</div>`;
 }
 
 export function miniappForm(prompt = '') {

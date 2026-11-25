@@ -146,7 +146,7 @@ test('charts and report: value curve, allocation bars, Word report', async () =>
   assert.match(P.navSvg([nav[0]]), /行情数据不足/);
   const s = P.summarizePortfolio(POS(), 34000);
   const al = P.allocationSvg(P.allocationRows(s), {cap: 30});
-  assert.match(al, /贵州茅台/); assert.match(al, /现金/); assert.match(al, /上限 30%/); assert.match(al, /fill="#e5484d"/, 'over the cap: QuanK down/alert red'); assert.match(al, /url\(#pfBarFill\)/, 'brand blue-violet bars');
+  assert.match(al, /贵州茅台/); assert.match(al, /现金/); assert.match(al, /上限 30%/); assert.match(al, /fill="#e5484d"/, 'over the cap: QuankSight down/alert red'); assert.match(al, /url\(#pfBarFill\)/, 'brand blue-violet bars');
   assert.ok(!/#ef4444|#3b82f6|#2563eb|#fecaca/.test(al + svg), 'no off-brand colours');
   assert.match(P.allocationSvg([]), /还没有可计算市值/);
   const breaches = P.checkRules({summary: s, rules: {}});

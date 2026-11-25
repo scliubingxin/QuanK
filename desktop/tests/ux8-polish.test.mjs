@@ -94,7 +94,7 @@ test('a CSV attached from an authorised folder becomes a dashboard', async () =>
 const ui = {action: (l, a, id = '', k = 'secondary') => `<button class="${k}" data-action="${a}" data-id="${id}">${l}</button>`, date: () => '11月19日 17:29'};
 test('library cards: compact, escaped, every action still present and reachable', () => {
   const state = {officeNative: true, officeWorkspace: true, documents: [
-    {id: 'p', name: '<b>方案</b>.pptx', format: 'pptx', revision: 1, time: 1, size: 3755541, text: 'W QuanK IT 助手需求分析', history: []},
+    {id: 'p', name: '<b>方案</b>.pptx', format: 'pptx', revision: 1, time: 1, size: 3755541, text: 'W QuankSight IT 助手需求分析', history: []},
     {id: 'x', name: '数据', format: 'xlsx', revision: 2, time: 1, size: 9563, text: '[xl/worksheets/sheet1.xml]\n区域 金额', history: [{}]},
     {id: 'm', name: '笔记', format: 'md', revision: 1, time: 1, size: 10, text: '# hi', history: []}]};
   const doc = new JSDOM(documentLibrary({state, ...ui})).window.document;
@@ -104,7 +104,7 @@ test('library cards: compact, escaped, every action still present and reachable'
   assert.match(cards[0].querySelector('.lib-title small').textContent, /v1 · 11月19日 17:29 · 3\.6 MB/);
   assert.equal(cards[0].querySelector('.lib-icon').dataset.kind, 'PPT'); // [F1d] Office-style icon
   const edit = cards[0].querySelector('.lib-main [data-action="documentEditor"]');
-  assert.deepEqual([edit.textContent, edit.getAttribute('aria-label')], ['编辑', 'QuanK Office 编辑']);
+  assert.deepEqual([edit.textContent, edit.getAttribute('aria-label')], ['编辑', 'QuankSight Office 编辑']);
   assert.ok(cards[0].querySelector('.lib-main [data-action="documentView"]'));
   for (const a of ['documentContinue', 'documentEdit', 'documentExportPdf', 'documentExport', 'documentDelete']) assert.ok(cards[0].querySelector(`.lib-more [data-action="${a}"]`), a);
   assert.ok(cards[1].querySelector('[data-action="dashboardFromDocument"]') && cards[1].querySelector('[data-action="documentHistory"]'));

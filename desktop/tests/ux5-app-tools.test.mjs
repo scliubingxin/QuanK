@@ -5,7 +5,7 @@ import { createAgentSession } from '../services/agent-session.mjs';
 import { createWorkspaceService } from '../services/workspace.mjs';
 import { initialState } from '../core.mjs';
 
-const memStore = () => { const data = initialState(); data.agents ??= []; if (!data.agents.some(a => a.id === 'assistant')) data.agents.push({id: 'assistant', name: 'QuanK 助手', prompt: 'p', tools: []}); return {data, saves: 0, async save() { this.saves++; }, log(t, d) { (this.logs ??= []).push([t, d]); }}; };
+const memStore = () => { const data = initialState(); data.agents ??= []; if (!data.agents.some(a => a.id === 'assistant')) data.agents.push({id: 'assistant', name: 'QuankSight 助手', prompt: 'p', tools: []}); return {data, saves: 0, async save() { this.saves++; }, log(t, d) { (this.logs ??= []).push([t, d]); }}; };
 function setup({answer = true} = {}) {
   const store = memStore(), asks = [], runs = [], opened = [];
   const workspace = createWorkspaceService({store, active: new Map(), view: () => store.data});

@@ -178,7 +178,7 @@ export class McpClient {
       {
         protocolVersion: "2025-06-18",
         capabilities: {},
-        clientInfo: { name: "QuanK", version: "0.32.0" },
+        clientInfo: { name: "QuankSight", version: "0.32.0" },
       },
       signal,
     );

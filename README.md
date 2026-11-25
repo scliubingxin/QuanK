@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="desktop/assets/icon-512.png" alt="QuanK" width="120">
-  <h1>QuanK</h1>
+  <img src="desktop/assets/icon-512.png" alt="QuankSight" width="120">
+  <h1>QuankSight</h1>
   <p><b>量化工作，一键搞定</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
@@ -10,17 +10,17 @@
   </p>
   <p>
     <a href="https://github.com/scliubingxin/QuanK/releases/latest"><b>⬇ 下载 DMG</b></a> ·
-    <a href="#一分钟看懂-quank">▶ 演示视频</a> ·
+    <a href="#一分钟看懂-quanksight">▶ 演示视频</a> ·
     <a href="#获取量化策略">获取量化策略</a> ·
     <a href="#核心能力">核心能力</a>
   </p>
 </div>
 
-![QuanK 工作台首页](docs/images/app-home.png)
+![QuankSight 工作台首页](docs/images/app-home.png)
 
-## 一分钟看懂 QuanK
+## 一分钟看懂 QuankSight
 
-[![QuanK 产品演示（5 分 42 秒，点击播放）](docs/images/demo-v053-cover.png)](https://github.com/scliubingxin/QuanK/releases/download/v0.53.0/QuanK-v0.53-demo.mp4)
+[![QuankSight 产品演示（5 分 42 秒，点击播放）](docs/images/demo-v053-cover.png)](https://github.com/scliubingxin/QuanK/releases/download/v0.53.0/QuankSight-v0.53-demo.mp4)
 
 *点击封面下载 / 播放演示视频（1080p，含配音，约 133 MB）。全程用对话操作：加自选、记账、价格提醒、量化买卖点与回测、AI 研判与策略迭代建议、组合风控与压力测试、半自动委托（模拟盘）、动态提醒、投研资料与训练数据、智能体协作出研报、知识图谱与记忆。画面中的持仓与委托为演示数据。*
 
@@ -32,17 +32,17 @@
 <td valign="middle">
 <b>添加微信 <code>findingnoone</code></b><br><br>
 获取量化策略、接入指导和使用支持。<br>
-拿到策略后，在 QuanK「量化」页点「导入策略项目」即可开始使用。
+拿到策略后，在 QuankSight「量化」页点「导入策略项目」即可开始使用。
 </td>
 </tr>
 </table>
 
 ## 下载与安装
 
-**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载最新的 `QuanK-v<版本>-mac-arm64.dmg`。
+**系统要求**：Apple 芯片（M1 及以上）Mac，macOS 12 或更新版本。前往 [Releases](https://github.com/scliubingxin/QuanK/releases/latest) 下载最新的 `QuankSight-v<版本>-mac-arm64.dmg`。
 
-1. 双击 DMG，把 **QuanK** 拖到 **应用程序**。
-2. 首次打开：在「应用程序」里右键 QuanK → 打开（只需一次）。
+1. 双击 DMG，把 **QuankSight** 拖到 **应用程序**。
+2. 首次打开：在「应用程序」里右键 QuankSight → 打开（只需一次）。
 3. 左下角「模型设置」填入模型服务地址和 API Key（DeepSeek、通义、Kimi、本机 Ollama 均可）。
 
 > 从 WillBuddy 升级：首次打开会自动迁移对话、记忆、任务和量化数据。
@@ -57,7 +57,7 @@
 - **投研资料与知识库**：归档研报、公告和笔记，检索有出处的资料，查看财务趋势与公司关系。
 - **组合与风控**：查看组合敞口和风险指标，运行压力测试与调仓模拟。
 - **半自动委托**：生成委托并支持模拟撮合，真实委托由你在券商页面确认提交。
-- **QuanK Office 编辑与预览**：编辑 Word / Excel / PowerPoint，在对话右侧分页预览并查看大纲。
+- **QuankSight 编辑与预览**：编辑 Word / Excel / PowerPoint，在对话右侧分页预览并查看大纲。
 - **页签内 Office 与 AI**：Word、PPT、Excel 打开即编辑，支持选区 AI、自动保存与版本历史。
 - **安全与合规**：管理本机数据加密、凭据、外发记录、操作审计与导出审阅。
 - **命令行与 MCP**：在终端调用行情、量化和投研工具，或用 MCP 接入其他客户端。
@@ -84,11 +84,11 @@
 
 **需要另外安装 Office 或 Python 吗？** 文档引擎和 Python 运行时已内置。自定义技能需要的额外 Python 包可安装在系统 Python 中。
 
-**量化策略从哪里来？** 添加微信 **findingnoone** 获取；QuanK 本身不附带任何策略。
+**量化策略从哪里来？** 添加微信 **findingnoone** 获取；QuankSight 本身不附带任何策略。
 
-**QuanK 会记住什么？** 你的偏好、关注方向，以及对话里出现的人物、公司和项目；都在「智能记忆」里，可随时编辑或删除。
+**QuankSight 会记住什么？** 你的偏好、关注方向，以及对话里出现的人物、公司和项目；都在「智能记忆」里，可随时编辑或删除。
 
-**提示「无法验证开发者」？** 在「应用程序」里右键 QuanK → 打开，只需一次。
+**提示「无法验证开发者」？** 在「应用程序」里右键 QuankSight → 打开，只需一次。
 
 ## 从源码运行
 
@@ -101,8 +101,8 @@ cd QuanK/desktop && npm install && npm start
 
 ## 许可与声明
 
-源码以 [Apache License 2.0](LICENSE) 开源。私有量化策略不在本仓库中。QuanK 提供的信号、研判与报告仅供研究参考，不构成投资建议；投资有风险，决策请独立判断。
+源码以 [Apache License 2.0](LICENSE) 开源。私有量化策略不在本仓库中。QuankSight 提供的信号、研判与报告仅供研究参考，不构成投资建议；投资有风险，决策请独立判断。
 
 ---
 
-<sub><b>English</b> · QuanK is a local-first finance & quant workstation for Apple Silicon Macs: use a local or remote quant engine, use finance agents and research skills, connect market data, automate briefs and reports, and edit Word / Excel / PowerPoint files. Bring any OpenAI-compatible model. Licensed under Apache-2.0. <a href="https://github.com/scliubingxin/QuanK/releases/latest">Download</a></sub>
+<sub><b>English</b> · QuankSight is a local-first finance & quant workstation for Apple Silicon Macs: use a local or remote quant engine, use finance agents and research skills, connect market data, automate briefs and reports, and edit Word / Excel / PowerPoint files. Bring any OpenAI-compatible model. Licensed under Apache-2.0. <a href="https://github.com/scliubingxin/QuanK/releases/latest">Download</a></sub>

@@ -114,7 +114,7 @@ test("production Chromium: import existing DOCX, run text/marks/header/table edi
     const header = page
       .locator("[data-word-run]")
       .filter({ hasText: "品牌页眉" });
-    await header.fill("QuanK 品牌页眉");
+    await header.fill("QuankSight 品牌页眉");
     assert.equal(
       await page.locator(".word-readonly [contenteditable]").count(),
       0,
@@ -155,7 +155,7 @@ assert p.text=='季度正式版'
 assert p.runs[0].bold and p.runs[0].font.color.rgb.__str__()=='0078CB'
 assert p.runs[1].bold and p.runs[1].italic is False and p.runs[1].font.size.pt==14
 assert x.tables[0].cell(0,0).text=='预算2800'
-assert x.sections[0].header.paragraphs[0].text=='QuanK 品牌页眉'
+assert x.sections[0].header.paragraphs[0].text=='QuankSight 品牌页眉'
 assert len(x.inline_shapes)==1
 assert x.sections[0].footer.paragraphs[0].text=='保留页脚'
 print('python-docx: text, direct formatting, existing size/color, table, image, header/footer passed')`,

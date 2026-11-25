@@ -73,6 +73,7 @@ export async function createAutosave(session, {
   let revision = await versions.head?.(session.docId);
   let sequence = 0, persisted = 0, dirtySince, lastDirty, lastRecovery;
   let composing = false, dragging = false, closed = false, paused = false;
+  let interactionSince = 0, staleLogged = false;
   let conflict, recovery, saveTimer, recoveryTimer, autoWindow, pendingVersion;
   let tail = Promise.resolve();
   let state = { status: 'idle' };
@@ -93,20 +94,39 @@ export async function createAutosave(session, {
     return next;
   }
 
-  const busy = () => composing || dragging;
+  // [V100-5] 控制器侧兜底：渲染层没发复位时，20 秒后把 ime/drag 视为结束，
+  // 防止自动保存永久暂停。正在组合/拖动且不足 20 秒时行为不变。
+  const interactionStale = () => (composing || dragging) && interactionSince > 0 && clock.now() - interactionSince > 20_000;
+  function staleNotice() {
+    if (process.env.QUANK_SELFTEST === '1' && !staleLogged) {
+      console.error('[office-autosave] interaction-stale');
+      staleLogged = true;
+    }
+  }
+  const busy = () => {
+    if (!composing && !dragging) return false;
+    if (interactionStale()) { staleNotice(); return false; }
+    return true;
+  };
   const dirty = () => sequence !== persisted;
   const outstanding = () => dirty() || Boolean(pendingVersion || conflict);
 
   function schedule() {
     clock.clearTimeout(saveTimer);
     clock.clearTimeout(recoveryTimer);
-    if (closed || busy() || recovery || !outstanding()) return;
+    if (closed || recovery || !outstanding()) return;
     if (!paused && !conflict) {
-      const due = () => Math.min(lastDirty + idleMs, dirtySince + maxMs);
-      saveTimer = clock.setTimeout(() => serialize(() => {
-        if (paused || clock.now() < due()) return;
-        return saveNow('auto');
-      }), Math.max(0, due() - clock.now()));
+      if (busy()) {
+        // [V100-5] 交互仍在进行：挂一个 20 秒过期唤醒，到点重新评估；不到点不保存。
+        saveTimer = clock.setTimeout(() => serialize(() => schedule()),
+          Math.max(1, interactionSince + 20_000 + 1 - clock.now()));
+      } else {
+        const due = () => Math.min(lastDirty + idleMs, dirtySince + maxMs);
+        saveTimer = clock.setTimeout(() => serialize(() => {
+          if (paused || clock.now() < due()) return;
+          return saveNow('auto');
+        }), Math.max(0, due() - clock.now()));
+      }
     }
     if (dirty()) {
       recoveryTimer = clock.setTimeout(() => serialize(writeRecovery),
@@ -312,6 +332,8 @@ export async function createAutosave(session, {
     setInteraction({ ime = composing, drag = dragging }) {
       composing = ime;
       dragging = drag;
+      if (ime || drag) interactionSince = clock.now();
+      else { interactionSince = 0; staleLogged = false; }
       schedule();
     },
     save,

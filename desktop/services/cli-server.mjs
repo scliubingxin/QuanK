@@ -28,8 +28,8 @@ export function createCliHandler(deps) {
   const running = new Map(); // request id -> AbortController
   return async function handle(msg, emit = () => {}) {
     const {method, params = {}} = msg || {};
-    if (method === 'hello') return {app: 'QuanK', protocol: CLI_VERSION, ...deps.info(), locked: !!deps.locked()};
-    if (deps.locked()) { const e = new Error('QuanK 已锁定，请先在应用里解锁'); e.code = 'QK_LOCKED'; throw e; }
+    if (method === 'hello') return {app: 'QuankSight', protocol: CLI_VERSION, ...deps.info(), locked: !!deps.locked()};
+    if (deps.locked()) { const e = new Error('QuankSight 已锁定，请先在应用里解锁'); e.code = 'QK_LOCKED'; throw e; }
     if (method === 'tools.list') return {tools: deps.tools.list()};
     if (method === 'tools.call') {
       const name = String(params.name || '');
@@ -75,7 +75,7 @@ export function createCliServer({dir, handler, now = Date.now, log = () => {}}) 
           const line = buf.slice(0, i); buf = buf.slice(i + 1);
           if (!line.trim()) continue;
           let msg; try { msg = JSON.parse(line); } catch { send({error: {message: '请求不是有效的 JSON'}}); continue; }
-          if (!sameToken(msg.token)) { send({id: msg.id, error: {message: '命令行令牌无效（请在 QuanK「安全与合规」里重新开启命令行）', code: 'QK_TOKEN'}}); continue; }
+          if (!sameToken(msg.token)) { send({id: msg.id, error: {message: '命令行令牌无效（请在 QuankSight「安全与合规」里重新开启命令行）', code: 'QK_TOKEN'}}); continue; }
           served++; lastAt = now();
           Promise.resolve(handler(msg, ev => send({id: msg.id, ...ev}))).then(result => send({id: msg.id, result}), e => send({id: msg.id, error: {message: String(e?.message || e), code: e?.code || ''}}));
         }
@@ -98,23 +98,23 @@ export function createCliServer({dir, handler, now = Date.now, log = () => {}}) 
 }
 
 // ---------- install / uninstall the `quank` command ----------
-/** The shell wrapper: runs the bundled script with QuanK's own Node (Electron in node mode), so nothing else is needed. */
+/** The shell wrapper: runs the bundled script with QuankSight's own Node (Electron in node mode), so nothing else is needed. */
 export function wrapperScript({electron, script, socket, tokenFile}) {
   const q = s => `'${String(s).replace(/'/g, `'\\''`)}'`;
   return `#!/bin/sh
-# quank — QuanK 命令行（由 QuanK 安装，QuanK「安全与合规」里可以卸载）
+# quank — QuankSight 命令行（由 QuankSight 安装，QuankSight「安全与合规」里可以卸载）
 QUANK_SOCKET=${q(socket)} QUANK_TOKEN_FILE=${q(tokenFile)} ELECTRON_RUN_AS_NODE=1 exec ${q(electron)} ${q(script)} "$@"
 `;
 }
 export function createCliInstaller({dir, bundled, electron, home = os.homedir(), socket, tokenFile}) {
   const binDir = path.join(home, '.local', 'bin'), bin = path.join(binDir, 'quank'), script = path.join(dir, 'cli', 'quank.cjs');
-  async function installed() { try { const s = await readFile(bin, 'utf8'); return s.includes('QuanK 命令行'); } catch { return false; } }
+  async function installed() { try { const s = await readFile(bin, 'utf8'); return s.includes('QuankSight 命令行'); } catch { return false; } }
   /** Keep the copied script in step with the app (called at start when installed). */
   async function refresh() { if (!(await installed())) return false; await mkdir(path.dirname(script), {recursive: true, mode: 0o700}); await copyFile(bundled, script); await writeFile(bin, wrapperScript({electron, script, socket, tokenFile}), {mode: 0o755}); return true; }
   async function install() {
     await mkdir(binDir, {recursive: true}); await mkdir(path.dirname(script), {recursive: true, mode: 0o700});
     let existing = ''; try { existing = await readFile(bin, 'utf8'); } catch {}
-    if (existing && !existing.includes('QuanK 命令行')) throw new Error(`${bin} 已经存在且不是 QuanK 装的，没有覆盖`);
+    if (existing && !existing.includes('QuankSight 命令行')) throw new Error(`${bin} 已经存在且不是 QuankSight 装的，没有覆盖`);
     await copyFile(bundled, script);
     await writeFile(bin, wrapperScript({electron, script, socket, tokenFile}), {mode: 0o755}); await chmod(bin, 0o755);
     return {bin, inPath: await inPath()};

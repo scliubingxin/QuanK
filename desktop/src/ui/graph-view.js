@@ -245,7 +245,7 @@ function listView(state, {action, type, query}) {
 export function contextGraphPage(state, {action, date, query = '', type = 'all', mode = 'graph', focus = '', selected = ''}) {
   const ents = state.graph?.entities || [], st = state.graph?.status || {};
   const head = contextHeader(state, {tab: 'graph', date});
-  if (!ents.length) return `<div class="page context-page">${head}<div class="graph-empty"><h3>图谱还是空的</h3><p>和助手聊聊你的客户、同事和项目，或者添加文档、连接邮件和日历；QuanK 会用你配置的模型在后台整理出人、公司、项目和它们之间的关系。</p>${st.pending ? action('立即整理', 'graphExtract', '', 'primary') : ''}${st.lastError ? `<p class="task-error">${escape(st.lastError)}</p>` : ''}</div></div>`;
+  if (!ents.length) return `<div class="page context-page">${head}<div class="graph-empty"><h3>图谱还是空的</h3><p>和助手聊聊你的客户、同事和项目，或者添加文档、连接邮件和日历；QuankSight 会用你配置的模型在后台整理出人、公司、项目和它们之间的关系。</p>${st.pending ? action('立即整理', 'graphExtract', '', 'primary') : ''}${st.lastError ? `<p class="task-error">${escape(st.lastError)}</p>` : ''}</div></div>`;
   const data = graphData(state.graph, {type, query, focus});
   const focusName = focus ? ents.find(e => e.id === focus)?.name : '';
   const toolbar = `<div class="graph-toolbar">${searchField('graphQuery', '搜索实体', query)}

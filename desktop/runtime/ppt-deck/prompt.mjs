@@ -18,7 +18,7 @@ export const LAYOUT_GUIDE = `
 export const PPT_DECK_PROMPT = `生成演示文稿的流程（必须遵守）：
 1. 先在心里列大纲：确定受众、一句话主结论、3–5 个章节，每章 1–3 页。
 2. 再逐页选择版式：内容适合对比→compare-table；有先后顺序→process；有日期→timeline；有关键数字→kpi；有层次/模块→architecture；二维归类→matrix；并列观点→cards；结论→summary。相邻页尽量不用同一版式。
-3. 最后把内容填入该版式的槽位。输出 JSON：{"theme":"quank|business-blue|tech-dark|minimal-gray|warm-orange（默认 quank，即 QuanK 品牌）","brand":{"name":"品牌名"},"slides":[{"layout":...}]}。
+3. 最后把内容填入该版式的槽位。输出 JSON：{"theme":"quank|business-blue|tech-dark|minimal-gray|warm-orange（默认 quank，即 QuankSight 品牌）","brand":{"name":"品牌名"},"slides":[{"layout":...}]}。
 硬性要求：
 - 首页 cover，末页 closing；超过 8 页要有 toc 与 section；每页都有明确结论式标题（≤24 字），副标题补充口径或范围。
 - 禁止整页纯要点墙：每页要点/条目 ≤5 条，每条 ≤30 字，用短语而非整句长段；信息要分层（标题→结论→细节），数据优先用 kpi/compare-table/process 等可视化版式表达。

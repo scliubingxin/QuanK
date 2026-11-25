@@ -11,7 +11,7 @@ import { createQuantEngine, probePython } from '../services/quant-engine.mjs';
 import { quantPage, quantDashboards, quantAddPayload, quantSettingsPayload, quantSettingsForm } from '../src/ui/quant.js';
 import { executeAppTool, appToolDefinitions, appToolContext } from '../services/app-tools.mjs';
 
-// A made-up engine: QuanK only learns its shape from this adapter.
+// A made-up engine: QuankSight only learns its shape from this adapter.
 const ADAPTER = {title: '测试引擎', engine: {entry: 'run.py', requires: ['pkg_a'], health: '/hz'}, auth: {path: '/auth', user: 'u', pass: 'p', okPath: 'ok', userIdPath: 'who.id'},
   endpoints: {pool: '/list', signal: '/s/{code}', quote: '/q/{code}', insight: '/ai/{code}?uid={uid}', poolAdd: {path: '/pool/add', body: {uid: '{uid}', sym: '{code}', label: '{name}'}}, poolRemove: {path: '/pool/del', body: {uid: '{uid}', sym: '{code}'}}},
   insight: {available: 'ok', text: 'body', reason: 'why'},

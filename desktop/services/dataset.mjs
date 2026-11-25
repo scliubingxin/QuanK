@@ -130,7 +130,7 @@ export function createDatasetService({dir, market = null, quantSource = () => ''
           return {file: f, count};
         }
         if (!saveDialog) throw new Error('当前环境不能选择保存位置');
-        const f = await saveDialog({name: `QuanK-训练数据-${cstDay(now())}.${fmt}`, ext: fmt});
+        const f = await saveDialog({name: `QuankSight-训练数据-${cstDay(now())}.${fmt}`, ext: fmt});
         if (!f) return {cancelled: true};
         await writeFile(f, body);
         log('训练数据已导出', `${count} 条`);

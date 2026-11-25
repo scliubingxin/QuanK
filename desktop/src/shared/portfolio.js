@@ -1,7 +1,7 @@
 // [F4] 组合与风控 (pure, shared by main and renderer).
 // M1 组合总览: engine holdings + manually entered holdings -> positions, weights, industry allocation, back-calculated value curve.
 // M2 风控规则: stop-loss / take-profit / trailing stop, position and industry caps, portfolio drawdown, risk announcements.
-//    Rules only raise reminders; QuanK never places orders.
+//    Rules only raise reminders; QuankSight never places orders.
 // M3 风险指标: volatility, max drawdown, beta vs CSI 300, correlation matrix, historical VaR / CVaR.
 // M4 压力测试: scenario shocks (market x beta, industry, single stock, custom) and rebalance simulation (calculation only).
 import { niceTicks } from './knowledge.js';
@@ -346,6 +346,6 @@ export function portfolioReport({summary, breaches = [], metrics = null, corr = 
   if (metrics) sections.push({id: 'metrics', title: '风险指标', chart: 'nav', paragraphs: [`按当前持仓回溯 ${metrics.days} 个交易日（${metrics.from} 至 ${metrics.to}），对比${BENCH.name}。`], table: [['指标', '数值'], ['区间收益', pctText(metrics.totalReturn)], [`${BENCH.name}同期`, pctText(metrics.benchReturn)], ['年化波动率', metrics.volatility + '%'], ['最大回撤', `${metrics.maxDrawdown}%（${metrics.drawdownFrom} 至 ${metrics.drawdownTo}）`], ['当前回撤', metrics.currentDrawdown + '%'], ['Beta', metrics.beta ?? '—'], ['与大盘相关系数', metrics.benchCorr ?? '—'], ['单日 VaR（95%）', `${metrics.var95}%，约 ${money(metrics.varAmount)}`], ['单日 CVaR（95%）', `${metrics.cvar95}%，约 ${money(metrics.cvarAmount)}`], ['最差单日', pctText(metrics.worstDay)]]});
   if (corr?.high?.length) sections.push({id: 'corr', title: '高相关持仓', bullets: corr.high.slice(0, 10).map(p => `${p.names[0]} 与 ${p.names[1]}：相关系数 ${p.corr}`)});
   if (stress.length) sections.push({id: 'stress', title: '压力测试', table: [['情景', '组合损失', '占总资产', '拖累最大', '会触发止损'], ...stress.map(x => [x.scenario.title, money(x.loss), pctText(x.lossPct), x.worst ? `${x.worst.name} ${money(x.worst.loss)}` : '—', x.stops.join('、') || '—'])]});
-  sections.push({id: 'note', title: '说明', bullets: ['组合曲线与风险指标按当前持仓数量回溯历史行情估算，不是实际交易记录。', '大盘情景按各股相对沪深300的调整后 Beta（0.67 × 实测 Beta + 0.33）传导；行业情景只影响同一行业的持仓。', 'QuanK 只做提醒与计算，不会替你下单。']});
+  sections.push({id: 'note', title: '说明', bullets: ['组合曲线与风险指标按当前持仓数量回溯历史行情估算，不是实际交易记录。', '大盘情景按各股相对沪深300的调整后 Beta（0.67 × 实测 Beta + 0.33）传导；行业情景只影响同一行业的持仓。', 'QuankSight 只做提醒与计算，不会替你下单。']});
   return {kind: 'portfolio', title: `组合风控报告 · ${date}`, subtitle: date, date, sections, summary: `总资产 ${money(s.total)}，浮动盈亏 ${pctText(s.pnlPct)}，风控提醒 ${breaches.length} 条。`, gaps: []};
 }

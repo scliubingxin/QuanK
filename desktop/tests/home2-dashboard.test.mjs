@@ -16,13 +16,13 @@ const Q = {status: 'running', installed: true, pool: [
   holdings: {}, alerts: [{kind: 'change', time: 30, code: '600002', name: '示例二', from: 'HOLD', to: 'SELL'}, {kind: 'report', time: 20, title: '示例日报', ok: true, summary: '共 5 条', reportId: 'day'}]};
 const STATE = {settings: {hasKey: true}, quant: Q, chats: [{id: 'c1', name: '<i>研究</i>', time: 5}, {id: 'c2', name: '无痕', incognito: true, time: 6}],
   activity: [{title: '已记录买入', detail: '600001 100 股', time: 25}],
-  agents: [{id: 'assistant', name: 'QuanK 助手', description: '日常工作'}, {id: 'fin-risk', name: '风控合规官', description: '组合风险指标、合规审阅与敏感信息脱敏'}, {id: 'fin-research', name: '投研分析师', description: '个股与行业研究、财报点评'}],
+  agents: [{id: 'assistant', name: 'QuankSight 助手', description: '日常工作'}, {id: 'fin-risk', name: '风控合规官', description: '组合风险指标、合规审阅与敏感信息脱敏'}, {id: 'fin-research', name: '投研分析师', description: '个股与行业研究、财报点评'}],
   capabilityPresets: capabilityPresets(), skillPackages: []};
 
 test('home: hero holds the headline, composer and finance shortcuts; cards below', () => {
   const doc = new JSDOM(homeDashboard({state: STATE, ...ctx})).window.document;
   const hero = doc.querySelector('.qk-hero');
-  assert.ok(hero.querySelector('svg.qk-hero-art')); assert.match(hero.querySelector('.qk-pill').textContent, /QuanK/);
+  assert.ok(hero.querySelector('svg.qk-hero-art')); assert.match(hero.querySelector('.qk-pill').textContent, /QuankSight/);
   assert.match(hero.querySelector('h1').textContent, /今天的市场，从哪里开始/);
   assert.ok(hero.querySelector('#composer'), 'composer sits inside the hero');
   assert.deepEqual([...hero.querySelectorAll('[data-action="suggest"]')].map(b => b.dataset.id), ['stock', 'earnings', 'brief', 'portfolio', 'memo']);

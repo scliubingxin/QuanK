@@ -12,7 +12,7 @@ import { quantPage, quantTradeForm, quantTradePayload, quantPlanForm, quantPlanP
 import { executeAppTool, appToolDefinitions } from '../services/app-tools.mjs';
 
 const CST = (d, h, m) => Date.UTC(2026, 10, d, h - 8, m);
-// A made-up engine; QuanK learns the holdings / plan shape only from this adapter.
+// A made-up engine; QuankSight learns the holdings / plan shape only from this adapter.
 const ADAPTER = {engine: {entry: 'run.py', health: '/hz'}, auth: {path: '/auth', okPath: 'ok'},
   endpoints: {pool: '/list', signal: '/s/{code}', position: '/pos?c={code}', positionRecord: {path: '/rec', body: {c: '{code}', d: '{side}', px: '{price}', n: '{shares}', memo: '{note}', day: '{date}'}}, plan: '/plan', planSet: {path: '/plan/set', body: {k: '{type}', t: '{times}'}}},
   fields: {action: 'a', score: 's', price: 'p', poolList: 'rows', poolCode: 'c', poolName: 'n'},

@@ -181,7 +181,7 @@ test('shared hero statistics switch to equal-width wrapping cells without separa
 });
 
 
-test('preview cache misses when the LibreOffice version, QuanK version, or font fingerprint changes', async t => {
+test('preview cache misses when the LibreOffice version, QuankSight version, or font fingerprint changes', async t => {
  const directory = await temporary(t);
  const cache = createOfficePreviewCache({directory});
  const pdf = Buffer.from('%PDF-test');

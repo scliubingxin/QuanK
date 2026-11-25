@@ -74,7 +74,7 @@ export async function fetchMail({host, port = 993, user, pass, days = 7, state =
     if (!/^\* (OK|PREAUTH)\b/i.test(greeting.line)) throw new Error('不是 IMAP 服务器：' + greeting.line.slice(0, 80));
     try { await command(`LOGIN ${quote(user)} ${quote(pass)}`); }
     catch (e) { throw new Error(`登录失败：账号或授权码不正确（QQ、163 等需使用邮箱设置里生成的「授权码」，并开启 IMAP 服务）。服务器说：${e.message}`); }
-    try { await command('ID ("name" "QuanK" "version" "0.42" "vendor" "QuanK")'); } catch {} // 163/126 refuse EXAMINE without ID
+    try { await command('ID ("name" "QuankSight" "version" "0.42" "vendor" "QuankSight")'); } catch {} // 163/126 refuse EXAMINE without ID
     const ex = await command('EXAMINE INBOX');
     const uidvalidity = Number(ex.map(r => /\[UIDVALIDITY (\d+)\]/i.exec(r.line)?.[1]).find(Boolean) || 0);
     const same = state && state.uidvalidity === uidvalidity && state.lastUid > 0;

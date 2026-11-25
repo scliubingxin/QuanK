@@ -1,4 +1,4 @@
-# QuanK 桌面开发与安装指南
+# QuankSight 桌面开发与安装指南
 
 产品介绍与日常用法见[首页](../README.md)。安装包、版本变化、签名状态和测试范围统一见[下载与版本说明](../docs/releases/DOWNLOADS_v0.1-v0.37.md)及 [GitHub Releases](https://github.com/scliubingxin/QuanK/releases)。
 
@@ -74,14 +74,14 @@ npm --prefix desktop run dist:mac
 完整源码 ZIP 使用：
 
 ```bash
-python3 scripts/package-desktop-source.py /absolute/output/QuanK-source.zip
+python3 scripts/package-desktop-source.py /absolute/output/QuankSight-source.zip
 ```
 
 命令在仓库根目录执行，自动排除依赖、缓存、私钥和运行数据，生成逐文件 SHA-256 清单。验证完成后再分发；不要在签名后修改应用内容或重算清单掩盖变更。
 
 ## 兼容身份与安全边界
 
-- 产品名称为 QuanK；内部 `com.quank.desktop`、IPC 和旧加密身份为历史数据兼容保留，不作盲目全量替换。
+- 产品名称为 QuankSight；内部 `com.quank.desktop`、IPC 和旧加密身份为历史数据兼容保留，不作盲目全量替换。
 - 保持白底 `#FFFFFF`、主蓝 `#0078CB` 和原蓝红 logo。
 - 文件授权、原生审批、取消、版本冲突保护和审计不可因界面调整而绕过。
 - 主页面和隔离预览保持原 CSP、sandbox 与无 Node/原生桥边界。HTML 交互、Office 和媒体预览有不同受限策略，详见各自文档。
@@ -93,7 +93,7 @@ python3 scripts/package-desktop-source.py /absolute/output/QuanK-source.zip
 
 [下载与版本说明](../docs/releases/DOWNLOADS_v0.1-v0.37.md) · [Skills / MCP](../docs/guides/SKILLS_AND_CONNECTORS.md) · [智能体](../docs/guides/AGENT_CAPABILITIES.md) · [Office](../docs/guides/OFFICE_PREVIEW.md) · [HTML 交互预览](../docs/guides/HTML_INTERACTIVE_PREVIEW.md) · [对话富媒体](../docs/guides/CHAT_RICH_MEDIA.md) · [原 Web 文档](../docs/archive/legacy/WEB_README_ORIGINAL.md)
 
-代码项目与图片实现见 runtime/code-project.mjs、services/code-projects.mjs、main/image-files.mjs；开发验收：`node --test tests/code-projects.test.mjs tests/image-usability.test.mjs`，真实UI：`CHROME_PATH=... node --test tests/acceptance/projects-live.mjs tests/acceptance/images-live.mjs`。可选外部npm/Python只用于用户代码项目，不是QuanK安装依赖。
+代码项目与图片实现见 runtime/code-project.mjs、services/code-projects.mjs、main/image-files.mjs；开发验收：`node --test tests/code-projects.test.mjs tests/image-usability.test.mjs`，真实UI：`CHROME_PATH=... node --test tests/acceptance/projects-live.mjs tests/acceptance/images-live.mjs`。可选外部npm/Python只用于用户代码项目，不是QuankSight安装依赖。
 
 项目服务核心验证：`node --test tests/project-services.test.mjs`。真实浏览器：设置CHROME_PATH后执行 `node --test tests/acceptance/project-services-live.mjs`；原生桥/审批为测试夹具。服务策略与日志边界见[项目服务](../docs/guides/PROJECT_SERVICES.md)。
 

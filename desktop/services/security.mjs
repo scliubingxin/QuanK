@@ -14,7 +14,7 @@ export function normalizeLock(l) {
   return {enabled: o.enabled === true && !!o.passwordHash, idleMinutes: IDLE_CHOICES.includes(Number(o.idleMinutes)) ? Number(o.idleMinutes) : 15, touchId: o.touchId !== false, passwordHash: o.passwordHash || '', onSleep: o.onSleep !== false};
 }
 
-export function createSecurityService({store, audit, egress, vault = null, dir = '', appName = 'QuanK', now = Date.now, notify = () => {}, idleSeconds = () => 0,
+export function createSecurityService({store, audit, egress, vault = null, dir = '', appName = 'QuankSight', displayName = 'QuankSight', now = Date.now, notify = () => {}, idleSeconds = () => 0,
   touchId = {can: () => false, prompt: async () => { throw new Error('这台 Mac 不支持触控 ID'); }}, saveFile = null, openFile = null, relaunch = () => {}, secretsView = () => ({}), testModel = null} = {}) {
   const st = () => {
     const s = (store.data.security ??= {});
@@ -36,7 +36,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
       compliance: s.compliance, reviews: s.reviews.slice(0, 20), audit: {count: audit?.count || 0, broken: audit?.broken || null, lastVerify: s.lastVerify || null},
       egress: egress ? {hosts: egress.summary().slice(0, 30), size: egress.size} : null, cli: cli ? await cli.view().catch(e => ({error: String(e?.message || e)})) : null};
   }
-  function lock(reason = '手动锁定') { const s = st(); if (!s.lock.enabled || locked) return false; locked = true; log('security', '锁定 QuanK', '', reason); notify(); return true; }
+  function lock(reason = '手动锁定') { const s = st(); if (!s.lock.enabled || locked) return false; locked = true; log('security', '锁定 QuankSight', '', reason); notify(); return true; }
   async function unlock(how, password) {
     const s = st();
     if (!locked) return {locked: false};
@@ -48,7 +48,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
       failures++; if (failures >= 5) { lockedUntil = now() + 30e3 * 2 ** Math.min(4, failures - 5); }
       log('security', '解锁失败', '', `第 ${failures} 次`); throw new Error('密码不对');
     }
-    failures = 0; locked = false; log('security', '解锁 QuanK', '', how === 'touchid' ? '触控 ID' : '密码'); notify();
+    failures = 0; locked = false; log('security', '解锁 QuankSight', '', how === 'touchid' ? '触控 ID' : '密码'); notify();
     return {locked: false};
   }
 
@@ -59,7 +59,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
     const d = store.data, counts = {chats: (d.chats || []).length, holdings: (d.portfolio?.manual || []).length, notes: (d.research?.library || []).length, auditEntries: audit?.count || 0};
     const text = sealBackup({workspace: d, audit: auditText, app: appName}, passphrase, {app: appName, counts});
     const day = new Date(now() + 8 * 3600e3).toISOString().slice(0, 10);
-    const file = await saveFile({title: '保存加密备份', defaultName: `QuanK-备份-${day}.qkbackup`, filters: [{name: 'QuanK 加密备份', extensions: ['qkbackup']}]});
+    const file = await saveFile({title: '保存加密备份', defaultName: `QuankSight-备份-${day}.qkbackup`, filters: [{name: 'QuankSight 加密备份', extensions: ['qkbackup']}]});
     if (!file) return {cancelled: true};
     await writeFile(file, text, {mode: 0o600});
     st().lastBackup = {time: now(), name: path.basename(file), counts}; await store.save(); log('export', '导出加密备份', path.basename(file), `对话 ${counts.chats} · 手动持仓 ${counts.holdings} · 资料 ${counts.notes}`); notify();
@@ -67,7 +67,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
   }
   async function inspectBackup(passphrase) {
     if (!openFile) throw new Error('当前环境不能选择文件');
-    const file = await openFile({title: '选择 QuanK 加密备份', filters: [{name: 'QuanK 加密备份', extensions: ['qkbackup']}]});
+    const file = await openFile({title: '选择 QuankSight 加密备份', filters: [{name: 'QuankSight 加密备份', extensions: ['qkbackup']}]});
     if (!file) return {cancelled: true};
     const r = openBackup(await readFile(file, 'utf8'), passphrase);
     pending = {file, payload: r.payload, at: now()};
@@ -89,7 +89,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
     store.data = pending.payload.workspace;
     store.data.security = {...(store.data.security || {}), lock: keepSecurity?.lock || store.data.security?.lock};
     await store.save();
-    await log('security', '从加密备份恢复', pending.file ? path.basename(pending.file) : '', '恢复前的数据已另存为 before-restore 文件，QuanK 将重新启动');
+    await log('security', '从加密备份恢复', pending.file ? path.basename(pending.file) : '', '恢复前的数据已另存为 before-restore 文件，QuankSight 将重新启动');
     pending = null;
     setTimeout(() => relaunch(), 300);
     return {restored: true, relaunch: true};
@@ -102,7 +102,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
     /** Synchronous bits for the app state (banners, the security page header). */
     summary() { const s = st(); return {privacy: s.privacy, lockEnabled: s.lock.enabled, encrypted: !!vault?.encrypted, complianceEnabled: s.compliance.enabled, block: s.compliance.block}; },
     /** What the lock screen may show. */
-    lockState() { const s = st(); return {appName, touchId: s.lock.touchId && !!touchId.can(), retryIn: Math.max(0, Math.ceil((lockedUntil - now()) / 1000))}; },
+    lockState() { const s = st(); return {appName: displayName, touchId: s.lock.touchId && !!touchId.can(), retryIn: Math.max(0, Math.ceil((lockedUntil - now()) / 1000))}; },
     privacy: () => st().privacy, compliance: () => st().compliance,
     /** Called from main's 1-second timer. */
     tick() { const s = st(); if (s.lock.enabled && !locked && s.lock.idleMinutes > 0 && idleSeconds() >= s.lock.idleMinutes * 60) lock(`闲置 ${s.lock.idleMinutes} 分钟自动锁定`); },
@@ -112,7 +112,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
       const a = p.action, s = st();
       if (a === 'view') return view();
       if (a === 'unlock') return unlock(p.method === 'touchid' ? 'touchid' : 'password', p.password);
-      if (locked) throw new Error('QuanK 已锁定，请先解锁');
+      if (locked) throw new Error('QuankSight 已锁定，请先解锁');
       if (a === 'lock') { if (!s.lock.enabled) throw new Error('还没有设置应用锁'); lock(); return {locked: true}; }
       if (a === 'privacy') {
         const before = s.privacy, next = normalizePrivacy({...before, ...Object.fromEntries(['offline', 'maskAmounts', 'egressLog'].filter(k => typeof p[k] === 'boolean').map(k => [k, p[k]]))});
@@ -128,7 +128,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
       if (a === 'auditExport') {
         if (!saveFile) throw new Error('当前环境不能保存文件');
         const rows = audit.list({kind: p.kind, q: p.q, limit: 1000}).reverse();
-        const file = await saveFile({title: '导出操作审计', defaultName: `QuanK-审计日志-${new Date(now() + 8 * 3600e3).toISOString().slice(0, 10)}.csv`, filters: [{name: 'CSV', extensions: ['csv']}]});
+        const file = await saveFile({title: '导出操作审计', defaultName: `QuankSight-审计日志-${new Date(now() + 8 * 3600e3).toISOString().slice(0, 10)}.csv`, filters: [{name: 'CSV', extensions: ['csv']}]});
         if (!file) return {cancelled: true};
         await writeFile(file, audit.csv(rows), {mode: 0o600}); log('export', '导出操作审计', path.basename(file), `${rows.length} 条`);
         return {saved: path.basename(file), rows: rows.length};

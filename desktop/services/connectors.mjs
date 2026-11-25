@@ -16,7 +16,7 @@ const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 export async function fetchText(fetcher, url, {signal, timeoutMs = 20000, maxBytes = MAX_BYTES, headers = {}, method = 'GET', body} = {}) {
   const timeout = AbortSignal.timeout(timeoutMs), combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   let res;
-  try { res = await fetcher(url, {method, ...(body !== undefined ? {body} : {}), signal: combined, redirect: 'follow', headers: {'user-agent': 'Mozilla/5.0 QuanK/0.42 (+desktop)', accept: 'application/rss+xml, application/atom+xml, application/xml, text/html, text/calendar, */*', ...headers}}); }
+  try { res = await fetcher(url, {method, ...(body !== undefined ? {body} : {}), signal: combined, redirect: 'follow', headers: {'user-agent': 'Mozilla/5.0 QuankSight/0.42 (+desktop)', accept: 'application/rss+xml, application/atom+xml, application/xml, text/html, text/calendar, */*', ...headers}}); }
   catch (e) { throw new Error(signal?.aborted ? '已取消' : timeout.aborted ? '连接超时（20 秒）' : '无法连接：' + clip(e?.cause?.code || e?.message || e, 120)); }
   if (!res.ok) throw new Error('服务器返回 ' + res.status + (res.status === 401 || res.status === 403 ? '（没有访问权限）' : res.status === 404 ? '（地址不存在）' : ''));
   const declared = Number(res.headers.get('content-length'));

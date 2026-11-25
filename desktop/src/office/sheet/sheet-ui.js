@@ -638,7 +638,7 @@ export function mountSheet({host, api}) {
     deny.type = allow.type = 'button';
     deny.onclick = () => settle(false);
     allow.onclick = () => settle(true);
-    row.append(el('span', '', 'QuanK Office 需要你的授权：删除工作表「' + name + '」'), deny, allow);
+    row.append(el('span', '', 'QuankSight 需要你的授权：删除工作表「' + name + '」'), deny, allow);
     fbar.after(row);
     deny.focus();
   }

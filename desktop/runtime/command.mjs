@@ -66,7 +66,7 @@ function missingPythonPackage(stderr) {
     const root = module.split('.')[0];
     const distributions = {docx: 'python-docx', pptx: 'python-pptx', PIL: 'Pillow'};
     const packageName = Object.hasOwn(distributions, root) ? distributions[root] : root;
-    return `缺少 Python 模块 ${module}。QuanK 0.56 起不再内置这些包。可在系统 Python 中运行 pip install ${packageName}，或在技能设置中改用系统 Python。`;
+    return `缺少 Python 模块 ${module}。QuankSight 0.56 起不再内置这些包。可在系统 Python 中运行 pip install ${packageName}，或在技能设置中改用系统 Python。`;
 }
 
 export function runCommand(command,{signal,onOutput=()=>{},maxBytes=1024*1024,outputMode='stop',environment}={}) {

@@ -41,8 +41,8 @@ test('real DOCX: typing, styles, fonts, lists, inserts, links, comments, outline
     });
     await check('typing (incl. Chinese) reaches the document and is saved', async () => {
       await home(); const r0 = documents.read(d.id).revision;
-      await op('sheet_text', {text: '前言：QuanK 文档'}); await op('sheet_key', {key: 'Enter'});
-      assert.ok(documents.read(d.id).revision > r0, 'new revision'); assert.ok(plain().includes('前言：QuanK 文档'), 'text saved');
+      await op('sheet_text', {text: '前言：QuankSight 文档'}); await op('sheet_key', {key: 'Enter'});
+      assert.ok(documents.read(d.id).revision > r0, 'new revision'); assert.ok(plain().includes('前言：QuankSight 文档'), 'text saved');
       const wc = parseWordCount((await shot()).states?.['.uno:StateWordCount']); return wc || '';
     });
     await check('paragraph styles: 标题 1 / 标题 / 正文', async () => {

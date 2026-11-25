@@ -21,7 +21,7 @@ const MOCK = {
   'kline:600438:1d:120': {dates: Array.from({length: 120}, (_, i) => 'D' + i),
     series: Array.from({length: 120}, (_, i) => ({open: 20 + i * 0.02, high: 20.5 + i * 0.02, low: 19.6 + i * 0.02, close: 20.2 + i * 0.02})), asOf: '2026-11-25', source: '腾讯行情'},
   'kline:600438:1d:120:dates': {dates: Array.from({length: 120}, (_, i) => 'D' + i), asOf: '2026-11-25'},
-  'backtest:pool_a': {rows: [['策略', '年化', '回撤', '夏普'], ['均线趋势', '18.2%', '-21.4%', '0.86'], ['量价共振', '22.7%', '-18.9%', '1.02']], asOf: '2026-11-25', source: 'QuanK 量化引擎'},
+  'backtest:pool_a': {rows: [['策略', '年化', '回撤', '夏普'], ['均线趋势', '18.2%', '-21.4%', '0.86'], ['量价共振', '22.7%', '-18.9%', '1.02']], asOf: '2026-11-25', source: 'QuankSight 量化引擎'},
 };
 
 const withWatermark = spec => ({...spec, watermark: '示例数据（测试 fixture）'});
@@ -53,7 +53,7 @@ test('D59 1/2：spec 校验与三主题生成、python-pptx 重新打开页数�
   }
 });
 
-test('D59 3：源码与示例品牌清理为 0 命中，二进制素材仅 QuanK logo', async () => {
+test('D59 3：源码与示例品牌清理为 0 命中，二进制素材仅 QuankSight logo', async () => {
   const {readdirSync, readFileSync, statSync} = await import('node:fs');
   const walk = d => readdirSync(d).flatMap(n => {
     const p = join(d, n);

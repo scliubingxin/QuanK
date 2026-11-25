@@ -18,7 +18,7 @@ WHITE = "FFFFFF"
 GREY = "BFBFBF"
 GREY2 = "8C8C8C"
 CYAN = "1E9FD8"
-RED = "2F62F5"  # QuanK royal blue accent
+RED = "2F62F5"  # QuankSight royal blue accent
 
 BAR_GRADS = {
     "gold": [(0, "FFE082"), (45, "FFC04D"), (100, "F2873A")],

@@ -45,7 +45,7 @@ function logo(ctx, out, x, y, mode) {
     return;
   }
   const c = mode === 'dark' ? t.onPrimary : t.primary;
-  const mark = ctx.brand.markImageId && ctx.images?.[ctx.brand.markImageId]; // [F1g] built-in QuanK mark
+  const mark = ctx.brand.markImageId && ctx.images?.[ctx.brand.markImageId]; // [F1g] built-in QuankSight mark
   if (mark) {
     if (mode === 'dark') out.push(shape({ shape: 'roundRect', x: x + G.logoW - 2.05, y: y + 0.01, w: 0.48, h: 0.48, fill: 'FFFFFF', radius: 0.1, role: 'logo' }));
     const mh = 0.4, mw = mh * mark.width / mark.height;

@@ -224,7 +224,7 @@ export async function generateDocument(format, content, {images}={}) {
         );
     }
     bytes = await word.Packer.toBuffer(
-      new word.Document({ creator: "QuanK", sections: [{ children }] }),
+      new word.Document({ creator: "QuankSight", sections: [{ children }] }),
     );
   }
   if (format === "xlsx") bytes = spreadsheet(s, images || {});
@@ -234,7 +234,7 @@ export async function generateDocument(format, content, {images}={}) {
   } else if (format === "pptx") {
     const deck = new PptxGenJS();
     deck.layout = "LAYOUT_WIDE";
-    deck.author = "QuanK";
+    deck.author = "QuankSight";
     deck.subject = "AI generated document";
     deck.lang = "zh-CN";
     for (const item of s.slides) {

@@ -109,7 +109,7 @@ test('真实 A57 卡片普通修改支持任务授权，三类高风险只展示
     assert.equal(request.highRisk, highRisk);
     assert.deepEqual(request.choices, highRisk ? ['deny', 'allow'] : ['deny', 'allow', 'always']);
     const html = approvalCard(request, (label, key, id) => `<button data-action="${key}" data-id="${id}">${label}</button>`);
-    assert.match(html, /QuanK 助手 需要你的授权：修改文档/);
+    assert.match(html, /QuankSight 助手 需要你的授权：修改文档/);
     assert.match(html, highRisk ? /确认/ : /允许一次/);
     if (highRisk) assert.doesNotMatch(html, /always|本任务内允许/);
     else assert.match(html, /本任务内允许/);
@@ -189,7 +189,7 @@ test('量化刷新只读股票池、行情和回测，时间戳随表格或图�
   const f = fixtures({readQuant});
   await f.execute('refresh_quant', {docId: 'slides', target: {table: 't3'}, source: {kind: 'pool'}});
   const table = await f.adapter.read('slides', {table: 't3'});
-  assert.deepEqual(table.footnote, {source: 'QuanK 股票池', sourceAsOf: null, fetchedAt: stamp});
+  assert.deepEqual(table.footnote, {source: 'QuankSight 股票池', sourceAsOf: null, fetchedAt: stamp});
   assert.deepEqual(table.rows[1], ['600438', '通威股份']);
   for (const kind of ['quotes', 'backtest']) {
     await f.execute('refresh_quant', {docId: 'slides', target: {chart: 'c3'}, source: {kind, codes: ['600438']}});

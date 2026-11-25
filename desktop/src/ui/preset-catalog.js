@@ -30,7 +30,7 @@ function toolbar(kind, items) {
 function presetCard(kind, p, state) {
   const skill = kind === 'skills';
   const installed = skill ? (state.skillPackages || []).find(s => s.sha256 === p.sha256) : (state.mcpConnections || []).find(c => c.presetId === p.id || (!!p.url && c.url.replace(/\/$/, '') === p.url.replace(/\/$/, '')));
-  const origin = skill ? (p.id.startsWith('public-') ? '公开技能 · MIT' : 'QuanK 内置') : p.transport === 'stdio' ? '本机程序' : p.auth === 'oauth' ? '浏览器登录' : 'Streamable HTTP';
+  const origin = skill ? (p.id.startsWith('public-') ? '公开技能 · MIT' : 'QuankSight 内置') : p.transport === 'stdio' ? '本机程序' : p.auth === 'oauth' ? '浏览器登录' : 'Streamable HTTP';
   const tags = skill
     ? [tag(p.category, 'blue'), tag(p.id.startsWith('public-') ? '公开' : '内置', p.id.startsWith('public-') ? 'violet' : 'green'), tag(p.license || 'MIT')]
     : [tag(p.category, 'orange'), p.transport === 'stdio' ? tag((p.env || []).some(e => e.required) ? '需要 Token' : '免密钥', (p.env || []).some(e => e.required) ? 'violet' : 'green') : tag(p.auth === 'bearer' ? '需要密钥' : p.auth === 'oauth' ? '浏览器登录' : '免密钥', p.auth === 'none' ? 'green' : 'violet'), tag(p.transport === 'stdio' ? '本机' : 'Remote')];
@@ -50,7 +50,7 @@ export function presetCatalog(kind, state, {mine = ''} = {}) {
   const skill = kind === 'skills', items = state.capabilityPresets?.[kind] || [];
   return `<section class="preset-catalog plaza" data-preset-catalog="${kind}">${hero(kind, state)}${mine}
 ${items.length ? '' : `<div class="plaza-bar-end plaza-solo">${skill ? '<button class="primary" data-action="uploadSkill">上传 Skill</button>' : '<button class="primary" data-action="newMcp">添加 MCP 连接</button>'}</div>`}
-${items.length ? `${toolbar(kind, items)}<div class="plaza-section-head"><h2>${skill ? '预置技能' : '预置 MCP 工具'}</h2><small>${skill ? '投研、建模、风控与量化工作流（QuanK 内置）排在前面，其后是通用办公与开发技能；添加后即可绑定，不自动运行脚本。' : '金融数据与资讯服务排在前面；官方公开服务模板，按需填写自己的密钥，保存不联网。测试成功后才显示发现的真实工具。'}</small></div>
+${items.length ? `${toolbar(kind, items)}<div class="plaza-section-head"><h2>${skill ? '预置技能' : '预置 MCP 工具'}</h2><small>${skill ? '投研、建模、风控与量化工作流（QuankSight 内置）排在前面，其后是通用办公与开发技能；添加后即可绑定，不自动运行脚本。' : '金融数据与资讯服务排在前面；官方公开服务模板，按需填写自己的密钥，保存不联网。测试成功后才显示发现的真实工具。'}</small></div>
 <div class="plaza-grid">${items.map(p => presetCard(kind, p, state)).join('')}</div><p class="plaza-empty" data-preset-empty hidden>没有匹配的预置项，换个关键词试试。</p>` : ''}</section>`;
 }
 

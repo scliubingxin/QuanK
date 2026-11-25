@@ -1,4 +1,4 @@
-// QuanK deck engine bridge: spec -> built-in Python -> native editable .pptx.
+// QuankSight deck engine bridge: spec -> built-in Python -> native editable .pptx.
 // All scratch files are removed immediately after generation; encrypted sessions keep
 // scratch only under userData/deck/tmp (never the system temp directory).
 import { spawn } from 'node:child_process';

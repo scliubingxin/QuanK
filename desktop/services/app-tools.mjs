@@ -1,5 +1,5 @@
 import { boundCodingAgents, getSubagents, hasBoundCoding } from '../src/shared/subagents.js';
-// [ux5] App tools: everything a user can do in the QuanK UI can also be asked for in chat.
+// [ux5] App tools: everything a user can do in the QuankSight UI can also be asked for in chat.
 // Reads run directly; anything that changes the app (create / edit / pause / delete / run a scheduled task) shows a native
 // confirmation first. In unattended scheduled runs the approval gate defers those to 「待你确认」, so tasks cannot spawn tasks.
 import { MINUTE_KLINE_INTENT, PERIODS, minuteKlineCommand } from '../src/shared/market.js';
@@ -103,7 +103,7 @@ async function collectDeckData(source, deps, now = Date.now()) {
             }
           } catch { rows.push([c, '—', '—']); }
         }
-        data = {rows, signals, asOf, source: 'QuanK 本机量化引擎'};
+        data = {rows, signals, asOf, source: 'QuankSight 本机量化引擎'};
       }
       map[ref] = data;
       if (data) DECK_SOURCE_CACHE.set(cacheKey(ref), {at: Date.now(), value: data});
@@ -240,7 +240,7 @@ export function observeCodingTasks(store, deps) {
       await deps.notify?.();
     }
     if (completed && chat && !chat.messages.some(message => message.codingTaskId === id && message.codingReviewRevision === reviewRevision)) {
-      const provider = task.agent?.kind === 'builtin' ? `\n由 QuanK 内置编码完成${task.fallbackReason ? '（' + clip(task.fallbackReason, 240) + '）' : ''}。` : '';
+      const provider = task.agent?.kind === 'builtin' ? `\n由 QuankSight 内置编码完成${task.fallbackReason ? '（' + clip(task.fallbackReason, 240) + '）' : ''}。` : '';
       chat.messages.push({id: uid(), role: 'assistant', codingTaskId: id, codingReviewRevision: reviewRevision, content: `${title}\n\n${detail}${provider}`, actions: task.fallbackReason ? [...actions, codingSetup] : actions, time: Date.now()});
       if (!chat.incognito) chat.unread = true;
       await store.save();
@@ -261,7 +261,7 @@ export function observeCodingTasks(store, deps) {
 
 async function runCodingTool(name, args, {store, deps, confirm, denied, signal, chatId, agentId, via, permissionRequestId, beforeCodingConfirm}) {
   if (!codingAssistantAllowed(store, agentId, chatId)) return {status: 'disabled', message: CODING_DISABLED};
-  if (deps.security?.locked) throw new Error('QuanK 已锁定，请先解锁');
+  if (deps.security?.locked) throw new Error('QuankSight 已锁定，请先解锁');
   if (name === 'app_coding_start' && store.data.quant?.mode === 'remote') return {status: 'failed', message: CODING_LOCAL_ONLY};
   const tasks = deps.codingTasks;
   if (!tasks) throw new Error('当前环境未接入 Coding 任务服务');
@@ -289,8 +289,8 @@ async function runCodingTool(name, args, {store, deps, confirm, denied, signal, 
     if (!project) throw new Error(requested ? '请先在「代码项目与运行环境」授权该本地代码项目' : '请先在量化设置中选择本地策略项目');
     // The 8.1 service may ignore unknown arguments, which would start work in the default project.
     if (project !== localProject && tasks.supportsProject !== true) throw new Error('当前 Coding 任务服务尚未接入其他代码项目');
-    const provider = fallback === 'builtin' || !selected ? 'QuanK 内置 Coding 智能体' : selected.name;
-    const fallbackNote = fallback === 'auto' && selected ? '（不可用时按设置尝试其他代理，再回退到 QuanK 内置 Coding 智能体）' : '';
+    const provider = fallback === 'builtin' || !selected ? 'QuankSight 内置 Coding 智能体' : selected.name;
+    const fallbackNote = fallback === 'auto' && selected ? '（不可用时按设置尝试其他代理，再回退到 QuankSight 内置 Coding 智能体）' : '';
     await beforeCodingConfirm?.({project, summary: clip(request, 180)});
     signal?.throwIfAborted();
     if (!await confirm('启动 Coding 任务？', `代理：${provider}${fallbackNote}\n项目：${project}\n需求：${clip(request, 500)}`)) return denied;
@@ -356,8 +356,8 @@ function codingToolResult(task) {
 
 export function appToolDefinitions({incognito = false} = {}) {
   return [
-    def('app_task_list', '列出 QuanK 的定时任务（名称、频率、是否启用、状态、下次与上次运行时间）。'),
-    def('app_task_create', '在 QuanK「自动化」中创建定时任务：到点后由智能体按 prompt 自动执行一次对话，结果进入动态。用户说「每天/每小时/工作日…帮我…」「提醒我…」「定时…」时使用。会弹出确认框。prompt 要写成到点后能独立执行的完整指令。',
+    def('app_task_list', '列出 QuankSight 的定时任务（名称、频率、是否启用、状态、下次与上次运行时间）。'),
+    def('app_task_create', '在 QuankSight「自动化」中创建定时任务：到点后由智能体按 prompt 自动执行一次对话，结果进入动态。用户说「每天/每小时/工作日…帮我…」「提醒我…」「定时…」时使用。会弹出确认框。prompt 要写成到点后能独立执行的完整指令。',
       {name: {type: 'string', description: '不超过 30 字的任务名'}, prompt: {type: 'string'}, schedule: SCHEDULE, toolsEnabled: {type: 'boolean', description: '执行时是否允许使用工具（联网查资料、读文档等）；需要查网页或数据时为 true'}, agentId: {type: 'string'}}, ['name', 'prompt', 'schedule']),
     def('app_task_update', '修改定时任务：改名称、指令、频率、工具开关，或用 enabled 暂停 / 恢复。会弹出确认框。', {id: {type: 'string'}, enabled: {type: 'boolean'}, name: {type: 'string'}, prompt: {type: 'string'}, schedule: SCHEDULE, toolsEnabled: {type: 'boolean'}}, ['id']),
     def('app_task_delete', '删除一个定时任务（运行记录一并删除）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
@@ -374,7 +374,7 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_quant_scan', '逐只计算股票池里所有股票的信号并汇总（可能需要几分钟），用于「池子里谁是买点」「哪些在风控」。'),
     def('app_quant_insight', '取某只股票的 AI 研判（大模型复核算法结论）；AI 不可用时返回算法结论。', {code: {type: 'string'}}, ['code']),
     def('app_quant_find_stock', '按公司名称、简称、拼音首字母或代码联网查找沪深北 A 股的股票代码、名称和板块。只读。', {query: {type: 'string'}}, ['query']), // [v45q]
-    def('app_quant_pool_add', '把股票加入量化股票池。用户只说公司名称（如「添加宁德时代」「把茅台加到自选」）时把名称放进 query，QuanK 会联网查代码、名称并获取公司标志；同名多只时返回候选供用户选择。会弹出确认框。', {query: {type: 'string', description: '公司名称、简称或 6 位代码'}, code: {type: 'string'}, name: {type: 'string'}}, []),
+    def('app_quant_pool_add', '把股票加入量化股票池。用户只说公司名称（如「添加宁德时代」「把茅台加到自选」）时把名称放进 query，QuankSight 会联网查代码、名称并获取公司标志；同名多只时返回候选供用户选择。会弹出确认框。', {query: {type: 'string', description: '公司名称、简称或 6 位代码'}, code: {type: 'string'}, name: {type: 'string'}}, []),
     def('app_quant_pool_remove', '把股票移出量化股票池。会弹出确认框。', {code: {type: 'string'}}, ['code']),
     def('app_quant_holdings', '查看本机量化引擎里的持仓（股数、成本、现价、市值、浮动盈亏、最近成交记录）和定投计划；给 code 时只看这一只。只读。', {code: {type: 'string'}}),
     def('app_quant_trade_record', '记录一笔用户在券商实际成交的买卖，用来更新本机引擎里的持仓与成本（不会替用户下单）。会弹出确认框。', {code: {type: 'string'}, side: {type: 'string', enum: ['buy', 'sell']}, price: {type: 'number'}, shares: {type: 'integer'}, date: {type: 'string', description: '成交日期 YYYY-MM-DD，默认今天'}, note: {type: 'string'}}, ['code', 'side', 'price', 'shares']),
@@ -387,12 +387,12 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_mcp_signin', '为「浏览器登录」方式的 MCP 连接打开系统浏览器登录（会弹确认框）。id 可以是连接 ID 或名称。', {id: {type: 'string'}}, ['id']),
     def('app_mcp_test', '测试 MCP 连接并发现工具目录（会弹确认框；本机程序会显示完整启动命令）。id 可以是连接 ID 或名称。', {id: {type: 'string'}}, ['id']),
     def('app_quant_watch', '设置量化盯盘提醒：交易时段按频率重新计算股票池，档位变化写入「动态」并发系统通知；工作日开盘前生成盘前简报。会弹出确认框。', {enabled: {type: 'boolean'}, interval: {type: 'integer', description: '检查频率（分钟）：5 / 10 / 15 / 30 / 60'}, premarket: {type: 'boolean'}, premarketTime: {type: 'string', description: '盘前简报时间 HH:mm，06:00–09:29'}, notify: {type: 'boolean'}}),
-    def('app_quant_open', '在 QuanK 里打开「量化」页；给 code 时直接打开该股的详情（K 线、综合分、回测曲线）。', {code: {type: 'string'}}),
+    def('app_quant_open', '在 QuankSight 里打开「量化」页；给 code 时直接打开该股的详情（K 线、综合分、回测曲线）。', {code: {type: 'string'}}),
     def('app_market_overview', '大盘与市场概况：上证、深证、创业板、沪深300、科创50 指数，涨跌家数、涨跌停数、两市成交额、领涨行业与概念、涨跌幅榜。实时公开行情，只读。'), // [F1]
     def('app_market_sectors', '行业或概念板块按涨跌幅排行（含领涨股、涨跌家数）。只读。', {kind: {type: 'string', enum: ['industry', 'concept']}, order: {type: 'string', enum: ['up', 'down']}, limit: {type: 'integer'}}),
     def('app_market_sector_stocks', '某个板块（名称如「半导体」或代码 BKxxxx）的成分股按涨幅排行。只读。', {sector: {type: 'string'}, limit: {type: 'integer'}}, ['sector']),
     def('app_market_quote', '个股实时行情（现价、涨跌幅、开高低、昨收、成交额、换手）。query 是公司名称或代码，多只用逗号分隔。只读。', {query: {type: 'string'}}, ['query']),
-    def('app_market_kline', '个股 K 线与技术指标（日 / 周 / 月 / 1、5、15、30、60 分钟 / 分时；均线、MACD、KDJ、近 20 根高低点），并在 QuanK 里打开这只股票的 K 线图。', {query: {type: 'string'}, period: {type: 'string', enum: Object.keys(PERIODS)}, open: {type: 'boolean'}}, ['query']),
+    def('app_market_kline', '个股 K 线与技术指标（日 / 周 / 月 / 1、5、15、30、60 分钟 / 分时；均线、MACD、KDJ、近 20 根高低点），并在 QuankSight 里打开这只股票的 K 线图。', {query: {type: 'string'}, period: {type: 'string', enum: Object.keys(PERIODS)}, open: {type: 'boolean'}}, ['query']),
     def('app_market_alert_add', '设置价格提醒：涨幅或跌幅达到某个百分比，或价格涨到 / 跌到某个值；交易时段触发后进入「动态」并发系统通知。会弹出确认框。', {query: {type: 'string'}, kind: {type: 'string', enum: ['up', 'down', 'above', 'below']}, value: {type: 'number'}}, ['query', 'kind', 'value']),
     def('app_market_alert_list', '列出已设置的价格提醒。只读。'),
     def('app_market_alert_remove', '删除一条价格提醒（先用 app_market_alert_list 查 id）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
@@ -413,21 +413,21 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_pf_rules', '修改组合风控规则（只提醒，不下单）：止损线 / 止盈线 / 回撤止盈（%），单股、单行业仓位上限（%），组合回撤线（%），检查间隔（5 / 15 / 30 / 60 分钟），风险公告提醒、系统通知、总开关；数值给 0 表示关闭这一条。给 stock + stopPrice 时设置单只股票的止损价（stopPrice=0 取消）。会弹出确认框。', {enabled: {type: 'boolean'}, stopLoss: {type: 'number'}, takeProfit: {type: 'number'}, trailing: {type: 'number'}, maxPosition: {type: 'number'}, maxIndustry: {type: 'number'}, maxDrawdown: {type: 'number'}, interval: {type: 'integer'}, notices: {type: 'boolean'}, notify: {type: 'boolean'}, stock: {type: 'string'}, stopPrice: {type: 'number'}}),
     def('app_pf_holding_save', '手动录入或修改一笔持仓（没有在量化引擎里记录成交的股票），用于组合汇总和风控提醒；同一只股票以手动录入为准。会弹出确认框。', {query: {type: 'string', description: '公司名称或代码'}, shares: {type: 'integer'}, cost: {type: 'number'}, stopPrice: {type: 'number'}, note: {type: 'string'}}, ['query', 'shares', 'cost']),
     def('app_pf_holding_remove', '删除一笔手动录入的持仓（引擎里的成交记录不受影响）。会弹出确认框。', {query: {type: 'string', description: '公司名称或代码'}}, ['query']),
-    def('app_pf_report', '生成组合风控报告（Word / PPT / 网页）：组合概况、行业分布、风控检查、风险指标、压力测试，Word 版附组合曲线与仓位图；保存到「成果中心」并在 QuanK 里打开。', {format: {type: 'string', enum: ['docx', 'pptx', 'html']}}),
+    def('app_pf_report', '生成组合风控报告（Word / PPT / 网页）：组合概况、行业分布、风控检查、风险指标、压力测试，Word 版附组合曲线与仓位图；保存到「成果中心」并在 QuankSight 里打开。', {format: {type: 'string', enum: ['docx', 'pptx', 'html']}}),
     // [v0.52] 半自动委托：信号转委托单，最后由用户在券商页面提交
     def('app_trade_orders', '查看今天的委托单（买点 / 卖点 / 止损自动生成的，以及手动创建的）：方向、股票、股数、限价、金额、状态、未通过风控的原因，今日额度和模拟盘账户。只读。'),
     def('app_trade_order_create', '手动创建一张委托单（经过单笔、每日、现金、仓位上限检查）。只生成待确认的委托单，不会下单。会弹出确认框。', {query: {type: 'string', description: '公司名称或代码'}, side: {type: 'string', enum: ['buy', 'sell']}, shares: {type: 'integer', description: '股数（可选，100 的整数倍）'}, price: {type: 'number', description: '限价（可选）'}, reason: {type: 'string'}}, ['query', 'side']),
-    def('app_trade_order_confirm', '对一张待确认的委托单下单：模拟盘直接按行情撮合；真实下单模式会在 QuanK 的券商窗口里填好代码、价格、数量并标出提交按钮，最后由用户自己点击提交（QuanK 不会替用户提交）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
+    def('app_trade_order_confirm', '对一张待确认的委托单下单：模拟盘直接按行情撮合；真实下单模式会在 QuankSight 的券商窗口里填好代码、价格、数量并标出提交按钮，最后由用户自己点击提交（QuankSight 不会替用户提交）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
     def('app_trade_order_fill', '回填真实委托单的结果：submitted（用户已在券商提交）/ filled（全部成交）/ partial（部分成交）/ cancelled（已撤单）；成交会记入持仓。会弹出确认框。', {id: {type: 'string'}, status: {type: 'string', enum: ['submitted', 'filled', 'partial', 'cancelled']}, price: {type: 'number'}, shares: {type: 'integer'}}, ['id', 'status']),
     def('app_trade_order_cancel', '撤销一张委托单（真实委托如果已在券商提交，还需要用户在券商那边撤单）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
-    def('app_trade_settings', '查看或修改半自动委托设置：paused（暂停）、baseAmount（每笔基准金额）、maxOrder、maxDaily、maxCount、slippage、maxDeviation、sellPct。不给参数时只读。切换模拟盘 / 真实下单只能在 QuanK 界面里操作。修改会弹出确认框。', {paused: {type: 'boolean'}, baseAmount: {type: 'number'}, maxOrder: {type: 'number'}, maxDaily: {type: 'number'}, maxCount: {type: 'integer'}, slippage: {type: 'number'}, maxDeviation: {type: 'number'}, sellPct: {type: 'number'}}),
+    def('app_trade_settings', '查看或修改半自动委托设置：paused（暂停）、baseAmount（每笔基准金额）、maxOrder、maxDaily、maxCount、slippage、maxDeviation、sellPct。不给参数时只读。切换模拟盘 / 真实下单只能在 QuankSight 界面里操作。修改会弹出确认框。', {paused: {type: 'boolean'}, baseAmount: {type: 'number'}, maxOrder: {type: 'number'}, maxDaily: {type: 'number'}, maxCount: {type: 'integer'}, slippage: {type: 'number'}, maxDeviation: {type: 'number'}, sellPct: {type: 'number'}}),
     // [F5] 安全与合规：状态、操作审计、外发记录、合规审阅
     def('app_sec_status', '安全与合规状态：本机数据是否加密、应用锁、离线模式、发给模型前是否隐藏金额、最近一次加密备份、审计日志条数与校验结果、合规检查设置。只读。'),
     def('app_audit_list', '查看操作审计日志（谁在什么时间改了风控规则、持仓、成交、授权、导出、模型调用等，只记录操作与对象，不含金额和密钥）。可按类型或关键词筛选。只读。', {kind: {type: 'string', enum: ['data', 'trade', 'rules', 'approval', 'export', 'model', 'security', 'chat', 'system']}, q: {type: 'string'}, limit: {type: 'integer'}}),
-    def('app_egress_list', '查看外发记录：QuanK 最近连接过哪些外部服务（主机、用途、次数、发送字节数、是否被离线模式阻止），不含请求内容。只读。', {host: {type: 'string'}}),
+    def('app_egress_list', '查看外发记录：QuankSight 最近连接过哪些外部服务（主机、用途、次数、发送字节数、是否被离线模式阻止），不含请求内容。只读。', {host: {type: 'string'}}),
     def('app_compliance_check', '合规审阅：检查一段文字（研报、公众号文章、对外发布的观点）是否有承诺保本或收益、确定性预测、夸大收益、诱导交易、内幕信息、个性化投资建议等违规表述，以及是否缺少免责声明、数据来源、数据日期和 AI 生成标注。用户说「帮我检查一下这篇文章合不合规」「这段话能不能发」时使用。只读。', {text: {type: 'string'}, kind: {type: 'string', enum: ['article', 'report', 'text']}, aiUsed: {type: 'boolean', description: '内容是否含 AI 生成的段落'}}, ['text']),
     // [F2] 投研文档：研报、公告、资料库、导出
-    def('app_research_report', '一键生成个股研究报告（Word / PPT / 网页）：汇总本机量化信号与风控、回测、持仓、实时行情、近期公告和可选的 AI 研判，Word 版附 K 线与收益率图；保存到「成果中心」并归档到这只股票的资料库，生成后在 QuanK 里打开。用户说「给 xx 出一份研报 / 研究报告」时使用。可能需要几十秒。', {query: {type: 'string', description: '公司名称或 6 位代码'}, format: {type: 'string', enum: ['docx', 'pptx', 'html']}, ai: {type: 'boolean', description: '是否加入 AI 研判段落，默认 true'}}, ['query']),
+    def('app_research_report', '一键生成个股研究报告（Word / PPT / 网页）：汇总本机量化信号与风控、回测、持仓、实时行情、近期公告和可选的 AI 研判，Word 版附 K 线与收益率图；保存到「成果中心」并归档到这只股票的资料库，生成后在 QuankSight 里打开。用户说「给 xx 出一份研报 / 研究报告」时使用。可能需要几十秒。', {query: {type: 'string', description: '公司名称或 6 位代码'}, format: {type: 'string', enum: ['docx', 'pptx', 'html']}, ai: {type: 'boolean', description: '是否加入 AI 研判段落，默认 true'}}, ['query']),
     def('app_research_notices', '某只股票最近的公司公告（公开公告接口，只读），每条带类型（业绩预告 / 定期报告 / 风险事项 / 股东变动 / 资本运作等）和重要程度。用户问「xx 最近有什么公告」「有没有减持、业绩预告」时使用。', {query: {type: 'string'}, limit: {type: 'integer', description: '条数，默认 20，最多 50'}, fresh: {type: 'boolean'}}, ['query']),
     def('app_research_notice_read', '读取并解读一条公告：返回要点摘录、AI 解读（已配置模型时）和原文节选。id 来自 app_research_notices。只读。', {id: {type: 'string'}}, ['id']),
     def('app_research_library', '查找投研资料库：生成的研报、收藏的公告、投研笔记、关联的文档和导出的复盘。可按股票（query 为公司名或代码）、类型或关键词筛选。只读。', {query: {type: 'string', description: '公司名称或代码（可选）'}, kind: {type: 'string', enum: ['report', 'notice', 'note', 'doc', 'export']}, keyword: {type: 'string'}}),
@@ -435,7 +435,7 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_research_note_add', '把用户的投研笔记、调研纪要或交易计划保存到资料库（可关联某只股票）。不要保存密码、密钥。', {query: {type: 'string', description: '关联的公司名称或代码（可选）'}, title: {type: 'string'}, text: {type: 'string'}}, ['text']),
     def('app_research_link_document', '把「成果中心」里的一份文档归档到某只股票的资料库。', {documentId: {type: 'string'}, query: {type: 'string', description: '公司名称或代码'}}, ['documentId']),
     def('app_research_remove', '从资料库删除一条资料（成果中心里的文档不会被删除）。会弹出确认框。', {id: {type: 'string'}}, ['id']),
-    def('app_research_export', '把每日简报、组合复盘（行情、持仓、信号分布、重要公告与风险）或量化引擎报告导出为 Word / PPT / 网页，保存到「成果中心」并在 QuanK 里打开。', {kind: {type: 'string', enum: ['briefing', 'review', 'quant_report']}, format: {type: 'string', enum: ['docx', 'pptx', 'html']}, id: {type: 'string', description: 'quant_report 时的报告 ID（见 app_quant_report）'}}, ['kind']),
+    def('app_research_export', '把每日简报、组合复盘（行情、持仓、信号分布、重要公告与风险）或量化引擎报告导出为 Word / PPT / 网页，保存到「成果中心」并在 QuankSight 里打开。', {kind: {type: 'string', enum: ['briefing', 'review', 'quant_report']}, format: {type: 'string', enum: ['docx', 'pptx', 'html']}, id: {type: 'string', description: 'quant_report 时的报告 ID（见 app_quant_report）'}}, ['kind']),
     def('app_research_watch', '设置公告提醒：工作日按间隔检查股票池的公告，重要公告进入「动态」并发系统通知。会弹出确认框。', {enabled: {type: 'boolean'}, interval: {type: 'integer', description: '检查间隔（分钟）：15 / 30 / 60 / 120'}}),
     def('app_deck_build', '把资料、日报复盘或研究结果做成可编辑的投研 PPT（原生形状/表格/图表，不是截图）。传 outline 时先在对话里展示分页大纲卡片供用户确认，确认后再生成；传 spec 时直接生成。主题 research/report/product。文件保存到成果中心（带版本）并在右侧预览。用户说「做一份通威股份的投研 PPT」「把这周复盘做成汇报胶片」「把通威并购案分析做成 PPT」时使用。', {outline: {type: 'string', description: '大纲 JSON 或分页要点'}, spec: {type: 'string', description: '完整 JSON spec'}, theme: {type: 'string', enum: DECK_THEME_NAMES}, title: {type: 'string'}}),
     def('app_deck_themes', '列出投研 PPT 引擎支持的主题与每套主题的版式目录（research 十种投研页型、report 浅色报告、product 深色胶片）。只读。'),
@@ -444,7 +444,7 @@ export function appToolDefinitions({incognito = false} = {}) {
     def('app_dashboard_create', '用成果中心里的 Excel 表格生成可交互仪表盘（保存在「创作」页）。数值由本机计算。', {documentId: {type: 'string'}, prompt: {type: 'string', description: '想看什么，例如「按月看各区域销售额」'}}, ['documentId']),
     def('app_briefing_generate', '立即生成今日简报（需要你处理的事、完成的工作、今日日程、新邮件等），返回各板块要点。'),
     def('app_open_document', '在对话右侧预览成果中心的文件。优先传已知文档 id；也可传文件名或关键词。用户说刚才的研报时传关键词「研报」。', {id: {type: 'string'}, query: {type: 'string'}}, []),
-    def('app_open_page', '在 QuanK 窗口中打开某个页面，方便用户查看结果（「查看我的自选」用 app_quant_open）。research（投研资料）可带 stock（6 位代码）和 kind（report/notice/note/doc/export/quant）筛选；quant（量化）可带 stock（公司名称或 6 位代码）和 tab: graph 直接查看公司关系图；tasks（自动化）可带 tab：trade（半自动委托）/ tasks / runs / coding。', {page: {type: 'string', enum: Object.keys(APP_PAGES)}, stock: {type: 'string'}, kind: {type: 'string'}, tab: {type: 'string', enum: ['trade', 'tasks', 'runs', 'coding', 'graph']}}, ['page']),
+    def('app_open_page', '在 QuankSight 窗口中打开某个页面，方便用户查看结果（「查看我的自选」用 app_quant_open）。research（投研资料）可带 stock（6 位代码）和 kind（report/notice/note/doc/export/quant）筛选；quant（量化）可带 stock（公司名称或 6 位代码）和 tab: graph 直接查看公司关系图；tasks（自动化）可带 tab：trade（半自动委托）/ tasks / runs / coding。', {page: {type: 'string', enum: Object.keys(APP_PAGES)}, stock: {type: 'string'}, kind: {type: 'string'}, tab: {type: 'string', enum: ['trade', 'tasks', 'runs', 'coding', 'graph']}}, ['page']),
     ...(incognito ? [] : [
       def('app_memory_add', '把用户明确要求记住的偏好或事实存入长期记忆（不要存密码、密钥等敏感信息）。', {text: {type: 'string'}, kind: {type: 'string', enum: ['preference', 'fact', 'profile']}}, ['text']),
       def('app_graph_search', '在知识图谱中查找人、公司、项目等实体及其关系。', {query: {type: 'string'}}, ['query']),
@@ -463,7 +463,7 @@ function f_isSelectInvalid(info, config) { // [ux9]
 
 export function appToolContext(now = Date.now()) {
   const d = new Date(now);
-  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要求预览文件或打开刚才的研报时，调用 app_open_document。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuanK 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuanK 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；用户问委托单、要下单、撤单、回填成交时用 app_trade_*（每一笔都要用户确认；真实下单时 QuanK 只在券商页面填好，提交由用户亲自完成，绝不能说已经替用户下单）；检查文章或研报是否合规用 app_compliance_check，问操作记录用 app_audit_list，问数据发去了哪里用 app_egress_list，问安全设置用 app_sec_status；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要把资料、复盘或研究结果做成投研 PPT / 汇报胶片 / 幻灯片时调用 app_deck_build（先给 outline 让用户确认分页大纲，确认后再生成；可用 app_deck_themes 查主题和版式）。修改已有 PPT / Word / Excel 的某一页或某个单元格仍走 app_office_*，不要用 app_deck_build。用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
+  return `\n应用内操作：用户要求创建、修改、暂停、恢复、删除或立即运行定时任务（例如「每小时看一下通威的股价」「每天 8 点汇总未读邮件」「工作日 9 点提醒我…」）时，调用 app_task_* 工具完成，不要说没有定时任务工具，也不要让用户自己去配置系统计划任务；同步连接、生成仪表盘或简报、记住偏好、打开页面同理使用 app_* 工具。用户要求预览文件或打开刚才的研报时，调用 app_open_document。用户要连接钉钉、飞书、企业微信、邮箱、日历或 RSS 时调用 app_connector_add（可先 app_connector_guide 取开通步骤，再用 app_web_search / app_web_read 查官方文档的最新做法）：不需要密码的直接添加；需要授权码、App Secret、Webhook 的会在「连接」页弹出预填好的表单，由用户本人填写，你不要索要或复述任何密钥。不要说没有添加连接的能力。用户问股票信号、买卖点、回测、定投或股票池时调用 app_quant_*（本机量化引擎，按用户自己的私有策略计算），不要凭记忆报价或编造信号；用户说「添加 / 加入 / 关注某公司」时直接调用 app_quant_pool_add，把公司名放在 query 里，QuankSight 会联网查代码和标志，不要让用户自己去查代码；用户问大盘、指数、板块、涨跌幅榜、个股实时行情或 K 线时调用 app_market_*（公开实时行情），不要凭记忆报价；要看图时用 app_market_kline，它会在 QuankSight 里打开 K 线；用户问财务、股东、产业链或想在自己的资料里找答案时用 app_kb_finance / app_kb_graph / app_kb_search（回答按 [序号] 标出处）；追踪一个主题用 app_kb_topic_save / app_kb_topic_digest；用户问委托单、要下单、撤单、回填成交时用 app_trade_*（每一笔都要用户确认；真实下单时 QuankSight 只在券商页面填好，提交由用户亲自完成，绝不能说已经替用户下单）；检查文章或研报是否合规用 app_compliance_check，问操作记录用 app_audit_list，问数据发去了哪里用 app_egress_list，问安全设置用 app_sec_status；用户问自己的组合、仓位、止损止盈、回撤、风险指标、压力测试或想试算调仓时用 app_pf_*（只提醒、只计算，不会下单），改风控规则用 app_pf_rules，没有在引擎里记录的持仓用 app_pf_holding_save 录入；用户要把资料、复盘或研究结果做成投研 PPT / 汇报胶片 / 幻灯片时调用 app_deck_build（先给 outline 让用户确认分页大纲，确认后再生成；可用 app_deck_themes 查主题和版式）。修改已有 PPT / Word / Excel 的某一页或某个单元格仍走 app_office_*，不要用 app_deck_build。用户要研报时调用 app_research_report，问公告、业绩预告、减持等用 app_research_notices 再按需 app_research_notice_read，记笔记、找资料、引用之前的研报用 app_research_note_add / app_research_library / app_research_read，导出简报或复盘用 app_research_export；公告解读只依据原文，不要编造数字；「涨超 5% 提醒我」这类请求用 app_market_alert_add；回答时说明档位、综合分、倍率和主要理由，并提示仅供研究、不构成投资建议。需要查资料、查操作文档时用 app_web_search 搜索、app_web_read 读原文，再回答并附上来源链接。修改类操作会弹出确认框，用户拒绝时如实说明未执行。当前本机时间：${local(now)}（周${WEEKDAY_NAMES[d.getDay()]}）。`;
 }
 
 const taskView = t => ({id: t.id, name: t.name, schedule: describeSchedule(t.schedule), enabled: !!t.enabled, status: t.status || 'ready',
@@ -506,7 +506,7 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
       if (!nameText || !prompt) throw new Error('请提供任务名称和执行指令');
       if (schedule.kind !== 'manual' && nextRunAt(schedule, now()) === null) throw new Error('执行时间已过去，请换一个时间');
       const agentId = args.agentId && (store.data.agents || []).some(a => a.id === args.agentId) ? args.agentId : 'assistant';
-      const agentName = (store.data.agents || []).find(a => a.id === agentId)?.name || 'QuanK 助手';
+      const agentName = (store.data.agents || []).find(a => a.id === agentId)?.name || 'QuankSight 助手';
       if (!await confirm('创建定时任务？', `名称：${nameText}\n频率：${describeSchedule(schedule)}\n执行：${agentName}${args.toolsEnabled ? '，允许使用工具' : ''}\n\n${clip(prompt, 400)}`)) return denied;
       const before = new Set(tasks().map(t => t.id));
       await need('workspace').task({name: nameText, prompt, schedule, agentId, toolsEnabled: args.toolsEnabled === true});
@@ -817,7 +817,7 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
           return {status: 'succeeded', total: s.total, stockValue: s.invested, cash: s.cash, cost: s.cost, pnl: s.pnl, pnlPct: s.pnlPct, dayPnl: s.dayPnl, stockPct: s.stockPct, effectiveStocks: s.effective,
             positions: s.positions.map(p => ({code: p.code, name: p.name, shares: p.shares, cost: p.cost, price: p.price, value: p.value, weight: p.weight, pnl: p.pnl, pnlPct: p.pnlPct, dayPct: p.dayPct, industry: p.industry, stopPrice: p.stopPrice || undefined, source: p.source === 'manual' ? '手动录入' : '量化引擎'})),
             industries: s.byIndustry.map(g => ({industry: g.industry, weight: g.weight, stocks: g.names})), alerts: o.breaches.map(brief), rules: o.rulesText,
-            note: s.stocks ? '仓位按股票市值 + 现金计算；QuanK 只提醒，不会下单。' : '还没有持仓：可以在引擎里记录成交，或用 app_pf_holding_save 手动录入。'};
+            note: s.stocks ? '仓位按股票市值 + 现金计算；QuankSight 只提醒，不会下单。' : '还没有持仓：可以在引擎里记录成交，或用 app_pf_holding_save 手动录入。'};
         }
         if (name === 'app_pf_risk') {
           const r = await pf.handle({action: 'risk'});
@@ -887,7 +887,7 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
       }
       if (name === 'app_trade_order_confirm') {
         const o = findO(String(args.id || '')), real = T.view().settings.mode === 'real';
-        if (!await confirm(real ? `在券商页面填好委托：${o.name}？` : `模拟下单：${o.name}？`, `${line(o)}\n${real ? 'QuanK 会打开券商网页版填好代码、价格和数量，最后的提交需要你自己点击。' : '按模拟盘行情撮合。'}`)) return denied;
+        if (!await confirm(real ? `在券商页面填好委托：${o.name}？` : `模拟下单：${o.name}？`, `${line(o)}\n${real ? 'QuankSight 会打开券商网页版填好代码、价格和数量，最后的提交需要你自己点击。' : '按模拟盘行情撮合。'}`)) return denied;
         const r = await T.handle({action: 'confirm', id: o.id}); deps.notify?.();
         return {status: 'succeeded', order: brief(r.order), note: r.note};
       }
@@ -984,7 +984,7 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
     case 'app_deck_themes':
       return {status: 'succeeded', defaultTheme: 'research',
               themes: DECK_THEMES.map(id => ({id, layouts: DECK_LAYOUTS[id]})),
-              note: 'research 为 QuanK 投研主题（10 种页型，免责声明固定末页）；report 为浅色报告；product 为深色胶片。'};
+              note: 'research 为 QuankSight 量见 · 投研主题（10 种页型，免责声明固定末页）；report 为浅色报告；product 为深色胶片。'};
     case 'app_deck_build': {
       const engine = need('deck');
       const theme = DECK_THEME_NAMES.includes(args.theme) ? args.theme : 'research';

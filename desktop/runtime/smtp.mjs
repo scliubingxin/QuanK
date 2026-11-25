@@ -20,7 +20,7 @@ export function buildMessage({from, to, subject, text, now = Date.now, id = rand
   const body = b64(String(text || '').replace(/\r?\n/g, '\r\n')).replace(/.{1,76}/g, '$&\r\n');
   const domain = from.split('@')[1] || 'quank.local';
   return [`From: ${from}`, `To: ${to.join(', ')}`, `Subject: ${encodeHeader(subject)}`, `Date: ${new Date(now()).toUTCString().replace('GMT', '+0000')}`,
-    `Message-ID: <${id}@${domain}>`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', 'X-Mailer: QuanK', '', body].join('\r\n');
+    `Message-ID: <${id}@${domain}>`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', 'X-Mailer: QuankSight', '', body].join('\r\n');
 }
 
 export async function smtpSend({host, port = 465, security = port === 465 ? 'tls' : 'starttls', user, pass, from, to, subject, text,

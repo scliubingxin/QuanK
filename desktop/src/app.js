@@ -140,7 +140,7 @@ function inlineConfirm(title, html, handler) {
     const requestId = crypto.randomUUID();
     const body = document.createElement('template');
     body.innerHTML = html.replace(/<\/(?:p|li|div)>|<br\s*\/?>/gi, '$&\n');
-    const card = { requestId, agent: 'QuanK', action: title,
+    const card = { requestId, agent: 'QuankSight', action: title,
         summary: body.content.textContent.trim(), chatId: page === 'chat' ? chatId : undefined,
         time: Date.now(), highRisk: true, channel: 'local' };
     localApprovals.set(requestId, { card, handler });
@@ -336,7 +336,7 @@ async function openDocumentOffice(document, target) {
     const inScope = () => page === origin.page && chatId === origin.chatId && panelTab()?.id === origin.tab;
     try {
         const result = await invoke('officeOpen', {id: document.id, revision: document.revision, ...(target ? {target} : {})});
-        if (result?.status === 'opened' && inScope()) officeNotice = {inScope, dismiss:toast('已在 QuanK Office 打开')};
+        if (result?.status === 'opened' && inScope()) officeNotice = {inScope, dismiss:toast('已在 QuankSight 打开')};
     } catch (error) {
         if (inScope()) officeNotice = {inScope, dismiss:toast(error.message)};
     }
@@ -350,7 +350,7 @@ function exportOfficeDocumentPdf(id, revision) {
 async function invoke(name, payload) {
     if (!api)
         throw new Error('当前为界面预览。请通过 npm start 启动桌面应用以使用此功能。');
-    try { if(typeof api?.[name] !== 'function')throw Error(`当前安装的 QuanK 不支持这个功能（缺少「${name}」接口）。请安装最新版本，完全退出（⌘Q）后重新打开。`); return await api[name](payload && typeof payload === 'object' && !Array.isArray(payload) && page === 'chat'
+    try { if(typeof api?.[name] !== 'function')throw Error(`当前安装的 QuankSight 不支持这个功能（缺少「${name}」接口）。请安装最新版本，完全退出（⌘Q）后重新打开。`); return await api[name](payload && typeof payload === 'object' && !Array.isArray(payload) && page === 'chat'
         ? { ...payload, approvalChatId: chatId } : payload); }
     catch(error) { throw new Error(String(error?.message||'操作失败，请重试').replace(/^Error invoking remote method ['"][^'"]+['"]:\s*(?:Error:\s*)?/,'').replace(/^Error:\s*/,'')); }
 }
@@ -416,7 +416,7 @@ function renderInner() {
     const active = nav.find(n => n[0] === page);
     const name = state.settings.name || '我的工作空间';
     $('#app').className = sidebarCollapsed ? 'sidebar-collapsed' : '';
-    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuanK 标志"></span><div>QuanK${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(approvalFeedState())})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div>${state.officeEngine?.phase==='starting' ? '<span class="office-engine-pill" role="status" title="Office 引擎启动中">Office 启动中</span>' : ''}<button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}${['home', 'chat'].includes(page) ? '' : approvalMarkup()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
+    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuankSight 标志"></span><div>QuankSight${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量见 · 量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(approvalFeedState())})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div>${state.officeEngine?.phase==='starting' ? '<span class="office-engine-pill" role="status" title="Office 引擎启动中">Office 启动中</span>' : ''}<button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}${['home', 'chat'].includes(page) ? '' : approvalMarkup()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
     officeWorkspace.update(markup, `${page}:${chatId}`);
     renderPanel(); // [v0.54]
     paintApprovalSummaries();
@@ -855,7 +855,7 @@ function signalPopups() {
     const fresh = items.filter(x => x.time > signalSeenAt && Date.now() - x.time < 6 * 3600e3).sort((a, b) => b.time - a.time).slice(0, 5);
     if (!fresh.length || $('#modal')?.open) return;
     signalSeenAt = Math.max(...fresh.map(x => x.time)); try { localStorage.setItem('qk.signalSeenAt', String(signalSeenAt)); } catch {}
-    modal(fresh.length > 1 ? `${fresh.length} 条交易提醒` : fresh[0].title, `<div class="sig-pop">${fresh.map(x => `<div class="sig-item ${x.tone}"><span class="sig-badge">${x.tone === 'buy' ? (x.quant ? '买' : '涨') : (x.quant ? '卖' : '跌')}</span><div><b>${escape(x.title)}</b><p>${escape(x.text)}</p><small>${escape(date(x.time))}</small></div>${x.code ? `<button type="button" data-action="mkSignal" data-id="${escape((x.quant ? 'quant:' : 'market:') + x.code)}">查看详情</button>` : ''}</div>`).join('')}<p class="muted">信号来自你本机的策略与公开行情，仅供研究，不构成投资建议；QuanK 不会替你下单。</p></div>`);
+    modal(fresh.length > 1 ? `${fresh.length} 条交易提醒` : fresh[0].title, `<div class="sig-pop">${fresh.map(x => `<div class="sig-item ${x.tone}"><span class="sig-badge">${x.tone === 'buy' ? (x.quant ? '买' : '涨') : (x.quant ? '卖' : '跌')}</span><div><b>${escape(x.title)}</b><p>${escape(x.text)}</p><small>${escape(date(x.time))}</small></div>${x.code ? `<button type="button" data-action="mkSignal" data-id="${escape((x.quant ? 'quant:' : 'market:') + x.code)}">查看详情</button>` : ''}</div>`).join('')}<p class="muted">信号来自你本机的策略与公开行情，仅供研究，不构成投资建议；QuankSight 不会替你下单。</p></div>`);
 }
 async function navigate(next, main = false) {
     if (!main && !panelUI.MAIN_ONLY.has(next) && Date.now() - panelClickAt < 1500) return openPageTab(next); // [v0.54] links inside a panel tab open another tab
@@ -898,7 +898,28 @@ async function handle(actionId, id, stockTarget) {
     if (actionId === 'ppClose') { closePanelTab(id); return; }
     if (actionId === 'ppCloseAll') { pageTabs = []; setPanelActive(''); savePanel(); render(); return; }
     if (actionId === 'ppWide') { pageWide = !pageWide; savePanel(); render(); return; }
-    if (actionId === 'ppMain') { const t = panelTab(); if (!t) return; if (t.kind === 'market-stock') { marketStockCode = t.code; closePanelTab(t.id); return navigate('market', true); } if (['stock', 'document', 'coding-task'].includes(t.kind)) { pageWide = true; savePanel(); render(); return; } const r = panelUI.closeTab(pageTabs, t.id, pageTabId); pageTabs = r.tabs; setPanelActive(r.active); savePanel(); return navigate(t.page, true); }
+    if (actionId === 'ppMain') {
+        const t = panelTab(); if (!t) return;
+        // [V100-3] ↙ = 在主区域打开，绝不再走展开分支。
+        if (t.kind === 'market-stock') { marketStockCode = t.code; closePanelTab(t.id); return navigate('market', true); }
+        if (t.kind === 'document') {
+            libraryFilter = {ids: [t.documentId], label: '当前文件'};
+            closePanelTab(t.id);
+            return navigate('library', true);
+        }
+        if (t.kind === 'stock') {
+            const code = t.code;
+            closePanelTab(t.id);
+            renderingStock = code; renderingStockTab = t;
+            return navigate('quant', true);
+        }
+        if (t.kind === 'coding-task') {
+            const taskId = t.taskId;
+            closePanelTab(t.id);
+            return openCodingPage({page: 'coding-task', taskId});
+        }
+        const r = panelUI.closeTab(pageTabs, t.id, pageTabId); pageTabs = r.tabs; setPanelActive(r.active); savePanel(); return navigate(t.page, true);
+    }
     if (typeof actionId === 'string' && actionId.startsWith('mk')) return marketAction(actionId, id); // [F1]
     if(actionId==='previewImageOcrEvidence'){
       const ref=JSON.parse(id);if(ref.chatId!==chatId)throw Error('任务已切换，请重新选择证据');
@@ -1452,7 +1473,7 @@ async function handle(actionId, id, stockTarget) {
         const c=found?{...found,envHelp:pre?.env,setup:pre?.setup}:(preset?{name:preset.title,url:preset.url||'',auth:preset.auth||'none',description:preset.description,transport:preset.transport==='stdio'?'stdio':'http',command:preset.command,args:preset.args,envNames:(preset.env||[]).map(e=>e.name),envHelp:preset.env,setup:preset.setup,presetId:preset.id}:{});
         modal(c.id?'配置 MCP 连接':'添加 MCP 连接',mcpForm(c),'保存',async f=>{const out=await invoke('mcpConnection',mcpPayload(f,c));applyState(out.state);render();const row=(state.mcpConnections||[]).find(x=>x.id===out.saved?.id);toast(row?.auth==='oauth'&&!row.signedIn?'已保存，点卡片上的「登录」完成浏览器登录':'已保存，可以点「测试连接」');});
         bindMcpForm($('#modal'));return;}
-    if(actionId==='mcpSignIn'){toast('正在打开浏览器登录页，完成后回到 QuanK…');try{const out=await invoke('mcpSignIn',{id});applyState(out.state);render();toast('登录成功，可以点「测试连接」');}catch(e){applyState(await invoke('state'));render();throw e;}return;}
+    if(actionId==='mcpSignIn'){toast('正在打开浏览器登录页，完成后回到 QuankSight…');try{const out=await invoke('mcpSignIn',{id});applyState(out.state);render();toast('登录成功，可以点「测试连接」');}catch(e){applyState(await invoke('state'));render();throw e;}return;}
     if(actionId==='mcpSignOut'){const out=await invoke('mcpSignOut',{id});applyState(out.state);render();toast('已退出登录');return;}
     if(actionId==='removeMcp'){const out=await invoke('mcpConnection',{id,remove:true});applyState(out.state);render();return;}
     if(actionId==='cancelMcpTest'){await invoke('mcpCancelTest',{id});return;}
@@ -1527,7 +1548,7 @@ async function handle(actionId, id, stockTarget) {
         if (actionId === 'chatRename') { modal('重命名对话', input('名称', 'name', c.name), '保存', async f => update('chatMeta', { id, name: f.get('name') })); return; }
         if (actionId === 'chatPin') { await update('chatMeta', { id, pinned: !c.pinned }); toast(c.pinned ? '已取消置顶' : '已置顶'); return; }
         if (actionId === 'chatArchive') { await update('chatMeta', { id, archived: !c.archived }); toast(c.archived ? '已取消归档' : '已归档'); return; }
-        if (actionId === 'chatExport') { const agent = state.agents.find(a => a.id === c.agentId); await invoke('exportText', { name: c.name + '.md', text: chatMarkdown(c, { agentName: agent?.name || 'QuanK', date }) }); return; }
+        if (actionId === 'chatExport') { const agent = state.agents.find(a => a.id === c.agentId); await invoke('exportText', { name: c.name + '.md', text: chatMarkdown(c, { agentName: agent?.name || 'QuankSight', date }) }); return; }
         const folders = state.chatFolders || [];
         modal('移到文件夹', `<label>文件夹<select name="folder"><option value="">（不放入文件夹）</option>${folders.map(f => `<option value="${escape(f.id)}" ${c.folderId === f.id ? 'selected' : ''}>${escape(f.name)}</option>`).join('')}<option value="__new">＋ 新建文件夹…</option></select></label><label>新文件夹名称（选择“新建”时填写）<input name="name" placeholder="例如：通威项目"></label>`, '移动', async f => {
             let folderId = f.get('folder') || null;
@@ -1741,7 +1762,7 @@ async function handle(actionId, id, stockTarget) {
         if (actionId === 'tdConfirm' || actionId === 'tdConfirmAgain') {
             const o = order(id); if (!o) return;
             const real = tv.settings?.mode === 'real';
-            modal(real ? '下单：在券商页面填好委托' : '模拟下单', `<p>${line(o)}</p>${real ? '<p>QuanK 会打开券商网页版并填好代码、价格和数量，用红框标出提交按钮。<b>请核对后由你自己点击提交</b>，QuanK 不会替你提交。</p>' : '<p>按模拟盘撮合：现价到达委托价时成交，记入模拟账户。</p>'}${(o.notes || []).length ? `<p class="hint">${escape(o.notes.join('；'))}</p>` : ''}`, real ? '打开券商并填单' : '模拟下单', async () => { const r = await call({ action: 'confirm', id }); render(); toast(r.note || '已处理'); });
+            modal(real ? '下单：在券商页面填好委托' : '模拟下单', `<p>${line(o)}</p>${real ? '<p>QuankSight 会打开券商网页版并填好代码、价格和数量，用红框标出提交按钮。<b>请核对后由你自己点击提交</b>，QuankSight 不会替你提交。</p>' : '<p>按模拟盘撮合：现价到达委托价时成交，记入模拟账户。</p>'}${(o.notes || []).length ? `<p class="hint">${escape(o.notes.join('；'))}</p>` : ''}`, real ? '打开券商并填单' : '模拟下单', async () => { const r = await call({ action: 'confirm', id }); render(); toast(r.note || '已处理'); });
             return;
         }
         if (actionId === 'tdCancel') { const o = order(id); modal('撤销委托单', `<p>撤销：${o ? line(o) : ''}？</p>`, '撤销', async () => { const r = await call({ action: 'cancel', id }); render(); toast(r.note || '已撤销'); }); return; }
@@ -1781,7 +1802,7 @@ async function handle(actionId, id, stockTarget) {
         if (actionId === 'secUnlockTouch') { try { await call({ action: 'unlock', method: 'touchid' }); applyState(await invoke('state')); render(); } catch (e) { const el = $('#lockError'); if (el) { el.textContent = e.message; el.hidden = false; } } return; }
         if (actionId === 'secLock') { if (!state.security?.lockEnabled) { handle('secLockSettings'); return; } await call({ action: 'lock' }); applyState(await invoke('state')); render(); return; }
         if (actionId === 'secTab') { repaint(id); return; }
-        if (actionId === 'secPrivacy') { const [k, v] = String(id).split(':'); if (k === 'offline' && v === 'on') { modal('开启离线模式', '<p>开启后 QuanK 不再连接任何外部服务：实时行情、公告、财务数据、大模型对话和联网搜索都会暂停，本机策略引擎和本机数据照常可用。</p>', '开启', async () => { await call({ action: 'privacy', offline: true }); repaint(); toast('已开启离线模式'); }); return; } await call({ action: 'privacy', [k]: v === 'on' }); repaint(); toast('已保存'); return; }
+        if (actionId === 'secPrivacy') { const [k, v] = String(id).split(':'); if (k === 'offline' && v === 'on') { modal('开启离线模式', '<p>开启后 QuankSight 不再连接任何外部服务：实时行情、公告、财务数据、大模型对话和联网搜索都会暂停，本机策略引擎和本机数据照常可用。</p>', '开启', async () => { await call({ action: 'privacy', offline: true }); repaint(); toast('已开启离线模式'); }); return; } await call({ action: 'privacy', [k]: v === 'on' }); repaint(); toast('已保存'); return; }
         if (actionId === 'secEgressClear') { await call({ action: 'egressClear' }); repaint('egress'); return; }
         if (actionId === 'secAuditFilter') { S.setSecurityTab(document, 'audit', { kind: $('#secAuditKind')?.value || '', q: ($('#secAuditQ')?.value || '').trim() }); render(); return; }
         if (actionId === 'secAuditVerify') { const r = await call({ action: 'auditVerify' }); toast(r.ok ? `操作审计完整：${r.total} 条记录都未被改动` : `操作审计校验失败：第 ${r.line} 行，${r.reason}`); render(); return; }
@@ -1792,9 +1813,9 @@ async function handle(actionId, id, stockTarget) {
             if (id === 'on') { modal('开启本机数据加密', '<p>对话、持仓、组合、笔记、风控规则和设置会用 AES-256 加密保存，密钥放在 macOS 钥匙串里，只有当前 macOS 用户能解开。</p><p>开启前会先留一份<b>未加密的副本</b>，确认一切正常后可以在这里删除。钥匙串被重置或换电脑时，只能用<b>加密备份</b>找回数据，建议先导出一份。</p>', '开启加密', async () => { const r = await call({ action: 'encrypt', enabled: true }); repaint(); toast(r.backup ? `已开启加密，未加密副本：${r.backup}` : '已开启加密'); }); return; }
             modal('关闭本机数据加密', '<p>关闭后数据重新以明文保存，钥匙串里的数据密钥会删除。</p>', '关闭加密', async () => { await call({ action: 'encrypt', enabled: false }); repaint(); toast('已关闭加密'); }); return;
         }
-        if (actionId === 'secDeletePlain') { modal('删除未加密副本', '<p>删除开启加密前留下的未加密副本和恢复前的数据副本？删除后无法找回，请确认 QuanK 运行正常、并且已经导出过加密备份。</p>', '删除', async () => { const r = await call({ action: 'deletePlainBackups' }); repaint(); toast(`已删除 ${r.deleted} 个文件`); }); return; }
+        if (actionId === 'secDeletePlain') { modal('删除未加密副本', '<p>删除开启加密前留下的未加密副本和恢复前的数据副本？删除后无法找回，请确认 QuankSight 运行正常、并且已经导出过加密备份。</p>', '删除', async () => { const r = await call({ action: 'deletePlainBackups' }); repaint(); toast(`已删除 ${r.deleted} 个文件`); }); return; }
         if (actionId === 'secBackup') { modal('导出加密备份', S.backupForm(false), '选择保存位置', async f => { const r = await call(S.backupPayload(f, false)); if (!r.cancelled) { repaint(); toast(`已保存 ${r.saved}`); } }); return; }
-        if (actionId === 'secRestore') { modal('从加密备份恢复', S.backupForm(true), '选择备份文件', async f => { const r = await call(S.backupPayload(f, true)); if (r.cancelled) return; const c = r.counts || {}; later('确认恢复', `<p>备份文件：${escape(r.file)}</p><p>备份时间：${escape(new Date(r.created).toLocaleString('zh-CN', { hour12: false }))}；对话 ${c.chats ?? '—'} 个，手动持仓 ${c.holdings ?? '—'} 条，资料 ${c.notes ?? '—'} 条。</p><p>恢复会<b>替换当前全部数据</b>（当前数据会另存一份），然后 QuanK 重新启动。已保存的密钥如果来自另一台 Mac，需要重新填写。</p>`, '恢复并重启', async () => { await call({ action: 'backupRestore' }); toast('正在恢复，QuanK 即将重新启动…'); }); }); return; }
+        if (actionId === 'secRestore') { modal('从加密备份恢复', S.backupForm(true), '选择备份文件', async f => { const r = await call(S.backupPayload(f, true)); if (r.cancelled) return; const c = r.counts || {}; later('确认恢复', `<p>备份文件：${escape(r.file)}</p><p>备份时间：${escape(new Date(r.created).toLocaleString('zh-CN', { hour12: false }))}；对话 ${c.chats ?? '—'} 个，手动持仓 ${c.holdings ?? '—'} 条，资料 ${c.notes ?? '—'} 条。</p><p>恢复会<b>替换当前全部数据</b>（当前数据会另存一份），然后 QuankSight 重新启动。已保存的密钥如果来自另一台 Mac，需要重新填写。</p>`, '恢复并重启', async () => { await call({ action: 'backupRestore' }); toast('正在恢复，QuankSight 即将重新启动…'); }); }); return; }
         if (actionId === 'secCliInstall') { const r = await call({ action: 'cliInstall' }); repaint(); toast(r.inPath === false ? `已安装 ${r.bin}。终端里找不到 quank 的话，把 ~/.local/bin 加进 PATH` : `已安装 quank 命令，在终端里运行 quank --help 试试`); return; }
         if (actionId === 'secCliUninstall') { await call({ action: 'cliUninstall' }); repaint(); toast('已卸载 quank 命令'); return; }
         if (actionId === 'secCliEnable') { await call({ action: 'cliEnable', enabled: id !== 'off' }); repaint(); toast(id === 'off' ? '已关闭命令行' : '已开启命令行'); return; }
@@ -2063,7 +2084,7 @@ async function handle(actionId, id, stockTarget) {
         const c = state.chats.find(c => c.id === chatId);
         if (!c?.messages.length)
             throw new Error('暂无可导出的对话');
-        await invoke('exportText', { name: c.name, text: c.messages.map(m => `## ${m.role === 'user' ? '你' : 'QuanK'}\n\n${m.content}`).join('\n\n') });
+        await invoke('exportText', { name: c.name, text: c.messages.map(m => `## ${m.role === 'user' ? '你' : 'QuankSight'}\n\n${m.content}`).join('\n\n') });
         return;
     }
     if (actionId === 'viewArtifact' || actionId === 'exportArtifact') {
@@ -2127,6 +2148,8 @@ document.addEventListener('toggle', e => {
     });
 }, true);
 document.addEventListener('keydown', e => {
+    // [V100-3] 展开态按 Esc 还原，主区域始终还在。
+    if (e.key === 'Escape' && pageWide && !pickerKind && !$('#modal')?.open) { pageWide = false; savePanel(); render(); return; }
     // [p1-m4] Cmd/Ctrl+B: keep the current task running in the background and start a new one
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b' && !$('#modal').open && page === 'chat' && chatLive()) {
         e.preventDefault();
@@ -2184,6 +2207,15 @@ function bindPanelResize(host) {
         addEventListener('mousemove', move); addEventListener('mouseup', up);
     });
 }
+// [V100-3] 展开时面板覆盖主区域，左边界跟着侧栏右边缘，侧栏始终可见。
+function syncPanelLeft(host) {
+    host ||= document.getElementById('pagePanel');
+    if (!host) return;
+    if (!pageWide) { host.style.removeProperty('--pp-left'); return; }
+    const side = document.querySelector('#app .sidebar, #app aside, #app nav');
+    const left = side ? Math.round(side.getBoundingClientRect().right) : 0;
+    host.style.setProperty('--pp-left', left + 'px');
+}
 function renderPanel() {
     clearOfficeNotice();
     let host = document.getElementById('pagePanel');
@@ -2208,6 +2240,7 @@ function renderPanelTab(host, tab) {
     }
     if (pageTabId !== tab.id) setPanelActive(tab.id);
     document.body.classList.add('pp-on'); document.body.classList.toggle('pp-wide', pageWide);
+    syncPanelLeft(host);
     host.style.setProperty('--pp-w', panelUI.clampWidth(pageWidth, innerWidth) + 'px');
     const head = panelUI.panelHead({ tabs: pageTabs, active: tab.id, wide: pageWide, icon });
     if (head !== panelHeadHtml) { host.querySelector('.pp-head').innerHTML = head; panelHeadHtml = head; }
@@ -2255,7 +2288,7 @@ function renderPanelTab(host, tab) {
     if (tab.kind === 'stock' && !quantCache.has(tab.code) && !quantLoading.has(tab.code)) setTimeout(() => handle('quantOpen', tab.code).catch(err => toast(err.message)), 0);
 }
 document.addEventListener('click', e => { if (e.target.closest?.('#pagePanel')) panelClickAt = Date.now(); }, true);
-addEventListener('resize', () => { paintApprovalSummaries(); const h = document.getElementById('pagePanel'); if (h) h.style.setProperty('--pp-w', panelUI.clampWidth(pageWidth, innerWidth) + 'px'); });
+addEventListener('resize', () => { paintApprovalSummaries(); const h = document.getElementById('pagePanel'); if (h) { h.style.setProperty('--pp-w', panelUI.clampWidth(pageWidth, innerWidth) + 'px'); if (pageWide) syncPanelLeft(h); } });
 async function boot() {
     try {
         if (api) {

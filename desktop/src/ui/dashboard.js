@@ -15,7 +15,7 @@ export function studioPage(state, {action, heading, empty, date, tab = 'dashboar
 <small class="graph-alias">${escape(SOURCE_LABEL[d.source?.kind] || '')}${d.source?.name ? ' · ' + escape(d.source.name) : ''}${d.source?.sheet ? ' · ' + escape(d.source.sheet) : ''} · ${d.rows} 行${d.truncated ? '（已截取）' : ''}</small>
 <p>${(d.spec?.kpis?.length || 0)} 个指标 · ${(d.spec?.charts?.length || 0)} 个图表 · 更新于 ${escape(date(d.updated))}</p>
 <div class="actions">${action('打开', 'dashboardOpen', d.id, 'primary')}${action('重新设计', 'dashboardRedesign', d.id)}${action('重命名', 'dashboardRename', d.id)}${action('删除', 'dashboardRemove', d.id)}</div></div>`).join('');
-  const head = heading('', '仪表盘', '在对话里附上 Excel / CSV 数据表，QuanK 会在回复下方自动生成仪表盘；也可以在这里从成果中心的表格新建。图上的每个数字都由本机按真实数据计算。', action('＋ 新建仪表盘', 'dashboardNew', '', 'primary'));
+  const head = heading('', '仪表盘', '在对话里附上 Excel / CSV 数据表，QuankSight 会在回复下方自动生成仪表盘；也可以在这里从成果中心的表格新建。图上的每个数字都由本机按真实数据计算。', action('＋ 新建仪表盘', 'dashboardNew', '', 'primary'));
   return `<div class="page">${head}${tabs}${list.length ? `<div class="cards">${cards}</div>` : empty('还没有仪表盘', '在对话框里添加一份 Excel / CSV 数据表并发送，回复下方就会出现仪表盘。')}</div>`;
 }
 

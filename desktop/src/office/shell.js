@@ -1,4 +1,4 @@
-// QuanK Office shell: top bar, tabs, ribbon card, rail, stage, notes, side panel, status bar.
+// QuankSight shell: top bar, tabs, ribbon card, rail, stage, notes, side panel, status bar.
 // Talks to the other lanes only through bus.js. office.js is untouched: the shell mirrors/clicks its legacy ids.
 import { bus } from './bus.js';
 import { hydrateIcons } from './icons/icons.js';
@@ -27,7 +27,7 @@ function action(id, label) {
 /* ---------- legacy mirrors (office.js keeps writing to these ids) ---------- */
 const watch = (target, fn, opts) => { if (!target) return; new MutationObserver(fn).observe(target, opts); fn(); };
 const all = { childList: true, subtree: true, characterData: true };
-watch($('#name'), () => { const t = $('#name').textContent; $('#wb-title').textContent = t; $('#wb-title').title = t; document.title = t + ' · QuanK Office'; }, all);
+watch($('#name'), () => { const t = $('#name').textContent; $('#wb-title').textContent = t; $('#wb-title').title = t; document.title = t + ' · QuankSight'; }, all);
 watch($('#status'), () => { const t = $('#status').textContent; const el = $('#wb-save-state'); el.textContent = t; el.classList.toggle('is-dirty', t.includes('尚未保存')); }, all);
 let lastAction = '';
 watch($('#action-status'), () => { const t = $('#action-status').textContent; if (t && t !== lastAction) toast(t); lastAction = t; updateFloat(); }, all);

@@ -5,7 +5,7 @@ here="$(cd -- "$(dirname -- "$0")" && pwd)"
 app="$HOME/Applications/QuanK.app"
 [ -d "$app" ] || app='/Applications/QuanK.app'
 [ -d "$app" ] || { echo '未找到已安装应用；请使用完整离线包。'; exit 1; }
-/usr/bin/osascript -e 'display dialog "此修复小更新仅支持两个指定的 QuanK 0.37.26 候选构建，其他版本会安全退出。请先从菜单彻底退出应用。更新使用本机 APFS 克隆，不再解压整套 Python/Office。旧版保留为备份，校验失败停止。" buttons {"取消", "更新"} default button "更新" cancel button "取消"'
+/usr/bin/osascript -e 'display dialog "此修复小更新仅支持两个指定的 QuankSight 0.37.26 候选构建，其他版本会安全退出。请先从菜单彻底退出应用。更新使用本机 APFS 克隆，不再解压整套 Python/Office。旧版保留为备份，校验失败停止。" buttons {"取消", "更新"} default button "更新" cancel button "取消"'
 python="$app/Contents/Resources/runtimes/python/bin/python3.12"
 [ -x "$python" ] || { echo '缺少内置Python，请使用完整包。'; exit 1; }
 log_dir="$HOME/Library/Logs/QuanK"
@@ -20,4 +20,4 @@ else
   echo '请勿反复重试，也不要移除隔离属性或跳过签名验证。'
   exit 1
 fi
-/usr/bin/osascript -e 'display dialog "更新已完成。可以重新打开 QuanK。" buttons {"完成"}'
+/usr/bin/osascript -e 'display dialog "更新已完成。可以重新打开 QuankSight。" buttons {"完成"}'

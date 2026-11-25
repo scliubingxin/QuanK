@@ -55,8 +55,8 @@ export function recentSections({chats, folders = [], query = '', chatId = '', pa
 }
 
 /** Markdown export of one chat: user / assistant turns, attachments named, intermediate stream fragments skipped. */
-export function chatMarkdown(chat, {agentName = 'QuanK', date = t => new Date(t).toLocaleString('zh-CN')} = {}) {
-  const lines = [`# ${chat.name || '对话'}`, '', `> 导出自 QuanK · ${date(Date.now())}`, ''];
+export function chatMarkdown(chat, {agentName = 'QuankSight', date = t => new Date(t).toLocaleString('zh-CN')} = {}) {
+  const lines = [`# ${chat.name || '对话'}`, '', `> 导出自 QuankSight · ${date(Date.now())}`, ''];
   for (const m of chat.messages || []) {
     if (m.intermediate || m.partial && !m.error) continue;
     const t = messageText(m).trim();

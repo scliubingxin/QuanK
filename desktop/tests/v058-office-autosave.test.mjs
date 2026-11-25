@@ -97,18 +97,15 @@ test('continuous edits save no later than 30 seconds', async t => {
   assert.equal(f.records.size, 1);
 });
 
-test('IME and drag block both timed and explicit saves', async t => {
+test('IME and drag block saves within 20 seconds; stale interaction falls back to save', async t => {
   const f = await fixture(t);
   f.controller.setInteraction({ ime: true, drag: true });
   f.edit('中文');
   assert.equal((await f.controller.save()).ok, false);
-  await f.clock.advance(40_000);
-  f.controller.setInteraction({ ime: false });
-  await f.clock.advance(10_000);
-  assert.equal(f.calls.length, 0);
-  f.controller.setInteraction({ drag: false });
-  await f.clock.advance(0);
-  assert.equal(await f.read(), '中文');
+  await f.clock.advance(19_000);
+  assert.equal(f.calls.length, 0, '不足 20 秒仍不保存');
+  await f.clock.advance(2_000);
+  assert.equal(await f.read(), '中文', '卡住超过 20 秒后兜底保存');
 });
 
 test('fsync failure leaves source intact and removes incomplete temp files', async t => {

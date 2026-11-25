@@ -76,7 +76,7 @@ export function createTaskService({ models, store, active, key, view, conversati
         await queue.submit({id:runId,kind:'task',ownerId:id,label:name,fingerprint}, async controller => {
             modelRoute?.check();
             const result = await request(modelRoute?.settings||store.data.settings,modelRoute?modelRoute.key():key(),[
-                {role:'system',content:'你是 QuanK 定时工作助手。仅根据任务描述输出结果。没有联网或本机工具，不能假装查询了实时数据。'},
+                {role:'system',content:'你是 QuankSight 定时工作助手。仅根据任务描述输出结果。没有联网或本机工具，不能假装查询了实时数据。'},
                 {role:'user',content:prompt}
             ],controller.signal);
             modelRoute?.check();

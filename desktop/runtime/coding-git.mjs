@@ -50,7 +50,7 @@ export function createCodingGit(project) {
   const git = async (...args) => (await exec('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false', ...args], {
     cwd: project, maxBuffer: 16 * 1024 * 1024, timeout: 30000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
   })).stdout;
-  const commit = message => git('-c', 'user.name=QuanK', '-c', 'user.email=quank@localhost', 'commit', '-m', message);
+  const commit = message => git('-c', 'user.name=QuankSight', '-c', 'user.email=quank@localhost', 'commit', '-m', message);
   async function stage() {
     await assertSnapshotUntracked();
     if (await localEntry(path.join(project, '.quank'))) {
@@ -159,7 +159,7 @@ export function createCodingGit(project) {
         await ignoreCodingFiles(project);
         await stage();
         if (await git('diff', '--cached', '--name-only')) await commit('初始化策略项目');
-        else await git('-c', 'user.name=QuanK', '-c', 'user.email=quank@localhost', 'commit', '--allow-empty', '-m', '初始化策略项目');
+        else await git('-c', 'user.name=QuankSight', '-c', 'user.email=quank@localhost', 'commit', '--allow-empty', '-m', '初始化策略项目');
       }
       task.baseBranch = await branch();
       const dirty = !!await status();
@@ -186,7 +186,7 @@ export function createCodingGit(project) {
       }
       if (await ignoreCodingFiles(project)) {
         await git('add', '--', '.gitignore');
-        await commit('忽略 QuanK 本地迭代文件');
+        await commit('忽略 QuankSight 本地迭代文件');
       }
       state.iterationBase = (await git('rev-parse', 'HEAD')).trim();
     },
@@ -203,7 +203,7 @@ export function createCodingGit(project) {
       await ignoreCodingFiles(project);
       if (await status()) {
         await stage();
-        if (await git('diff', '--cached', '--name-only')) await commit('保存 QuanK 迭代改动');
+        if (await git('diff', '--cached', '--name-only')) await commit('保存 QuankSight 迭代改动');
       }
       const range = task.baseBranch + '...HEAD';
       const stats = (await git('diff', '--numstat', '-z', range)).split('\0').filter(Boolean);
@@ -271,7 +271,7 @@ export function createCodingGit(project) {
         await ignoreCodingFiles(project);
         await assertSnapshotUntracked();
         await stage();
-        if (await git('diff', '--cached', '--name-only')) await commit('保存中断的 QuanK 迭代改动');
+        if (await git('diff', '--cached', '--name-only')) await commit('保存中断的 QuankSight 迭代改动');
       }
       try {
         if (state.workspace && (await git('rev-parse', task.baseBranch)).trim() !== state.workspace.head) {

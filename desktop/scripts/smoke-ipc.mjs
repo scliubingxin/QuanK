@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// [F5] Packaged-app smoke check: launches a built QuanK.app with Chromium remote debugging on 127.0.0.1, then from the
+// [F5] Packaged-app smoke check: launches a built QuankSight.app with Chromium remote debugging on 127.0.0.1, then from the
 // real renderer (real preload bridge, real main-process handlers) checks that every bridged channel exists, calls the
 // read-only actions of the investment, portfolio and security features, opens a few pages and takes screenshots.
-// It never calls a write action. Usage (QuanK must not be running):
+// It never calls a write action. Usage (QuankSight must not be running):
 //   node desktop/scripts/smoke-ipc.mjs --app /tmp/qk-smoke/QuanK.app --out /tmp/qk-smoke/out [--port 9333]
 import { spawn, execFileSync } from 'node:child_process';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -27,7 +27,7 @@ const PAGES = ['security', 'quant', 'feed'];
 
 async function json(url, tries = 60) {
   for (let i = 0; i < tries; i++) { try { const r = await fetch(url); if (r.ok) return r.json(); } catch {} await sleep(500); }
-  throw new Error(`没有连上 ${url}（QuanK 是否已经在运行？请先完全退出 QuanK 再运行冒烟检查）`);
+  throw new Error(`没有连上 ${url}（QuankSight 是否已经在运行？请先完全退出 QuankSight 再运行冒烟检查）`);
 }
 function cdp(wsUrl) {
   const ws = new WebSocket(wsUrl); let id = 0; const wait = new Map();
@@ -47,11 +47,11 @@ const methods = [...preload.match(/const methods=\[(.*?)\];/s)[1].matchAll(/'(\w
 const plist = await readFile(path.join(appPath, 'Contents', 'Info.plist'), 'utf8').catch(() => '');
 const exe = (/<key>CFBundleExecutable<\/key>\s*<string>([^<]+)<\/string>/.exec(plist) || [])[1] || 'Electron';
 const bin = path.join(appPath, 'Contents', 'MacOS', exe);
-// QuanK allows one instance: a running copy (any location) makes the new one quit right after start
+// QuankSight allows one instance: a running copy (any location) makes the new one quit right after start
 let running = '';
 try { running = execFileSync('/bin/ps', ['-axo', 'pid=,command='], {encoding: 'utf8'}).split('\n').filter(l => /QuanK\.app\/Contents\/MacOS\//.test(l) && !l.includes(appPath)).join('\n').trim(); } catch {}
 if (running) {
-  const msg = `QuanK 正在运行，请先完全退出（⌘Q）再运行冒烟检查：\n${running}`;
+  const msg = `QuankSight 正在运行，请先完全退出（⌘Q）再运行冒烟检查：\n${running}`;
   await writeFile(path.join(out, 'smoke-report.json'), JSON.stringify({...report, ok: false, problems: [msg]}, null, 2));
   console.log(JSON.stringify({ok: false, problems: [msg]}, null, 1));
   process.exit(2);
@@ -63,11 +63,11 @@ try {
   report.electron = ver.Browser;
   let page = null;
   for (let i = 0; i < 60 && !page; i++) { const list = await json(`http://127.0.0.1:${port}/json/list`); page = list.find(t => t.type === 'page' && /index\.html/.test(t.url)); if (!page) await sleep(500); }
-  if (!page) throw new Error('没有找到 QuanK 主窗口');
+  if (!page) throw new Error('没有找到 QuankSight 主窗口');
   const c = cdp(page.webSocketDebuggerUrl);
   await c.send('Page.enable'); await sleep(2500);
   const locked = await c.evaluate(`window.actwill.state().then(s => !!s.locked)`);
-  if (locked) throw new Error('QuanK 处于锁定状态，请先关闭应用锁或手动解锁后再运行冒烟检查');
+  if (locked) throw new Error('QuankSight 处于锁定状态，请先关闭应用锁或手动解锁后再运行冒烟检查');
   report.channels = await c.evaluate(`(${JSON.stringify(methods)}).reduce((o, m) => (o[m] = typeof window.actwill?.[m] === 'function', o), {})`);
   const missing = Object.entries(report.channels).filter(([, ok]) => !ok).map(([m]) => m);
   if (missing.length) report.problems.push(`窗口里缺少这些接口：${missing.join('、')}`);

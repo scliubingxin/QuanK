@@ -24,7 +24,7 @@ export function createGenOfficeBridge({
       } catch {}
     }
     throw Error(
-      "未找到 GenOffice。请先安装官方 Apple 芯片版 GenOffice 到 Applications；QuanK 内置内容编辑和生成无需安装它。",
+      "未找到 GenOffice。请先安装官方 Apple 芯片版 GenOffice 到 Applications；QuankSight 内置内容编辑和生成无需安装它。",
     );
   },
   launch = async (app, file) => {
@@ -72,7 +72,7 @@ export function createGenOfficeBridge({
       if (
         !(await approve(
           "在 GenOffice 中编辑副本",
-          `${source.name}.${source.format}\n将本地副本交给已安装的 GenOffice。其权限、联网与AI设置由该应用管理。\n保存后、退出QuanK前点击「收回编辑结果」。退出会清理临时副本；不会自动覆盖文档。`,
+          `${source.name}.${source.format}\n将本地副本交给已安装的 GenOffice。其权限、联网与AI设置由该应用管理。\n保存后、退出QuankSight前点击「收回编辑结果」。退出会清理临时副本；不会自动覆盖文档。`,
           signal,
         ))
       )

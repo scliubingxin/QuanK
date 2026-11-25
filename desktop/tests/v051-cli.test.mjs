@@ -44,7 +44,7 @@ test('C1 plan: subcommands map to the chat tools, flags and validation', () => {
   assert.equal(Q.plan([]).special, 'help'); assert.equal(Q.plan(['--version']).special, 'version');
   assert.throws(() => Q.plan(['frobnicate']), /不认识的命令/);
   assert.throws(() => Q.plan(['quote']), /缺少公司名称或代码/);
-  assert.match(Q.HELP, /quank mcp|mcp  /); assert.match(Q.HELP, /会修改数据的操作仍会在 QuanK 里弹出确认框/);
+  assert.match(Q.HELP, /quank mcp|mcp  /); assert.match(Q.HELP, /会修改数据的操作仍会在 QuankSight 里弹出确认框/);
 });
 
 test('C1 output: aligned CJK tables, readable nested results, code lookup', () => {
@@ -73,7 +73,7 @@ function fakeDeps(over = {}) {
 test('handler: hello, lock, tool calls with audience / via, ask streaming and audit', async () => {
   const {deps, calls, audits} = fakeDeps();
   const h = createCliHandler(deps);
-  assert.deepEqual(await h({method: 'hello'}), {app: 'QuanK', protocol: 1, version: '0.51.0', tools: 2, locked: false});
+  assert.deepEqual(await h({method: 'hello'}), {app: 'QuankSight', protocol: 1, version: '0.51.0', tools: 2, locked: false});
   assert.equal((await h({method: 'tools.list'})).tools.length, 2);
   assert.deepEqual((await h({method: 'tools.call', params: {name: 'app_market_quote', args: {query: '通威'}}})).result.echo, {query: '通威'});
   assert.deepEqual([calls[0].audience, calls[0].via], ['human', 'cli']);
@@ -133,7 +133,7 @@ test('C3 MCP server: initialize, tools/list with quank_ask, tools/call for the m
   const rpc = async (method, params) => {
     seen.push({method, params});
     if (method === 'tools.list') return {tools: [{name: 'app_market_quote', description: '行情', parameters: {type: 'object', properties: {query: {type: 'string'}}, required: ['query']}}]};
-    if (method === 'tools.call') { if (params.name === 'app_bad') throw new Error('QuanK 已锁定，请先在应用里解锁'); return {result: {status: 'succeeded', price: 11.11}}; }
+    if (method === 'tools.call') { if (params.name === 'app_bad') throw new Error('QuankSight 已锁定，请先在应用里解锁'); return {result: {status: 'succeeded', price: 11.11}}; }
     if (method === 'ask') return {chatId: 'c9', status: 'completed', text: '有 3 个买点'};
   };
   const io = rpcPipe(); const done = Q.runMcp({input: io.input, output: io.output, rpc});
@@ -162,7 +162,7 @@ test('C3 MCP server: initialize, tools/list with quank_ask, tools/call for the m
   io.end(); await done;
 });
 
-test('C4 ACP agent: initialize, sessions keep one QuanK chat, streamed chunks, cancel', async () => {
+test('C4 ACP agent: initialize, sessions keep one QuankSight chat, streamed chunks, cancel', async () => {
   const seen = [];
   const rpc = async (method, params, onEvent) => {
     seen.push({method, params});
@@ -183,7 +183,7 @@ test('C4 ACP agent: initialize, sessions keep one QuanK chat, streamed chunks, c
   assert.match(ask1.prompt, /生成复盘[\s\S]*file:\/\/\/a\.md[\s\S]*附件内容/); assert.equal(ask1.via, 'acp');
   io.send({id: 4, method: 'session/prompt', params: {sessionId: sid, prompt: [{type: 'text', text: '再来'}]}});
   await io.wait(m => m.id === 4);
-  const asks = seen.filter(s => s.method === 'ask'); assert.equal(asks[1].params.chatId, asks[0].params.chatId, 'same QuanK chat for the session');
+  const asks = seen.filter(s => s.method === 'ask'); assert.equal(asks[1].params.chatId, asks[0].params.chatId, 'same QuankSight chat for the session');
   io.send({method: 'session/cancel', params: {sessionId: sid}}); await tick(20);
   assert.deepEqual(seen.at(-1), {method: 'ask.cancel', params: {chatId: asks[0].params.chatId}});
   io.send({id: 5, method: 'session/prompt', params: {sessionId: 'nope', prompt: []}});
@@ -199,7 +199,7 @@ test('installer: wrapper script, permissions, refuses foreign files, PATH hint, 
   const r = await ins.install();
   assert.equal(r.inPath, false);
   const w = await readFile(ins.bin, 'utf8');
-  assert.match(w, /^#!\/bin\/sh\n# quank — QuanK 命令行/);
+  assert.match(w, /^#!\/bin\/sh\n# quank — QuankSight 命令行/);
   assert.match(w, /ELECTRON_RUN_AS_NODE=1 exec '\/Applications\/Quan K'\\''s\.app\/Contents\/MacOS\/Electron' '.*cli\/quank\.cjs' "\$@"/);
   assert.equal((await stat(ins.bin)).mode & 0o777, 0o755);
   assert.equal(await readFile(ins.script, 'utf8'), '// quank\n');
@@ -208,7 +208,7 @@ test('installer: wrapper script, permissions, refuses foreign files, PATH hint, 
   await writeFile(bundled, '// quank v2\n'); assert.equal(await ins.refresh(), true); assert.equal(await readFile(ins.script, 'utf8'), '// quank v2\n');
   await ins.uninstall(); assert.equal(await ins.installed(), false);
   await writeFile(ins.bin, '#!/bin/sh\necho other\n');
-  await assert.rejects(ins.install(), /不是 QuanK 装的/);
+  await assert.rejects(ins.install(), /不是 QuankSight 装的/);
   assert.equal(await ins.refresh(), false, 'never touches a foreign file');
   assert.match(wrapperScript({electron: '/a', script: '/b', socket: '/c', tokenFile: '/d'}), /QUANK_SOCKET='\/c' QUANK_TOKEN_FILE='\/d'/);
   assert.equal(socketPathFor('/x'), '/x/quank.sock');
@@ -224,7 +224,7 @@ test('socket transport end to end: token, 0600, the real quank client, streamed 
   const st = await srv.start();
   assert.equal(st.running, true); assert.equal((await stat(srv.socket)).mode & 0o777, 0o600); assert.equal((await stat(srv.tokenFile)).mode & 0o777, 0o600);
   const c = Q.createClient({socket: srv.socket, tokenFile: srv.tokenFile});
-  assert.equal((await c.request('hello')).app, 'QuanK');
+  assert.equal((await c.request('hello')).app, 'QuankSight');
   assert.deepEqual((await c.request('tools.call', {name: 'app_market_quote', args: {query: '通威'}})).result.echo, {query: '通威'});
   const ev = []; const r = await c.request('ask', {prompt: 'q'}, e => ev.push(e.text));
   assert.deepEqual(ev, ['你好', '，世界']); assert.equal(r.status, 'completed');
@@ -285,7 +285,7 @@ test('report cards: an object summary is never printed as [object Object]; metri
 });
 test('missing-interface message names the channel and asks to update', async () => {
   const app = await readFile(new URL('../src/app.js', import.meta.url), 'utf8');
-  assert.match(app, /当前安装的 QuanK 不支持这个功能（缺少「\$\{name\}」接口）/);
+  assert.match(app, /当前安装的 QuankSight 不支持这个功能（缺少「\$\{name\}」接口）/);
 });
 
 test('[v0.52] quank order maps to the trade tools', () => {

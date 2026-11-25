@@ -134,7 +134,7 @@ export function demoState() {
     {id: 'ig3', name: '储能项目里程碑', updated: now - 26 * H, spec: normalizeInfographic({template: 'timeline', title: '储能项目里程碑', items: [{value: '3月', title: '立项', text: '完成可研与选址'}, {value: '6月', title: '备案', text: '取得并网备案'}, {value: '9月', title: '建设', text: '设备进场安装'}, {value: '12月', title: '并网', text: '完成调试并网'}]})},
     {id: 'ig4', name: '年度大会海报', updated: now - 50 * H, spec: normalizeInfographic({template: 'poster', title: '2026 年度合作伙伴大会', subtitle: '12 月 18 日 · 成都', footer: '扫码报名，席位有限', items: [{value: '30+', title: '行业嘉宾'}, {value: '8', title: '专题论坛'}, {value: '1000', title: '参会伙伴'}]})},
   ];
-  s.brand = {name: 'QuanK', primary: '#0078CB', accent: '#F59E0B'};
+  s.brand = {name: 'QuankSight', primary: '#0078CB', accent: '#F59E0B'};
   s.miniapps = [
     {id: 'ma1', name: '团队周报打卡表', updated: now - 2 * H, versions: 2, dataItems: 18, bytes: 9800, note: '加了按周筛选和完成率'},
     {id: 'ma2', name: '报价计算器', updated: now - 20 * H, versions: 0, dataItems: 4, bytes: 6200, note: '首次生成'},

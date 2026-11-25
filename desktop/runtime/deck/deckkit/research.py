@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Theme `research` - QuanK investment-research deck (native editable shapes, charts and tables).
+"""Theme `research` - QuankSight investment-research deck (native editable shapes, charts and tables).
 
 Page types: cover / summary / company / financials / valuation / chart / signals /
 catalysts_risks / event / disclaimer.  Visual language follows the light `report`
 theme (numbered titles, tinted header bars, rounded panels, zebra tables) but the
-palette is QuanK: royal blue 2F62F5, deep blue 0B2BA6 / 14213D, light blue-grey EEF2FF.
+palette is QuankSight: royal blue 2F62F5, deep blue 0B2BA6 / 14213D, light blue-grey EEF2FF.
 No third-party logos, photos or marks are used.
 """
 from __future__ import division
@@ -27,8 +27,8 @@ RED = "C8102E"
 GREEN = "0E9F6E"
 
 DISCLAIMER_TEXT = (
-    "本报告由 QuanK 依据公开数据与本机量化引擎自动生成，仅供研究与内部交流，不构成任何投资建议。"
-    "报告中的数据、观点与测算可能随市场变化而调整，QuanK 不对信息的完整性、准确性或及时性作任何保证。"
+    "本报告由 QuankSight 依据公开数据与本机量化引擎自动生成，仅供研究与内部交流，不构成任何投资建议。"
+    "报告中的数据、观点与测算可能随市场变化而调整，QuankSight 不对信息的完整性、准确性或及时性作任何保证。"
     "投资者应独立判断并自行承担投资风险。历史数据与回测结果不代表未来表现。"
 )
 
@@ -90,7 +90,7 @@ class ResearchTheme(object):
         lg = C.asset_path("quank_logo.png")
         if lg:
             C.add_picture_fit(s, lg, 0.34, 0.18, 0.32, 0.32, align="left")
-        C.text(s, 0.76, 0.19, 1.55, 0.30, "QuanK 投研", font=self.F(size=11, color=DEEP, bold=True),
+        C.text(s, 0.76, 0.19, 1.55, 0.30, "QuankSight 量见 · 投研", font=self.F(size=11, color=DEEP, bold=True),
                autofit=False, wrap=False, ins=(0, 0, 0, 0))
         if section:
             C.text(s, 11.10, 0.19, 1.85, 0.30, str(section), font=self.F(size=9, color=MUTED), align="right",
@@ -228,7 +228,7 @@ class ResearchTheme(object):
         lg = C.asset_path("quank_logo_white.png")
         if lg:
             C.add_picture_fit(s, lg, 0.65, 0.42, 0.52, 0.52, align="left")
-        C.text(s, 1.32, 0.50, 3.5, 0.36, "QuanK 投研 · RESEARCH", font=self.F(size=12, color="C7D2FE", bold=True),
+        C.text(s, 1.32, 0.50, 3.5, 0.36, "QuankSight 量见 · 投研 · RESEARCH", font=self.F(size=12, color="C7D2FE", bold=True),
                autofit=False, wrap=False, ins=(0, 0, 0, 0))
         C.text(s, 0.68, 1.62, 11.9, 1.70, [{"text": d.get("title", "投资研究报告")}],
                font=self.F(size=37, color="FFFFFF", bold=True), autofit=True, min_size=24, anchor="middle", spacing=1.10)
@@ -634,7 +634,7 @@ class ResearchTheme(object):
 
     def page_signals(self, s, d):
         self.chrome(s, d.get("section") or "量化信号")
-        self.title(s, d.get("title", "QuanK 量化信号与回测"))
+        self.title(s, d.get("title", "QuankSight 量化信号与回测"))
         self.lead(s, d.get("lead"))
         y0 = 1.62 if d.get("lead") else 1.30
         sigs = d.get("signals") or []
@@ -707,7 +707,7 @@ class ResearchTheme(object):
         C.shape(s, "round", 0.36, 1.78, 12.6, 4.55, fill="FFFFFF", line=LINE, line_w=0.75, adj=[5000])
         C.text(s, 0.72, 1.98, 11.88, 4.15, paras, font=self.F(size=11, color=TEXT), spacing=1.45,
                autofit=True, min_size=8)
-        C.text(s, 0.36, 6.62, 12.5, 0.30, "QuanK · 仅供研究，不构成投资建议", font=self.F(size=9, color=MUTED),
+        C.text(s, 0.36, 6.62, 12.5, 0.30, "QuankSight · 仅供研究，不构成投资建议", font=self.F(size=9, color=MUTED),
                autofit=False, ins=(0, 0, 0, 0))
         if self.page_sources:
             source_text = "数据来源：" + " / ".join(dict.fromkeys(self.page_sources)) + " · 截至 " + (self.page_as_of or self.source_as_of)

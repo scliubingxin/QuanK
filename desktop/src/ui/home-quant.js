@@ -48,5 +48,5 @@ export function homeQuant(state, {action, icon, date = t => String(t), showRecen
   return `<section class="home-quant"><div class="hq-head"><h2>${icon('trend')}量化工作台</h2><span class="hq-status ${tone}">${label}</span><span class="hq-tools">${main}${action('＋ 添加股票', 'quantAdd')}${action('打开量化', 'quantHome')}</span></div>
 <div class="hq-stats">${stats.map(([n, l, c]) => `<span class="${c || ''}"><b>${escape(String(n))}</b>${l}</span>`).join('')}</div>
 ${tiles ? `<div class="hq-grid">${tiles}${more}</div>` : '<p class="quiet-empty">股票池还是空的，点「添加股票」开始。</p>'}${showRecent ? recent(q, date) : ''}
-<p class="hq-note">信号来自你本机的私有策略，仅供研究，不构成投资建议；QuanK 不会替你下单。</p></section>`;
+<p class="hq-note">信号来自你本机的私有策略，仅供研究，不构成投资建议；QuankSight 不会替你下单。</p></section>`;
 }

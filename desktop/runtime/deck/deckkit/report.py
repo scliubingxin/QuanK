@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Theme `report` - light solution-report style.
 
-Re-creates the visual grammar of the sample deck "QuanK 基于大模型的知识管理体系与平台项目 详细方案报告 V3.3":
+Re-creates the visual grammar of the sample deck "QuankSight 基于大模型的知识管理体系与平台项目 详细方案报告 V3.3":
   * soft radial blue-grey page background, orange corner tag, 24pt numbered title, logo + security label top-right
   * section header bars (top-rounded, solid colour, white 10.5pt bold) over tinted rounded panels
   * numbered step cards with arrows, pill pipelines (①②③), layered architecture with dashed containers,
@@ -148,7 +148,7 @@ class ReportTheme(object):
         C.line(s, x + w, y + h * 0.75, x + w, y + h, color=color, width=wpt)
 
     def page_cover(self, s, d):
-        # QuanK brand-native cover: blue gradient + translucent panels, no third-party photos.
+        # QuankSight brand-native cover: blue gradient + translucent panels, no third-party photos.
         C.bg_grad(s, [(0, "F5F8FF"), (45, "E3ECFF"), (100, "C9D8FF")], path="circle")
         C.shape(s, "rect", 0, 0, 5.55, 7.5, grad=[(0, "0B2BA6"), (60, "2F62F5"), (100, "5A8DFF")], grad_angle=115)
         C.shape(s, "rect", 4.95, 0, 0.10, 7.5, fill="8C7CFF", alpha=0.65)
@@ -174,7 +174,7 @@ class ReportTheme(object):
         lg = C.asset_path("quank_logo.png")
         if lg:
             C.add_picture_fit(s, lg, 11.42, 0.46, 0.44, 0.44, align="left")
-        C.text(s, 0.92, 6.92, 4.6, 0.34, u"QuanK · 仅供研究，不构成投资建议", font=self.F(size=9, color="C7D2FE"),
+        C.text(s, 0.92, 6.92, 4.6, 0.34, u"QuankSight · 仅供研究，不构成投资建议", font=self.F(size=9, color="C7D2FE"),
                autofit=False, ins=(0, 0, 0, 0))
         sec = self.b.get("security_label", "")
         if sec:

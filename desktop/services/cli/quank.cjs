@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 'use strict';
-// [v0.51 CLI] quank — QuanK 命令行. Talks to the running QuanK over its local socket (QUANK_SOCKET / QUANK_TOKEN_FILE,
+// [v0.51 CLI] quank — QuankSight 命令行. Talks to the running QuankSight over its local socket (QUANK_SOCKET / QUANK_TOKEN_FILE,
 // set by the installed wrapper). C1 subcommands with tables or --json, C2 `quank ask`, C3 `quank mcp` (MCP stdio
-// server exposing QuanK's tools), C4 `quank acp` (Agent Client Protocol stdio agent). CommonJS + node built-ins only,
-// so it runs under QuanK's own Electron in node mode. Exported helpers are unit-tested (tests/v051-cli.test.mjs).
+// server exposing QuankSight's tools), C4 `quank acp` (Agent Client Protocol stdio agent). CommonJS + node built-ins only,
+// so it runs under QuankSight's own Electron in node mode. Exported helpers are unit-tested (tests/v051-cli.test.mjs).
 const net = require('node:net');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const VERSION = '1.0.0';
-const DEFAULT_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'QuanK');
+const VERSION = '1.0.1';
+const DEFAULT_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'QuankSight');
 
 // ---------- connection ----------
 function connectInfo(env = process.env) {
@@ -27,11 +27,11 @@ function createClient({socket, tokenFile} = connectInfo()) {
   function open() {
     if (conn) return Promise.resolve();
     return new Promise((resolve, reject) => {
-      if (!token) return reject(Object.assign(new Error('QuanK 命令行没有开启。请在 QuanK「安全与合规 → 命令行」里开启后再试。'), {code: 'QK_OFF'}));
+      if (!token) return reject(Object.assign(new Error('QuankSight 命令行没有开启。请在 QuankSight「安全与合规 → 命令行」里开启后再试。'), {code: 'QK_OFF'}));
       const c = net.createConnection(socket);
       c.setEncoding('utf8');
       c.once('connect', () => { conn = c; resolve(); });
-      c.once('error', e => { if (!conn) reject(Object.assign(new Error(e.code === 'ENOENT' || e.code === 'ECONNREFUSED' ? 'QuanK 没有运行，或命令行没有开启。请打开 QuanK，并在「安全与合规 → 命令行」里开启。' : `连不上 QuanK：${e.message}`), {code: 'QK_DOWN'})); });
+      c.once('error', e => { if (!conn) reject(Object.assign(new Error(e.code === 'ENOENT' || e.code === 'ECONNREFUSED' ? 'QuankSight 没有运行，或命令行没有开启。请打开 QuankSight，并在「安全与合规 → 命令行」里开启。' : `连不上 QuankSight：${e.message}`), {code: 'QK_DOWN'})); });
       c.on('data', d => {
         buf += d; let i;
         while ((i = buf.indexOf('\n')) >= 0) {
@@ -43,7 +43,7 @@ function createClient({socket, tokenFile} = connectInfo()) {
           if (m.error) p.reject(Object.assign(new Error(m.error.message), {code: m.error.code})); else p.resolve(m.result);
         }
       });
-      c.on('close', () => { conn = null; for (const p of pending.values()) p.reject(new Error('与 QuanK 的连接已断开')); pending.clear(); });
+      c.on('close', () => { conn = null; for (const p of pending.values()) p.reject(new Error('与 QuankSight 的连接已断开')); pending.clear(); });
     });
   }
   async function request(method, params = {}, onEvent) {
@@ -96,7 +96,7 @@ function render(v, depth = 0) {
 }
 
 // ---------- commands (C1) ----------
-const HELP = `quank ${VERSION} — QuanK 命令行（需要 QuanK 正在运行，并在「安全与合规 → 命令行」里开启）
+const HELP = `quank ${VERSION} — QuankSight 命令行（需要 QuankSight 正在运行，并在「安全与合规 → 命令行」里开启）
 
 用法：quank <命令> [参数] [--json]
 
@@ -116,7 +116,7 @@ const HELP = `quank ${VERSION} — QuanK 命令行（需要 QuanK 正在运行�
         order buy|sell <股票> [--shares 股数 --price 限价]   生成待确认的委托单
         order confirm <编号> | order cancel <编号>
         order fill <编号> [--status filled|partial|submitted|cancelled --price 价 --shares 股]
-        order settings [--pause | --resume | --baseAmount 5000 …]   （每一步都要在 QuanK 里确认，提交由你在券商页面完成）
+        order settings [--pause | --resume | --baseAmount 5000 …]   （每一步都要在 QuankSight 里确认，提交由你在券商页面完成）
 投研    kb search <关键词> [--stock 股票]   kb finance <股票>   kb graph <股票>
         notices <股票> [--limit 20]
         report <股票> [--format docx|pptx|html] [--ai]
@@ -124,14 +124,14 @@ const HELP = `quank ${VERSION} — QuanK 命令行（需要 QuanK 正在运行�
 自动化  task ls | task run <id>
 安全    sec | audit [--kind trade] [--q 关键词] | egress
         check [文件|-]              合规检查（不给文件就读标准输入）
-对话    ask "<问题>" [--agent id]   让 QuanK 智能体回答（可用管道传入资料）
+对话    ask "<问题>" [--agent id]   让 QuankSight 智能体回答（可用管道传入资料）
 通用    tools                       列出全部指令
         call <指令> [JSON 或 key=value …]
         status                      连接状态
 服务    mcp                         作为 MCP 服务运行（给 Claude、Cursor、Quick 等调用）
         acp                         作为 ACP 代理运行（给 Quick 等编码代理面板调用）
 
-会修改数据的操作仍会在 QuanK 里弹出确认框；所有调用都记入「操作审计」。`;
+会修改数据的操作仍会在 QuankSight 里弹出确认框；所有调用都记入「操作审计」。`;
 
 function parseArgs(argv) {
   const pos = [], flags = {};
@@ -213,7 +213,7 @@ function plan(argv) {
     case 'sec': return T('app_sec_status');
     case 'audit': return T('app_audit_list', {...(flags.kind ? {kind: flags.kind} : {}), ...(flags.q ? {q: flags.q} : {}), limit: flags.limit ? num(flags.limit) : 30});
     case 'egress': return T('app_egress_list', flags.host ? {host: flags.host} : {});
-    case 'order': { // [v0.52] 半自动委托 — every write asks for confirmation inside QuanK
+    case 'order': { // [v0.52] 半自动委托 — every write asks for confirmation inside QuankSight
       if (!sub || sub === 'ls') return T('app_trade_orders');
       if (sub === 'buy' || sub === 'sell') return T('app_trade_order_create', {query: need(words(rest), '股票'), side: sub, ...(flags.shares ? {shares: num(flags.shares)} : {}), ...(flags.price ? {price: num(flags.price)} : {}), ...(flags.reason ? {reason: String(flags.reason)} : {})});
       if (sub === 'confirm') return T('app_trade_order_confirm', {id: need(rest[0], '委托单编号')});
@@ -236,13 +236,13 @@ function codeIn(x, depth = 0) {
 }
 
 // ---------- C3: MCP server over stdio ----------
-const ASK_TOOL = {name: 'quank_ask', description: '把一个问题交给 QuanK 智能体（可调用本机量化引擎、行情、投研资料库、组合与风控），返回它的完整回答。适合需要多步分析的问题。', inputSchema: {type: 'object', properties: {prompt: {type: 'string'}, chatId: {type: 'string', description: '继续同一个 QuanK 对话时传入上次返回的 chatId'}}, required: ['prompt'], additionalProperties: false}};
+const ASK_TOOL = {name: 'quank_ask', description: '把一个问题交给 QuankSight 智能体（可调用本机量化引擎、行情、投研资料库、组合与风控），返回它的完整回答。适合需要多步分析的问题。', inputSchema: {type: 'object', properties: {prompt: {type: 'string'}, chatId: {type: 'string', description: '继续同一个 QuankSight 对话时传入上次返回的 chatId'}}, required: ['prompt'], additionalProperties: false}};
 function jsonLines(input, onMessage) {
   let buf = '';
   input.setEncoding?.('utf8');
   input.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (!line) continue; let m; try { m = JSON.parse(line); } catch { continue; } onMessage(m); } });
 }
-/** rpc(method, params, onEvent) talks to QuanK. Returns a promise that resolves when input ends. */
+/** rpc(method, params, onEvent) talks to QuankSight. Returns a promise that resolves when input ends. */
 function runMcp({input = process.stdin, output = process.stdout, rpc}) {
   const send = m => output.write(JSON.stringify({jsonrpc: '2.0', ...m}) + '\n');
   let tools = null;
@@ -252,7 +252,7 @@ function runMcp({input = process.stdin, output = process.stdout, rpc}) {
     jsonLines(input, async m => {
       if (m.id === undefined || m.id === null) return; // notifications (initialized, cancelled)
       try {
-        if (m.method === 'initialize') return send({id: m.id, result: {protocolVersion: m.params?.protocolVersion || '2025-06-18', capabilities: {tools: {listChanged: false}}, serverInfo: {name: 'quank', title: 'QuanK', version: VERSION}, instructions: 'QuanK 本机金融量化工作台的工具：行情、量化信号、组合与风控、投研资料库、合规检查。修改类操作会在 QuanK 里弹出确认框，用户拒绝时返回 denied。结果仅供研究，不构成投资建议。'}});
+        if (m.method === 'initialize') return send({id: m.id, result: {protocolVersion: m.params?.protocolVersion || '2025-06-18', capabilities: {tools: {listChanged: false}}, serverInfo: {name: 'quank', title: 'QuankSight', version: VERSION}, instructions: 'QuankSight 量见本机金融量化工作台的工具：行情、量化信号、组合与风控、投研资料库、合规检查。修改类操作会在 QuankSight 里弹出确认框，用户拒绝时返回 denied。结果仅供研究，不构成投资建议。'}});
         if (m.method === 'ping') return send({id: m.id, result: {}});
         if (m.method === 'tools/list') return send({id: m.id, result: {tools: [...(await list()), ASK_TOOL]}});
         if (m.method === 'tools/call') {
@@ -281,7 +281,7 @@ function runAcp({input = process.stdin, output = process.stdout, rpc, uid = () =
     jsonLines(input, async m => {
       const reply = result => send({id: m.id, result}), fail = (code, message) => send({id: m.id, error: {code, message}});
       try {
-        if (m.method === 'initialize') return reply({protocolVersion: 1, agentCapabilities: {loadSession: false, promptCapabilities: {image: false, audio: false, embeddedContext: true}, mcpCapabilities: {http: false, sse: false}}, agentInfo: {name: 'quank', title: 'QuanK', version: VERSION}, authMethods: []});
+        if (m.method === 'initialize') return reply({protocolVersion: 1, agentCapabilities: {loadSession: false, promptCapabilities: {image: false, audio: false, embeddedContext: true}, mcpCapabilities: {http: false, sse: false}}, agentInfo: {name: 'quank', title: 'QuankSight', version: VERSION}, authMethods: []});
         if (m.method === 'authenticate') return reply({});
         if (m.method === 'session/new') { const sessionId = 'qk-' + uid(); sessions.set(sessionId, {chatId: ''}); return reply({sessionId}); }
         if (m.method === 'session/cancel') { const s = sessions.get(m.params?.sessionId); if (s?.chatId) await rpc('ask.cancel', {chatId: s.chatId}).catch(() => {}); return; }
@@ -341,7 +341,7 @@ async function main(argv = process.argv.slice(2)) {
     }
     const r = (await rpc('tools.call', {name: p.tool, args: p.args})).result;
     if (p.json) out(JSON.stringify(r, null, 2));
-    else if (r?.status === 'denied') out('已取消：在 QuanK 的确认框里没有同意，未执行。');
+    else if (r?.status === 'denied') out('已取消：在 QuankSight 的确认框里没有同意，未执行。');
     else out(render(r));
     return r?.status === 'failed' || r?.status === 'denied' ? 1 : 0;
   } catch (e) { process.stderr.write(`quank：${e.message}\n`); return e.code === 'QK_LOCKED' ? 3 : e.code === 'QK_OFF' || e.code === 'QK_DOWN' ? 4 : 1; }

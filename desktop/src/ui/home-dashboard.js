@@ -14,7 +14,7 @@ const head = (title, right = '') => `<div class="qk-card-head"><h2>${title}</h2>
 const badge = (text, i) => { const [a, b] = TINTS[i % TINTS.length]; return `<span class="qk-badge" style="background:linear-gradient(135deg,${a},${b})">${escape([...String(text || '·')][0])}</span>`; };
 const when = (date, t) => fin(t) ? escape(date(t)) : '';
 
-/** Decorative hero art: glossy QuanK mark, floating glass tiles, candles and a rising line. No external assets. */
+/** Decorative hero art: glossy QuankSight mark, floating glass tiles, candles and a rising line. No external assets. */
 export function heroArt() {
   return `<svg class="qk-hero-art" viewBox="0 0 520 300" aria-hidden="true" focusable="false">
 <defs>
@@ -113,9 +113,9 @@ export function homeDashboard({state, icon, composer, action, date, taskStatus})
   const setup = !state.settings?.hasKey ? `<div class="setup-note qk-setup">${icon('link')}<div><b>连接你自己的模型</b><p>支持第三方 Chat Completions API 与本机 Ollama。首次使用请填写服务地址与模型。</p></div>${action('设置模型', 'settings')}</div>` : '';
   return `<div class="home qk-home">
 <section class="qk-hero">${heroArt()}<div class="qk-hero-inner">
-<span class="qk-pill"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1l1.8 4.6L14.5 7l-4.7 1.5L8 13l-1.8-4.5L1.5 7l4.7-1.4z" fill="currentColor"/></svg>QuanK · 量化工作，一键搞定</span>
+<span class="qk-pill"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1l1.8 4.6L14.5 7l-4.7 1.5L8 13l-1.8-4.5L1.5 7l4.7-1.4z" fill="currentColor"/></svg>QuankSight · 量化工作，一键搞定</span>
 <h1>今天的市场，从哪里开始？</h1>
-<p class="subtitle">看信号、读财报、写研报、做模型，一句话交给 QuanK；也可以先附上资料。</p>
+<p class="subtitle">看信号、读财报、写研报、做模型，一句话交给 QuankSight；也可以先附上资料。</p>
 ${composer()}
 <div class="suggestions">${SUGGEST.map(([id, i, t]) => `<button data-action="suggest" data-id="${id}" title="${t}" aria-label="${t}">${icon(i)}<span class="sg-label">${t}</span></button>`).join('')}</div>${setup}
 </div></section>

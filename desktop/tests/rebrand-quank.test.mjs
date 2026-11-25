@@ -23,7 +23,7 @@ test('identity constants', () => {
   assert.deepEqual(LEGACY_DATA_DIRS, ['WillBuddy', 'Actwill AI', 'actwill-desktop']);
 });
 
-test('prepareUserData: fresh install, existing QuanK, migration copy with path rewrite', async () => {
+test('prepareUserData: fresh install, existing QuankSight, migration copy with path rewrite', async () => {
   const root = await appData();
   try {
     assert.deepEqual(await prepareUserData(root), {dir: path.join(root, 'QuanK'), migratedFrom: null}, 'fresh install');
@@ -46,7 +46,7 @@ test('prepareUserData: fresh install, existing QuanK, migration copy with path r
     assert.equal(JSON.parse(await read(path.join(dir, 'MIGRATED_FROM.json'))).from, old);
     assert.equal(JSON.parse(await read(path.join(old, 'workspace.json'))).doc, path.join(old, 'documents', 'a.docx'), 'old folder untouched');
     const again = await prepareUserData(root);
-    assert.deepEqual(again, {dir, migratedFrom: null}, 'second start uses QuanK');
+    assert.deepEqual(again, {dir, migratedFrom: null}, 'second start uses QuankSight');
     assert.equal(await chooseUserDataDirectory(root), dir);
   } finally { await rm(root, {recursive: true, force: true}); }
 });
@@ -103,15 +103,15 @@ test('wiring and visible brand', async () => {
   const main = await read(new URL('../main.mjs', import.meta.url));
   assert.match(main, /QUANK_LEGACY_UNSEAL === '1'/); assert.doesNotMatch(main, /await legacyUnsealChild/, 'must not be awaited (ESM ready deadlock)');
   assert.match(main, /if \(legacyChild\) \{ \/\* legacy unseal child: nothing else runs \*\/ \}\nelse if \(!app\.requestSingleInstanceLock\(\)\)/); assert.match(main, /prepareUserData\(app\.getPath\('appData'\), \{ migrate: app\.isPackaged \}\)/);
-  assert.match(main, /app\.setName\(APP_NAME\)/); assert.doesNotMatch(main, /app\.setName\('Actwill AI'\)/);
+  assert.match(main, /app\.setName\(DISPLAY_NAME\)/); assert.doesNotMatch(main, /app\.setName\('Actwill AI'\)/);
   assert.match(main, /store\.data\.cryptoIdentity !== APP_NAME/);
-  assert.match(main, /title: 'QuanK'/);
+  assert.match(main, /title: 'QuankSight'/);
   const pkg = JSON.parse(await read(new URL('../package.json', import.meta.url)));
-  assert.equal(pkg.productName, 'QuanK'); assert.equal(pkg.build.appId, 'com.quank.desktop'); assert.equal(pkg.name, 'quank-desktop');
+  assert.equal(pkg.productName, 'QuankSight'); assert.equal(pkg.build.appId, 'com.quank.desktop'); assert.equal(pkg.name, 'quank-desktop');
   const app = await read(new URL('../src/app.js', import.meta.url));
-  assert.match(app, /alt="QuanK 标志"/); assert.match(app, /QuanK\$\{appVersion \? `<span class="brand-ver"[^`]*` : ''\}<small>量化工作，一键搞定<\/small>/); // [v0.52] version badge between name and tagline
+  assert.match(app, /alt="QuankSight 标志"/); assert.match(app, /QuankSight\$\{appVersion \? `<span class="brand-ver"[^`]*` : ''\}<small>量见 · 量化工作，一键搞定<\/small>/); // [v0.52] version badge between name and tagline
   const html = await read(new URL('../src/index.html', import.meta.url));
-  assert.match(html, /<title>QuanK · 金融量化工作台<\/title>/);
+  assert.match(html, /<title>QuankSight 量见 · 金融量化工作台<\/title>/);
   for (const f of ['main.mjs', 'src/app.js', 'src/index.html', 'src/office/index.html', 'src/ui/quant.js', 'services/app-tools.mjs'])
     assert.doesNotMatch(await read(new URL('../' + f, import.meta.url)), /WillBuddy(?!Engine| 助手| 工作助手)/, f + ' still shows the old name');
   const icon = await stat(new URL('../assets/app.icns', import.meta.url));

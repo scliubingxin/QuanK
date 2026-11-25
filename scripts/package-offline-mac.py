@@ -92,7 +92,7 @@ def main():
     app=stage/'QuanK.app';shutil.move(str(extracted/'Electron.app'),app)
     removed_before_sign=clean_residue(app)
     info_path=app/'Contents/Info.plist';info=plistlib.loads(info_path.read_bytes())
-    info.update(CFBundleName='QuanK',CFBundleDisplayName='QuanK',CFBundleIdentifier='com.quank.desktop',CFBundleShortVersionString=version,CFBundleVersion=version,CFBundleIconFile='QuanK.icns')
+    info.update(CFBundleName='QuankSight',CFBundleDisplayName='QuankSight',CFBundleIdentifier='com.quank.desktop',CFBundleShortVersionString=version,CFBundleVersion=version,CFBundleIconFile='QuanK.icns')
     info_path.write_bytes(plistlib.dumps(info,fmt=plistlib.FMT_XML))
     resources=app/'Contents/Resources';shutil.copy2(ROOT/'desktop/assets/app.icns',resources/'QuanK.icns')
     (resources/'default_app.asar').unlink(missing_ok=True)
@@ -118,7 +118,7 @@ def main():
         role=helper.parent.parent.stem.replace('Electron Helper','').strip(' ()').lower() or 'main'
         helper_info['CFBundleIdentifier']='com.quank.desktop.helper.'+role
         helper_info['CFBundleExecutable']=next((helper.parent/'MacOS').iterdir()).name
-        helper_info['CFBundleDisplayName']=helper_info.get('CFBundleName','Electron Helper').replace('Electron','QuanK')
+        helper_info['CFBundleDisplayName']=helper_info.get('CFBundleName','Electron Helper').replace('Electron','QuankSight')
         helper.write_bytes(plistlib.dumps(helper_info))
     binary=app/'Contents/MacOS'/info['CFBundleExecutable'];magic,cpu=struct.unpack('<II',binary.read_bytes()[:8])
     if magic!=0xfeedfacf or cpu!=0x0100000c:raise ValueError('main executable is not arm64 Mach-O')
@@ -153,7 +153,7 @@ def main():
     for f in (native/ENGINE).rglob('*'):
         if f.is_file() and not f.is_symlink() and digest(f)!=digest(resources/'runtimes'/ENGINE/f.relative_to(native/ENGINE)):raise ValueError('vendor engine bytes changed during signing')
     app_sha=digest(resources/'app.asar')
-    manifest={'product':'QuanK','version':version,'architecture':'arm64','minimum_macos':info.get('LSMinimumSystemVersion'),'runtime':'Electron '+electron,'runtime_sha256':runtime_sha,'app_asar_sha256':app_sha,'signature':'ad-hoc; no Developer ID or notarization','native_mac_tested':False,'signature_validation':'Mach-O hash verification; macOS resource-seal and Gatekeeper verification pending','verified_macho_binaries':verified_binaries,'verified_code_pages':verified_pages,'files':[]}
+    manifest={'product':'QuankSight','version':version,'architecture':'arm64','minimum_macos':info.get('LSMinimumSystemVersion'),'runtime':'Electron '+electron,'runtime_sha256':runtime_sha,'app_asar_sha256':app_sha,'signature':'ad-hoc; no Developer ID or notarization','native_mac_tested':False,'signature_validation':'Mach-O hash verification; macOS resource-seal and Gatekeeper verification pending','verified_macho_binaries':verified_binaries,'verified_code_pages':verified_pages,'files':[]}
     manifest['native_runtimes']=native_manifest
     manifest['files']=inventory(stage,app)
     engine=resources/'runtimes'/ENGINE

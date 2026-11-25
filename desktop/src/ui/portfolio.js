@@ -38,7 +38,7 @@ export function rulesHtml(o, pf) {
   const v = pf || {}, alerts = v.alerts || [];
   const hist = alerts.length ? `<div class="table-scroll"><table class="q-table"><thead><tr><th>时间</th><th>类型</th><th>内容</th></tr></thead><tbody>${alerts.map(a => `<tr><td>${escape(new Date(a.time).toLocaleString('zh-CN', {hour12: false}))}</td><td>${escape(a.label || '')}</td><td>${escape(a.title)}${a.detail ? ` <small>${escape(a.detail)}</small>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="empty-note">还没有发出过风控提醒。</p>';
   return `<p class="pf-rules-line"><span>${escape(o?.rulesText || v.rulesText || '')}</span> ${btn('修改规则', 'pfRules')} ${btn('立即检查', 'pfCheck')}</p><h4>当前状态</h4>${breachList(o?.breaches || [])}<h4>提醒记录 ${alerts.length ? btn('清空', 'pfClearAlerts') : ''}</h4>${hist}${v.lastError ? `<p class="task-error">上次检查失败：${escape(v.lastError)}</p>` : ''}
-<p class="auto-note">交易时段按设定间隔检查，收盘后再检查一次；同一条提醒每天只发一次，进入「动态」并发系统通知（可在规则里关闭通知）。需要 QuanK 保持运行。</p>`;
+<p class="auto-note">交易时段按设定间隔检查，收盘后再检查一次；同一条提醒每天只发一次，进入「动态」并发系统通知（可在规则里关闭通知）。需要 QuankSight 保持运行。</p>`;
 }
 
 // high positive correlation = little diversification (brand blue-violet, darker = higher); negative = soft grey-green

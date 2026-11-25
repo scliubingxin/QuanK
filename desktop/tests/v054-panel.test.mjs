@@ -39,7 +39,7 @@ async function app() {
   w.HTMLDialogElement.prototype.showModal ??= function () { this.open = true; };
   w.HTMLDialogElement.prototype.close ??= function () { this.open = false; };
   const s = {schema: 1, chats: [{id: 'c1', name: '打开我的自选', messages: [{role: 'user', content: '打开我的自选'}], createdAt: 1, updatedAt: 1}], folders: [], memories: [], tasks: [], artifacts: [], activity: [], executions: [], commandJobs: [], runJobs: [],
-    settings: {model: 'deepseek-chat', name: '测试'}, agents: [{id: 'assistant', name: 'QuanK 助手'}], documents: [], connectors: [], connectorItems: [], dashboards: [], browsers: [], desktop: {platform: 'darwin'},
+    settings: {model: 'deepseek-chat', name: '测试'}, agents: [{id: 'assistant', name: 'QuankSight 助手'}], documents: [], connectors: [], connectorItems: [], dashboards: [], browsers: [], desktop: {platform: 'darwin'},
     quant: {status: 'running', pool: POOL, holdings: {}}};
   const calls = [], hooks = {};
   w.actwill = new Proxy({}, {get: (_, k) => {

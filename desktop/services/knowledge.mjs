@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import { buildIndex, searchIndex, parseFinance, financeSummary, financeTable, financeSvg, quarterly, parseProfile, parseHolders, companyGraph, graphSvg, normalizeTopic, topicMatches, nextDigestAt, topicDigest, FINANCE_COLUMNS, secuCode, TOPIC_LIMIT } from '../src/shared/knowledge.js';
 
 const DC = 'https://datacenter.eastmoney.com/securities/api/data/v1/get';
-const UA = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 QuanK', referer: 'https://emweb.securities.eastmoney.com/'};
+const UA = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 QuankSight', referer: 'https://emweb.securities.eastmoney.com/'};
 const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const isCode = c => /^\d{6}$/.test(String(c || ''));
 const day = t => new Date(t + 8 * 3600e3).toISOString().slice(0, 10);

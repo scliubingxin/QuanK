@@ -135,7 +135,7 @@ export function createTradeService({store, quant = null, market = null, portfoli
       o.status = 'awaiting';
       activity('委托单', `已在券商页面填好：${orderText(o)}，等你点击提交`, o.code);
       await save();
-      return {order: o, paper: false, note: '已在券商页面填好代码、价格和数量，并用红框标出提交按钮。请核对后由你自己点击提交，然后回到 QuanK 点「我已提交」'};
+      return {order: o, paper: false, note: '已在券商页面填好代码、价格和数量，并用红框标出提交按钮。请核对后由你自己点击提交，然后回到 QuankSight 点「我已提交」'};
     } catch (e) { if (o.status === 'filling') { o.status = 'draft'; await save(); } throw e; }
   }
   /** The user reports what happened at the broker. Filled / partial fills are recorded into the holdings. */
@@ -149,7 +149,7 @@ export function createTradeService({store, quant = null, market = null, portfoli
     if (!(price > 0) || !(shares > 0) || shares > o.shares) throw new Error(`成交数量应在 1–${o.shares} 股之间`);
     let recorded = '';
     if (store.data.quant?.features?.record && quant) {
-      await quant.handle({action: 'record', code: o.code, side: o.side, price, shares, date: today(), note: `QuanK 委托单 ${o.id}`}); recorded = 'engine';
+      await quant.handle({action: 'record', code: o.code, side: o.side, price, shares, date: today(), note: `QuankSight 委托单 ${o.id}`}); recorded = 'engine';
     } else if (portfolio) {
       const man = store.data.portfolio?.manual?.find(m => m.code === o.code), have = num(man?.shares) || 0, cost = num(man?.cost) || 0;
       if (o.side === 'buy') await portfolio.handle({action: 'holdingSave', code: o.code, name: o.name, shares: have + shares, cost: Math.round((cost * have + price * shares) / (have + shares) * 10000) / 10000, stopPrice: man?.stopPrice ?? '', note: man?.note || ''});
@@ -167,7 +167,7 @@ export function createTradeService({store, quant = null, market = null, portfoli
     if (!ACTIVE.has(o.status) && o.status !== 'review') throw new Error(`这张委托单${STATUS_TEXT[o.status]}，不能撤销`);
     const atBroker = ['awaiting', 'submitted', 'review'].includes(o.status) && o.mode === 'real';
     o.status = 'cancelled'; o.cancelledAt = now(); await save();
-    return {order: o, note: atBroker ? '已在 QuanK 里撤销。如果你已经在券商页面提交过，请在券商那边也撤单' : ''};
+    return {order: o, note: atBroker ? '已在 QuankSight 里撤销。如果你已经在券商页面提交过，请在券商那边也撤单' : ''};
   }
   async function readBack(id) {
     const o = find(id), B = st().broker;

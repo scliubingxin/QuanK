@@ -19,7 +19,7 @@ export function markdownToDeck(name, text, { theme = 'quank', brand } = {}) {
     if (b) { bullets.push(clean(b[1])); } else if (n) { numbered.push(clean(n[1])); } else { para.push(clean(line)); }
   }
   flush(); if (cur.title || cur.blocks.length) groups.push(cur);
-  const slides = [{ layout: 'cover', title: cut(docTitle || name, 60), meta: '由 QuanK 生成 · 内容可继续编辑' }];
+  const slides = [{ layout: 'cover', title: cut(docTitle || name, 60), meta: '由 QuankSight 生成 · 内容可继续编辑' }];
   if (groups.length >= 4) slides.push({ layout: 'toc', title: '目录', items: groups.slice(0, 8).map((g) => ({ title: cut(g.title || '内容', 40) })) });
   groups.slice(0, 40).forEach((g, gi) => {
     const sec = `${gi + 1}`; let idx = 0;

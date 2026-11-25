@@ -69,7 +69,7 @@ export function createOfficeWorkspace({documents,directory,runtime,approve=async
  return {
  async open(documentId, revision, {onApproved} = {}) {
   if (closed || opening.has(documentId) || [...sessions.values()].some(s => s.documentId === documentId))
-   throw Error('文档已在QuanK Office打开');
+   throw Error('文档已在QuankSight打开');
   if (sessions.size + opening.size >= 2) throw Error('最多打开2份Office文档');
   opening.add(documentId);
   let dir, worker, timer;
@@ -79,8 +79,8 @@ export function createOfficeWorkspace({documents,directory,runtime,approve=async
    const file = documents.bytes(documentId, revision);
    if (!['docx', 'xlsx', 'pptx'].includes(file.format)) throw Error('仅支持Office文档');
    inspectDocument(file.format, file.bytes);
-   const approved = !requireOpenApproval || await approve('打开QuanK Office编辑', document.name + '.' + file.format +
-    '\n使用QuanK内置文档引擎，手动编辑直接保存本机文档新版本，无需退出或收回。宏禁用，仍有当前账号权限，非OS沙箱。AI发送资料和修改选区另行批准。');
+   const approved = !requireOpenApproval || await approve('打开QuankSight编辑', document.name + '.' + file.format +
+    '\n使用QuankSight内置文档引擎，手动编辑直接保存本机文档新版本，无需退出或收回。宏禁用，仍有当前账号权限，非OS沙箱。AI发送资料和修改选区另行批准。');
    if (approved !== true) return {status:'denied'};
    lifecycle.signal.throwIfAborted();
    onApproved?.();

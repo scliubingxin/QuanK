@@ -40,13 +40,13 @@ export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,
   if (!loading || event.sender !== loading.window.webContents ||
       event.senderFrame !== event.sender.mainFrame ||
       event.senderFrame.url.split('#')[0] !== loadingUrl) throw Error('拒绝不可信Office页面');
-  if (!canOpen()) throw Error('QuanK 已锁定，请先解锁');
+  if (!canOpen()) throw Error('QuankSight 已锁定，请先解锁');
   if (op === 'retry' && loading.retry) return loading.retry();
   throw Error('不支持的Office载入接口');
  });
  function makeWindow(id) {
   const w = new BrowserWindow({
-   width:1440,height:960,minWidth:880,minHeight:600,show:false,title:'QuanK Office',
+   width:1440,height:960,minWidth:880,minHeight:600,show:false,title:'QuankSight',
    icon:path.join(here,'assets/icon-512.png'),backgroundColor:'#FFFFFF',
    webPreferences:{preload:path.join(here,'office-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}
   });
@@ -108,7 +108,7 @@ export function createOfficeWindows({BrowserWindow,ipcMain,here,kit,chat,models,
     const windowId = w.webContents.id;
     pendingLoads.delete(windowId);
     windows.set(windowId, {window:w,session,documentId:id});
-    safe(w, 'setTitle', 'QuanK Office · '+result.name);
+    safe(w, 'setTitle', 'QuankSight · '+result.name);
     await safe(w, 'loadFile', entry);
     if (safe(w, 'isVisible') !== true && !retryWindow) reveal(w);
     let closing = false;

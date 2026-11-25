@@ -28,11 +28,11 @@ const ico = n => `<span class="sec-ico"><svg viewBox="0 0 24 24" aria-hidden="tr
 const card = (icon, title, status, tone, desc, acts) => `<div class="sec-card ${tone}"><div class="sec-card-head">${ico(icon)}<b>${escape(title)}</b><span class="sec-pill ${tone}">${escape(status)}</span></div><p>${desc}</p><div class="sec-acts">${acts}</div></div>`;
 export function overviewHtml(v) {
   const e = v.encryption || {}, l = v.lock || {}, p = v.privacy || {}, a = v.audit || {}, c = v.compliance || {};
-  const plain = e.plainBackups?.length ? `<p class="sec-notice"><span>还有 ${e.plainBackups.length} 个未加密的备份副本（开启加密前自动留下的），确认 QuanK 运行正常后建议删除。</span>${btn('删除未加密副本', 'secDeletePlain')}</p>` : '';
+  const plain = e.plainBackups?.length ? `<p class="sec-notice"><span>还有 ${e.plainBackups.length} 个未加密的备份副本（开启加密前自动留下的），确认 QuankSight 运行正常后建议删除。</span>${btn('删除未加密副本', 'secDeletePlain')}</p>` : '';
   return `<div class="sec-grid">
 ${card('lock', '本机数据加密', e.enabled ? '已开启' : '未开启', e.enabled ? 'ok' : 'warn', e.enabled ? '对话、持仓、组合、笔记、风控规则和设置以 AES-256 加密保存，密钥在 macOS 钥匙串里。生成的文档、策略引擎数据不在加密范围内。' : '对话、持仓、组合、笔记都以明文保存在 workspace.json（只有你的账户能读）。开启后用钥匙串里的密钥加密；开启前会先留一份未加密副本。', e.enabled ? btn('关闭加密', 'secEncrypt', 'off') : btn('开启加密', 'secEncrypt', 'on', 'primary'))}
 ${card('archive', '加密备份', e.lastBackup ? '已备份' : '从未备份', e.lastBackup ? 'ok' : 'warn', e.lastBackup ? `上次备份：${escape(time(e.lastBackup.time))}，${escape(e.lastBackup.name)}。备份用你设置的密码加密，可以在任何一台 Mac 上恢复。` : '钥匙串被重置或换电脑时，只能靠加密备份找回数据。开启加密前建议先导出一份。', btn('导出加密备份', 'secBackup', '', 'primary') + btn('从备份恢复', 'secRestore'))}
-${card('key', '应用锁', l.enabled ? '已开启' : '未开启', l.enabled ? 'ok' : 'warn', l.enabled ? `${l.idleMinutes ? `闲置 ${l.idleMinutes} 分钟自动锁定` : '不自动锁定'}${l.onSleep ? '，锁屏或睡眠时锁定' : ''}；${l.touchId && l.touchIdAvailable ? '可用触控 ID 解锁' : '用解锁密码解锁'}。锁定期间界面和所有功能都不可用，后台盯盘照常。` : '离开电脑时，任何人都能打开 QuanK 看到持仓和对话。', btn(l.enabled ? '修改' : '设置应用锁', 'secLockSettings', '', l.enabled ? 'secondary' : 'primary'))}
+${card('key', '应用锁', l.enabled ? '已开启' : '未开启', l.enabled ? 'ok' : 'warn', l.enabled ? `${l.idleMinutes ? `闲置 ${l.idleMinutes} 分钟自动锁定` : '不自动锁定'}${l.onSleep ? '，锁屏或睡眠时锁定' : ''}；${l.touchId && l.touchIdAvailable ? '可用触控 ID 解锁' : '用解锁密码解锁'}。锁定期间界面和所有功能都不可用，后台盯盘照常。` : '离开电脑时，任何人都能打开 QuankSight 看到持仓和对话。', btn(l.enabled ? '修改' : '设置应用锁', 'secLockSettings', '', l.enabled ? 'secondary' : 'primary'))}
 ${card('wifi', '离线模式', p.offline ? '已开启' : '未开启', p.offline ? 'ok' : 'neutral', p.offline ? '已阻止所有外部连接（行情、公告、大模型、联网搜索），本机策略引擎照常运行。' : '需要时可以一键断开所有外部连接，只用本机数据和本机策略。', btn(p.offline ? '恢复联网' : '开启离线模式', 'secPrivacy', p.offline ? 'offline:off' : 'offline:on'))}
 ${card('eye', '发给模型前隐藏金额', p.maskAmounts ? '已开启' : '未开启', p.maskAmounts ? 'ok' : 'neutral', p.maskAmounts ? '对话里查询持仓、组合时，股数、成本、市值、盈亏和现金会替换成 ***，模型只看到价格、涨跌幅和仓位比例。' : '对话里查询持仓、组合时，金额会原样发给大模型服务。', btn(p.maskAmounts ? '关闭' : '开启', 'secPrivacy', p.maskAmounts ? 'maskAmounts:off' : 'maskAmounts:on'))}
 ${card('list', '操作审计', a.broken ? '校验失败' : '记录中', a.broken ? 'bad' : 'ok', `已记录 ${escape(String(a.count || 0))} 条。${a.lastVerify ? `上次校验 ${escape(time(a.lastVerify.time))}：${a.lastVerify.ok ? '完整，未被改动' : escape(a.lastVerify.reason || '发现异常')}` : '还没有校验过。'}`, btn('校验完整性', 'secAuditVerify') + btn('查看记录', 'secTab', 'audit'))}
@@ -47,7 +47,7 @@ export function cliCard(c) {
   if (c.error) return card('term', '命令行 quank', '出错', 'bad', escape(c.error), '');
   const status = c.enabled ? (c.running ? '已开启' : '开启中') : '未开启', tone = c.enabled && c.running ? 'ok' : 'neutral';
   const desc = c.enabled
-    ? `终端、脚本和其他 AI 工具可以通过本机套接字调用 QuanK 的全部指令（只有你的 macOS 账户能连接，不开放网络端口）；会修改数据的操作照样弹确认框并记入操作审计。${c.installed ? `命令已安装：<code>${escape(c.bin)}</code>${c.inPath ? '' : '。终端里找不到 quank 时，在 ~/.zprofile 里加一行 <code>export PATH="$HOME/.local/bin:$PATH"</code>'}` : '还没有安装 quank 命令。'}${c.served ? ` 本次运行已处理 ${escape(String(c.served))} 个请求。` : ''}`
+    ? `终端、脚本和其他 AI 工具可以通过本机套接字调用 QuankSight 的全部指令（只有你的 macOS 账户能连接，不开放网络端口）；会修改数据的操作照样弹确认框并记入操作审计。${c.installed ? `命令已安装：<code>${escape(c.bin)}</code>${c.inPath ? '' : '。终端里找不到 quank 时，在 ~/.zprofile 里加一行 <code>export PATH="$HOME/.local/bin:$PATH"</code>'}` : '还没有安装 quank 命令。'}${c.served ? ` 本次运行已处理 ${escape(String(c.served))} 个请求。` : ''}`
     : '开启后可以在终端里用 quank 查行情、看信号、跑压力测试、让智能体回答问题，也可以作为 MCP 服务给 Claude、Cursor、Quick 调用。默认关闭。';
   const acts = c.enabled
     ? (c.installed ? btn('MCP 配置', 'secCliMcp') + btn('卸载命令', 'secCliUninstall') : btn('安装 quank 命令', 'secCliInstall', '', 'primary')) + btn('关闭命令行', 'secCliEnable', 'off')
@@ -57,7 +57,7 @@ export function cliCard(c) {
 export function cliMcpHtml(c) {
   const cfg = JSON.stringify(c?.mcp || {}, null, 2);
   return `<p>在支持 MCP 的工具里添加一个本机（stdio）服务，命令填 <code>${escape(c?.bin || '~/.local/bin/quank')}</code>，参数填 <code>mcp</code>。Claude Desktop、Cursor 用下面这段配置：</p><pre class="sec-pre">${escape(cfg)}</pre>
-<p>作为编码代理添加时（ACP），命令同上，参数填 <code>acp</code>。</p><p class="hint">MCP 调用按「发给模型前隐藏金额」的设置打码；修改类操作会在 QuanK 里弹出确认框。</p>`;
+<p>作为编码代理添加时（ACP），命令同上，参数填 <code>acp</code>。</p><p class="hint">MCP 调用按「发给模型前隐藏金额」的设置打码；修改类操作会在 QuankSight 里弹出确认框。</p>`;
 }
 
 export function keysHtml(k) {
@@ -66,10 +66,10 @@ export function keysHtml(k) {
   const legacy = k.legacy ? row('默认模型（旧版设置）', k.legacy.model || '—', k.legacy.keySaved ? '钥匙串加密保存' : k.legacy.hasKey ? '仅本次运行' : '未设置', k.legacy.keySaved ? 'ok' : 'warn') : '';
   const mcp = (k.mcp || []).map(c => row(c.name, `MCP · ${c.auth === 'oauth' ? '浏览器登录' : c.auth === 'bearer' ? '访问令牌' : '本机程序'}${c.envNames?.length ? '（' + c.envNames.join('、') + '）' : ''}`, c.hasToken || c.signedIn ? '钥匙串加密保存' : '未登录', c.hasToken || c.signedIn ? 'ok' : 'warn')).join('');
   const e = k.engine || {};
-  const engine = row('策略引擎 AI 研判', e.ai === 'none' ? '已关闭' : `使用 QuanK 默认模型 · ${e.host || '—'} · ${e.model || ''}`, e.ai === 'none' ? '不使用' : '启动时写入引擎配置', e.ai === 'none' ? '' : 'warn', btn('测试默认模型密钥', 'secTestModel'));
+  const engine = row('策略引擎 AI 研判', e.ai === 'none' ? '已关闭' : `使用 QuankSight 默认模型 · ${e.host || '—'} · ${e.model || ''}`, e.ai === 'none' ? '不使用' : '启动时写入引擎配置', e.ai === 'none' ? '' : 'warn', btn('测试默认模型密钥', 'secTestModel'));
   return `${k.secureStorage === false ? '<p class="task-error">系统钥匙串不可用，密钥无法加密保存。</p>' : ''}<h4>已保存的密钥</h4><div class="table-scroll"><table class="q-table sec-table"><thead><tr><th>密钥</th><th>用途</th><th>保存方式</th><th></th></tr></thead><tbody>${models}${legacy}${engine}${mcp}${(k.connectors || []).map(c => row(c.name, `连接 · ${c.kind}`, '钥匙串加密保存', 'ok')).join('')}</tbody></table></div>
 <div id="secTestResult"></div>
-<p class="auto-note">QuanK 从不显示或回传已保存的密钥。更换模型密钥：「设置 → 模型」里重新填写。策略引擎的 AI 研判使用 QuanK 的默认模型：QuanK 启动引擎时把密钥写入引擎目录的 config.json（只有你的账户能读，路径 ${escape(e.configFile || '')}），所以换了密钥后要在量化页点「重启」。</p>`;
+<p class="auto-note">QuankSight 从不显示或回传已保存的密钥。更换模型密钥：「设置 → 模型」里重新填写。策略引擎的 AI 研判使用 QuankSight 的默认模型：QuankSight 启动引擎时把密钥写入引擎目录的 config.json（只有你的账户能读，路径 ${escape(e.configFile || '')}），所以换了密钥后要在量化页点「重启」。</p>`;
 }
 export function testResultHtml(r) {
   return `<p class="${r.ok ? 'pf-ok' : 'task-error'}">${r.ok ? '✓' : '✗'} ${escape(r.host || '')}${r.model ? ' · ' + escape(r.model) : ''}：${escape(r.message || '')}${r.status ? `（HTTP ${escape(String(r.status))}）` : ''}</p>`;
@@ -81,7 +81,7 @@ export function egressHtml(r, privacy = {}) {
   return `<p class="sec-line">${btn(privacy.offline ? '恢复联网' : '开启离线模式', 'secPrivacy', privacy.offline ? 'offline:off' : 'offline:on')} ${btn(privacy.egressLog === false ? '开启外发记录' : '暂停记录', 'secPrivacy', privacy.egressLog === false ? 'egressLog:on' : 'egressLog:off')} ${btn('清空', 'secEgressClear')}</p>
 <h4>连接过的服务</h4><div class="table-scroll"><table class="q-table"><thead><tr><th>主机</th><th>用途</th><th>次数</th><th>已阻止</th><th>发送</th><th>最近</th></tr></thead><tbody>${hosts.map(h => `<tr><td>${escape(h.host)}</td><td>${escape(h.purpose)}</td><td>${h.count}</td><td>${h.blocked || ''}</td><td>${bytes(h.bytesOut)}</td><td>${escape(time(h.last))}</td></tr>`).join('')}</tbody></table></div>
 <h4>最近的请求</h4><div class="table-scroll"><table class="q-table"><thead><tr><th>时间</th><th>主机</th><th>路径</th><th>方法</th><th>发送</th><th>结果</th></tr></thead><tbody>${items.slice(0, 100).map(e => `<tr><td>${escape(time(e.time))}</td><td>${escape(e.host)}</td><td>${escape(e.path)}</td><td>${escape(e.method)}</td><td>${bytes(e.bytesOut)}</td><td class="${e.blocked || e.status < 0 || e.status >= 400 ? 'down' : ''}">${e.blocked ? '已阻止' : e.status < 0 ? '失败' : escape(String(e.status))}</td></tr>`).join('')}</tbody></table></div>
-<p class="auto-note">只记录主机、路径、方法和发送的字节数，不记录请求内容、参数和密钥；记录只保存在本次运行的内存里，退出 QuanK 后清空。本机策略引擎（127.0.0.1）不计入。</p>`;
+<p class="auto-note">只记录主机、路径、方法和发送的字节数，不记录请求内容、参数和密钥；记录只保存在本次运行的内存里，退出 QuankSight 后清空。本机策略引擎（127.0.0.1）不计入。</p>`;
 }
 
 export function auditHtml(r, {kind = '', q = '', lastVerify = null} = {}) {
@@ -109,11 +109,11 @@ ${l.enabled ? '<label>当前解锁密码（关闭应用锁时需要）<input nam
 <div class="form-row"><label>闲置自动锁定<select name="idleMinutes">${[[0, '不自动锁定'], [5, '5 分钟'], [10, '10 分钟'], [15, '15 分钟'], [30, '30 分钟'], [60, '60 分钟']].map(([n, t]) => `<option value="${n}" ${n === (l.idleMinutes ?? 15) ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
 <label class="check"><input type="checkbox" name="onSleep" ${l.onSleep === false ? '' : 'checked'}> Mac 锁屏或睡眠时锁定</label>
 <label class="check"><input type="checkbox" name="touchId" ${l.touchId === false ? '' : 'checked'} ${l.touchIdAvailable ? '' : 'disabled'}> 用触控 ID 解锁${l.touchIdAvailable ? '' : '（这台 Mac 不可用）'}</label>
-<p class="hint">密码只保存其加盐哈希；忘记密码时，可以完全退出 QuanK 后用加密备份恢复。锁定期间后台盯盘、风控提醒照常运行。</p>`;
+<p class="hint">密码只保存其加盐哈希；忘记密码时，可以完全退出 QuankSight 后用加密备份恢复。锁定期间后台盯盘、风控提醒照常运行。</p>`;
 }
 export const lockPayload = fm => ({action: 'lockSettings', enabled: on(fm, 'enabled'), password: val(fm, 'password'), current: val(fm, 'current'), idleMinutes: Number(val(fm, 'idleMinutes')), onSleep: on(fm, 'onSleep'), touchId: on(fm, 'touchId')});
 export const backupForm = (restore = false) => `<label>${restore ? '备份密码' : '设置备份密码（至少 8 位，恢复时需要）'}<input name="passphrase" type="password" autocomplete="${restore ? 'current-password' : 'new-password'}" required minlength="8"></label>${restore ? '' : '<label>再输入一次<input name="passphrase2" type="password" autocomplete="new-password" required minlength="8"></label>'}
-<p class="hint">${restore ? '先选择备份文件并核对内容，确认后才会替换当前数据；当前数据会另存一份，QuanK 随后重新启动。' : '备份包含对话、持仓、组合、笔记、规则、设置和操作审计，用这个密码加密；已保存的密钥只能在本机解开，换电脑后需要重新填写。QuanK 不保存这个密码，忘记就无法恢复。'}</p>`;
+<p class="hint">${restore ? '先选择备份文件并核对内容，确认后才会替换当前数据；当前数据会另存一份，QuankSight 随后重新启动。' : '备份包含对话、持仓、组合、笔记、规则、设置和操作审计，用这个密码加密；已保存的密钥只能在本机解开，换电脑后需要重新填写。QuankSight 不保存这个密码，忘记就无法恢复。'}</p>`;
 export function backupPayload(fm, restore = false) {
   const a = val(fm, 'passphrase');
   if (!restore && a !== val(fm, 'passphrase2')) throw new Error('两次输入的密码不一致');
@@ -131,7 +131,7 @@ export const compliancePayload = fm => ({action: 'compliance', settings: {enable
 
 // ---------- lock screen ----------
 export function lockScreen(l = {}) {
-  return `<div class="lock-screen"><div class="lock-card"><img src="assets/logo.png" alt="" class="lock-logo"><h2>${escape(l.appName || 'QuanK')} 已锁定</h2><p>持仓、对话和设置已隐藏。后台盯盘和风控提醒照常运行。</p>
+  return `<div class="lock-screen"><div class="lock-card"><img src="assets/logo.png" alt="" class="lock-logo"><h2>${escape(l.appName || 'QuankSight')} 已锁定</h2><p>持仓、对话和设置已隐藏。后台盯盘和风控提醒照常运行。</p>
 <form id="lockForm" onsubmit="return false"><input id="lockPassword" type="password" autocomplete="current-password" placeholder="解锁密码" autofocus><button type="button" class="primary" data-action="secUnlock">解锁</button></form>
 ${l.touchId ? '<button type="button" class="secondary lock-touch" data-action="secUnlockTouch">用触控 ID 解锁</button>' : ''}${l.retryIn ? `<p class="task-error">尝试次数过多，请 ${l.retryIn} 秒后再试</p>` : ''}<p class="lock-error task-error" id="lockError" hidden></p></div></div>`;
 }

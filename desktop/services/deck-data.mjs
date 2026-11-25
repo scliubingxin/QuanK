@@ -3,7 +3,7 @@
 
 const CACHE = new Map();
 const TTL = 60 * 60 * 1000;
-const UA = { 'User-Agent': 'Mozilla/5.0 (compatible; QuanK-Deck/0.59)', 'Referer': 'https://finance.sina.com.cn/' };
+const UA = { 'User-Agent': 'Mozilla/5.0 (compatible; QuankSight-Deck/0.59)', 'Referer': 'https://finance.sina.com.cn/' };
 const cached = (key, producer) => {
   const hit = CACHE.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.value;

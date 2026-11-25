@@ -29,11 +29,11 @@ export function tradeBox(tv, {action = btn} = {}) {
   const mode = S.mode === 'real' ? '<span class="sec-pill bad">真实下单</span>' : '<span class="sec-pill ok">模拟盘</span>';
   const tools = action('＋ 手动委托', 'tdCreate') + action('券商页面', 'tdBroker') + action('委托设置', 'tdSettings') + action(S.paused ? '恢复' : '暂停', 'tdPause', S.paused ? 'resume' : 'pause');
   const orders = v.orders || [];
-  const list = orders.length ? `<ul class="td-list">${orders.map(orderRow).join('')}</ul>` : `<p class="empty-note">今天还没有委托单。股票池里出现买点、卖点，或者持仓触发止损时，QuanK 会按规则生成委托单，等你确认。</p>`;
+  const list = orders.length ? `<ul class="td-list">${orders.map(orderRow).join('')}</ul>` : `<p class="empty-note">今天还没有委托单。股票池里出现买点、卖点，或者持仓触发止损时，QuankSight 会按规则生成委托单，等你确认。</p>`;
   const stats = `<div class="td-stats"><span><b>${escape(money(u.buyAmount))}</b> / ${escape(money(u.maxDaily))} 元<small>今日买入额度</small></span><span><b>${escape(String(u.count ?? 0))}</b> / ${escape(String(u.maxCount ?? '—'))}<small>今日笔数</small></span>${S.mode === 'paper' ? `<span><b>${escape(money(P.total))}</b><small>模拟盘总资产 · 现金 ${escape(money(P.cash))}</small></span><span class="${(P.pnl || 0) >= 0 ? 'up' : 'down'}"><b>${escape(money(P.pnl))}</b><small>模拟盘盈亏${P.pnlPct !== null && P.pnlPct !== undefined ? ` ${P.pnlPct > 0 ? '+' : ''}${escape(String(P.pnlPct))}%` : ''}</small></span>` : `<span><b>${B.ready?.buy && B.ready?.sell ? '已标注' : B.ready?.buy || B.ready?.sell ? '部分标注' : '未标注'}</b><small>${escape(B.name || '券商页面')}${B.open ? ' · 已打开' : ''}</small></span>`}</div>`;
   const hist = (v.history || []).length ? `<details class="td-hist"><summary>更早的委托单（${(v.history || []).length}）</summary><ul class="td-list">${v.history.map(orderRow).join('')}</ul></details>` : '';
   return `<section class="q-box td-box" id="tradeBox"><div class="plaza-section-head"><h2>半自动委托</h2>${mode}<small>${escape(v.text || '')} · 最后一步由你在券商页面亲自提交。</small><span class="q-head-tools">${tools}</span></div>${stats}${list}${hist}
-<p class="auto-note">委托单当天收盘作废。止损卖出不受每日金额和笔数限制；买入会按单笔、每日、现金和仓位上限自动缩减。${S.mode === 'real' ? 'QuanK 只会在券商页面填写代码、价格和数量并标出提交按钮，不会替你点击提交；登录只保存在本次运行的内存里。' : '模拟盘按实时行情撮合：买入现价不高于委托价、卖出现价不低于委托价时成交。'}</p></section>`;
+<p class="auto-note">委托单当天收盘作废。止损卖出不受每日金额和笔数限制；买入会按单笔、每日、现金和仓位上限自动缩减。${S.mode === 'real' ? 'QuankSight 只会在券商页面填写代码、价格和数量并标出提交按钮，不会替你点击提交；登录只保存在本次运行的内存里。' : '模拟盘按实时行情撮合：买入现价不高于委托价、卖出现价不低于委托价时成交。'}</p></section>`;
 }
 
 // ---------- forms ----------
@@ -50,7 +50,7 @@ export function settingsForm(S = {}) {
 }
 export const settingsPayload = fm => ({action: 'settings', settings: {mode: val(fm, 'mode'), enabled: on(fm, 'enabled'), fromSignals: on(fm, 'fromSignals'), fromStops: on(fm, 'fromStops'),
   ...Object.fromEntries(['baseAmount', 'sellPct', 'maxOrder', 'maxDaily', 'maxCount', 'slippage', 'maxDeviation', 'paperCash'].map(k => [k, val(fm, k)]))}});
-export const REAL_RISK_HTML = `<p><b>切换到真实下单后：</b></p><ul><li>点「下单」时，QuanK 会在内置浏览器里打开券商网页版，填好股票代码、委托价格和数量，并用红框标出提交按钮。</li><li><b>QuanK 不会替你点击提交</b>，每一笔都由你核对后亲自提交；你没有提交的委托不会发生。</li><li>委托价按现价加减滑点计算，市场波动时可能成交不了或成交价不同；量化信号不保证盈利。</li><li>按规定，用程序辅助交易可能需要向券商报告，具体以券商要求为准。</li><li>券商登录只保存在本次运行的内存里，退出 QuanK 即失效。</li></ul><p>确认已了解以上风险，并自行承担交易结果？</p>`;
+export const REAL_RISK_HTML = `<p><b>切换到真实下单后：</b></p><ul><li>点「下单」时，QuankSight 会在内置浏览器里打开券商网页版，填好股票代码、委托价格和数量，并用红框标出提交按钮。</li><li><b>QuankSight 不会替你点击提交</b>，每一笔都由你核对后亲自提交；你没有提交的委托不会发生。</li><li>委托价按现价加减滑点计算，市场波动时可能成交不了或成交价不同；量化信号不保证盈利。</li><li>按规定，用程序辅助交易可能需要向券商报告，具体以券商要求为准。</li><li>券商登录只保存在本次运行的内存里，退出 QuankSight 即失效。</li></ul><p>确认已了解以上风险，并自行承担交易结果？</p>`;
 export function createForm() {
   return `<div class="form-row"><label>股票代码<input name="code" maxlength="6" pattern="\\d{6}" required placeholder="600438"></label><label>方向<select name="side"><option value="buy">买入</option><option value="sell">卖出</option></select></label></div>
 <div class="form-row"><label>股数（可留空：买入按基准金额计算，卖出按比例）<input name="shares" type="number" min="100" step="100"></label><label>限价（可留空：现价 ± 滑点）<input name="price" type="number" min="0" step="0.01"></label></div>
@@ -69,7 +69,7 @@ export function brokerPanel(B = {}, presets = []) {
   const st = side => B.ready?.[side] ? '<span class="sec-pill ok">已标注</span>' : '<span class="sec-pill warn">未标注</span>';
   return `<div class="form-row"><label>券商<select name="preset">${presets.map(p => `<option value="${escape(p.id)}" ${p.id === B.id ? 'selected' : ''}>${escape(p.name)}</option>`).join('')}<option value="custom" ${presets.some(p => p.id === B.id) ? '' : 'selected'}>其他（自己填网址）</option></select></label></div>
 <label>网页版地址（https）<input name="url" value="${escape(B.url || '')}"></label>
-<div class="td-broker"><p>1. 点「打开券商页面」，在弹出的窗口里<b>自己登录</b>（QuanK 看不到你的密码，登录只保存在本次运行的内存里）。</p>
+<div class="td-broker"><p>1. 点「打开券商页面」，在弹出的窗口里<b>自己登录</b>（QuankSight 看不到你的密码，登录只保存在本次运行的内存里）。</p>
 <p>2. 打开<b>买入</b>页面，点「标注买入页面」，按提示依次点击：${Object.values(BROKER_FIELDS).map(escape).join('、')}。卖出页面同样标注一次。 买入页面 ${st('buy')} 卖出页面 ${st('sell')}</p>
 <p>3. 可选：打开「当日委托」，点「标注委托列表」，以后可以从页面读取成交情况。 ${B.orders ? '<span class="sec-pill ok">已标注</span>' : '<span class="sec-pill">未标注</span>'}</p>
 <p class="hint">标注时你的点击不会传给券商页面，不会触发任何操作。</p></div>

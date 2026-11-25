@@ -99,7 +99,7 @@ import path from 'node:path';
 import { realpath, readFile, writeFile, stat, mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { ToolRuntime } from './runtime/tools.mjs';
-import { prepareUserData, rekeySecrets, APP_NAME, LEGACY_CRYPTO_NAME } from './runtime/identity.mjs';
+import { prepareUserData, rekeySecrets, APP_NAME, DISPLAY_NAME, LEGACY_CRYPTO_NAME } from './runtime/identity.mjs';
 import { legacyUnsealChild, runLegacyUnseal } from './main/legacy-unseal.mjs'; // [rebrand]
 import { BrowserService } from './runtime/browser.mjs';
 import { Store, uid, listGranted, readGranted, complete } from './core.mjs';
@@ -120,7 +120,7 @@ function conversationFinished({ chat, status, text }) {
         if (win && !win.isDestroyed() && win.isFocused()) return;
         if (!Notification.isSupported()) return;
         if (!chat.taskId) return; // [v0.52.1] a finished conversation is not something to handle: only automation runs notify
-        const n = new Notification({ title: status === 'completed' ? 'QuanK · 任务完成' : 'QuanK · 任务未完成', body: (chat.incognito ? '无痕对话' : chat.name) + (text ? '\n' + String(text).replace(/\s+/g, ' ').slice(0, 80) : ''), silent: false });
+        const n = new Notification({ title: status === 'completed' ? 'QuankSight · 任务完成' : 'QuankSight · 任务未完成', body: (chat.incognito ? '无痕对话' : chat.name) + (text ? '\n' + String(text).replace(/\s+/g, ' ').slice(0, 80) : ''), silent: false });
         n.on('click', () => { focus(); win?.webContents.send('actwill:openChat', { id: chat.id }); });
         n.show();
     } catch {}
@@ -136,7 +136,7 @@ const notifyApproval = createApprovalNotifications({
     isFocused: () => win && !win.isDestroyed() && win.isFocused(),
     send: (request, open) => {
         if (!Notification.isSupported()) return;
-        const notice = new Notification({ title: 'QuanK · 待确认授权', body: request.agent + '：' + request.action });
+        const notice = new Notification({ title: 'QuankSight · 待确认授权', body: request.agent + '：' + request.action });
         notice.on('click', open);
         notice.show();
     },
@@ -177,10 +177,10 @@ function key() {
     return encrypted ? safeStorage.decryptString(Buffer.from(encrypted, 'base64')) : '';
 }
 const registerIpc = createRegistrar({ ipcMain, getWindow: () => win, entryURL: new URL('./src/index.html', import.meta.url).href });
-// [F5] while QuanK is locked only the lock screen's calls are served; writes are recorded in the audit log
+// [F5] while QuankSight is locked only the lock screen's calls are served; writes are recorded in the audit log
 const LOCK_OPEN = new Set(['state', 'security']);
 const register = (name, handler) => registerIpc(name, async p => {
-    if (security?.locked && !LOCK_OPEN.has(name)) throw new Error('QuanK 已锁定，请先解锁');
+    if (security?.locked && !LOCK_OPEN.has(name)) throw new Error('QuankSight 已锁定，请先解锁');
     const a = auditLog ? auditOf(name, p) : null;
     try { const r = await approvalContext.run({ chatId: typeof p?.approvalChatId === 'string' ? p.approvalChatId : undefined }, () => handler(p)); if (a) auditLog.record({ ...a, via: 'app' }).catch(() => {}); return r; }
     catch (e) { if (a) auditLog.record({ ...a, detail: `${a.detail} · 失败：${String(e?.message || e).slice(0, 60)}`, via: 'app' }).catch(() => {}); throw e; }
@@ -189,7 +189,7 @@ const previewOcrSource = createOcrPreviewLimiter();
 const ocrPreviewAbort = new AbortController();
 app.on('before-quit',()=>ocrPreviewAbort.abort(Error('应用正在退出')));
 async function launch() {
-    win = new BrowserWindow({ show: false, width: 1380, height: 920, minWidth: 860, minHeight: 640, title: 'QuanK', icon: path.join(here, 'assets/icon-512.png'), backgroundColor: '#ffffff', titleBarStyle: 'hiddenInset', ...(process.platform === 'darwin' ? { trafficLightPosition: { x: 20, y: 20 } } : {}), webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true } });
+    win = new BrowserWindow({ show: false, width: 1380, height: 920, minWidth: 860, minHeight: 640, title: 'QuankSight', icon: path.join(here, 'assets/icon-512.png'), backgroundColor: '#ffffff', titleBarStyle: 'hiddenInset', ...(process.platform === 'darwin' ? { trafficLightPosition: { x: 20, y: 20 } } : {}), webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true } });
     win.once('ready-to-show', () => {
         win.show();
         officeEngine?.windowReady();
@@ -218,14 +218,25 @@ const runTask = (id, options) => tasks.run(id, options);
 // Not awaited: in an ESM entry `ready` fires only after this module's top-level code finishes. The child skips the rest of startup.
 const legacyChild = process.env.QUANK_LEGACY_UNSEAL === '1';
 if (legacyChild) legacyUnsealChild({ app, safeStorage, name: LEGACY_CRYPTO_NAME });
-// Data lives in <appData>/QuanK; an older build's data folder is copied there once (packaged app only).
+// Data lives in <appData>/QuankSight; an older build's data folder is copied there once (packaged app only).
 const devUserData = !app.isPackaged && process.env.QUANK_DEV_USER_DATA;
 if (!app.isPackaged && process.env.QUANK_DEV_OFFICE_RUNTIME && !devUserData) throw Error('开发版 Office 必须指定隔离用户数据目录');
 if (devUserData && (!path.isAbsolute(devUserData) || !path.resolve(devUserData).startsWith('/tmp/') && !path.resolve(devUserData).startsWith('/private/tmp/'))) throw Error('开发版 Office 数据目录必须在 /tmp 内');
 const dataDir = devUserData ? {dir:path.resolve(devUserData), migratedFrom:null} : legacyChild ? { dir: app.getPath('userData'), migratedFrom: null } : await prepareUserData(app.getPath('appData'), { migrate: app.isPackaged });
 if (!legacyChild) app.setPath('userData', dataDir.dir);
-if (!legacyChild) app.setName(APP_NAME); // keychain key "QuanK Safe Storage"; older sealed values are re-sealed once after the store loads
-app.setAboutPanelOptions({ applicationName: 'QuanK', applicationVersion: app.getVersion() });
+// [V100-4] 自测隔离钩子：QUANK_SELFTEST=1 时覆盖 packaged 分支默认的真实用户目录。
+// 必须放在 dataDir 的 setPath 之后、app ready 之前，才能同时隔离 userData / sessionData / logs。
+if (process.env.QUANK_SELFTEST === '1' && process.env.QUANK_USER_DATA) {
+    const testUserData = path.resolve(process.env.QUANK_USER_DATA);
+    app.setPath('userData', testUserData);
+    app.setPath('sessionData', testUserData);
+    app.setPath('logs', path.join(testUserData, 'logs'));
+    void writeFile(path.join(testUserData, 'V1004_SELFTEST_USERDATA.json'), JSON.stringify({
+      userData: app.getPath('userData'), sessionData: app.getPath('sessionData'), logs: app.getPath('logs'),
+    })).catch(() => {});
+}
+if (!legacyChild) app.setName(DISPLAY_NAME); // keychain key "QuankSight Safe Storage"; older sealed values are re-sealed once after the store loads
+app.setAboutPanelOptions({ applicationName: 'QuankSight', applicationVersion: app.getVersion() });
 if (legacyChild) { /* legacy unseal child: nothing else runs */ }
 else if (!app.requestSingleInstanceLock())
     app.quit();
@@ -253,15 +264,15 @@ else {
         configureLocalOnnx(store,async()=>{const root=runtimeRoot();if(!root)throw Error('此版本未内置本机ONNX嵌入运行时');const python=await bundledExecutable('python');return createLocalOnnxEmbedding({python,modelDirectory:path.join(root,'embedding','bge-small-zh-v1.5')});});
         const defaultAgent = store.data.agents.find(a => a.id === 'assistant');
         if (['Actwill 助手', 'WillBuddy 助手'].includes(defaultAgent?.name))
-            defaultAgent.name = 'QuanK 助手';
+            defaultAgent.name = 'QuankSight 助手';
         if (['你是 Actwill 工作助手。用中文清晰地帮助用户完成工作。区分事实和假设，不编造来源。', '你是 WillBuddy 工作助手。用中文清晰地帮助用户完成工作。区分事实和假设，不编造来源。'].includes(defaultAgent?.prompt))
-            defaultAgent.prompt = '你是 QuanK 工作助手。用中文清晰地帮助用户完成工作。区分事实和假设，不编造来源。';
+            defaultAgent.prompt = '你是 QuankSight 工作助手。用中文清晰地帮助用户完成工作。区分事实和假设，不编造来源。';
         if (!store.data.financeAgentsSeeded) { // [fin1] finance agents, added once (the user may edit or delete them)
             for (const a of [
-                { id: 'fin-research', name: '投研分析师', description: '个股与行业研究、财报点评、投资备忘录', prompt: '你是 QuanK 的投研分析师。围绕个股、行业和财报给出有依据的研究结论：关键数字注明来源与报告期，事实与观点分开，拿不到的数据标为待核实，不编造。需要时调用本机量化工具查看信号与持仓。结尾注明仅供研究，不构成投资建议。' },
-                { id: 'fin-modeler', name: '财务建模师', description: '三表联动模型、DCF 与可比估值，交付可核对的 Excel', prompt: '你是 QuanK 的财务建模师。按假设页、三表、校验页的结构搭建可联动的 Excel 模型，资产负债表必须配平；估值给出区间和敏感性分析，所有参数写明取值与来源，交付前读取真实文件核对。' },
-                { id: 'fin-quant', name: '量化策略助手', description: '解读本机策略信号、盯盘提醒、日报与回测复盘', prompt: '你是 QuanK 的量化策略助手。使用本机量化工具读取股票池信号、持仓、日报与回测，用清楚的中文解释档位、综合分和变化原因；任何记录成交、修改计划的操作都先说明再请用户确认；不替用户下单，不承诺收益。' },
-                { id: 'fin-risk', name: '风控合规官', description: '组合风险指标、合规审阅与敏感信息脱敏', prompt: '你是 QuanK 的风控合规官。计算组合收益、回撤、波动与集中度并列出风险清单；审阅研究材料中的收益承诺、未授权买卖建议和缺失的风险提示；对客户、账户等敏感信息脱敏并列出替换清单。' }])
+                { id: 'fin-research', name: '投研分析师', description: '个股与行业研究、财报点评、投资备忘录', prompt: '你是 QuankSight 的投研分析师。围绕个股、行业和财报给出有依据的研究结论：关键数字注明来源与报告期，事实与观点分开，拿不到的数据标为待核实，不编造。需要时调用本机量化工具查看信号与持仓。结尾注明仅供研究，不构成投资建议。' },
+                { id: 'fin-modeler', name: '财务建模师', description: '三表联动模型、DCF 与可比估值，交付可核对的 Excel', prompt: '你是 QuankSight 的财务建模师。按假设页、三表、校验页的结构搭建可联动的 Excel 模型，资产负债表必须配平；估值给出区间和敏感性分析，所有参数写明取值与来源，交付前读取真实文件核对。' },
+                { id: 'fin-quant', name: '量化策略助手', description: '解读本机策略信号、盯盘提醒、日报与回测复盘', prompt: '你是 QuankSight 的量化策略助手。使用本机量化工具读取股票池信号、持仓、日报与回测，用清楚的中文解释档位、综合分和变化原因；任何记录成交、修改计划的操作都先说明再请用户确认；不替用户下单，不承诺收益。' },
+                { id: 'fin-risk', name: '风控合规官', description: '组合风险指标、合规审阅与敏感信息脱敏', prompt: '你是 QuankSight 的风控合规官。计算组合收益、回撤、波动与集中度并列出风险清单；审阅研究材料中的收益承诺、未授权买卖建议和缺失的风险提示；对客户、账户等敏感信息脱敏并列出替换清单。' }])
                 if (!store.data.agents.some(x => x.id === a.id)) store.data.agents.push(a);
             store.data.financeAgentsSeeded = true;
         }
@@ -539,7 +550,7 @@ else {
                 return result;
             });
             officeEditWindows = createOfficeEditWindows({
-                BrowserWindow, ipcMain, here, sessions:ensureOfficeTabs, documents:toolRuntime.documents,
+                BrowserWindow, ipcMain, MessageChannelMain, here, sessions:ensureOfficeTabs, documents:toolRuntime.documents,
                 canOpen:() => !security?.locked && !closing,
                 onEvent:(docId, type, detail) => {
                     if (win && !win.isDestroyed()) win.webContents.send('actwill:officeWindow', {id:docId, type, detail});
@@ -555,14 +566,14 @@ else {
         }
         tasks = createTaskService({ models, queue:runs, notify:notifyRuntime, store, active, key, view, conversations, rules: approvalRules, notifyCompleted: task => {
                 if (Notification.isSupported())
-                    new Notification({ title: 'QuanK · 任务完成', body: task.name }).show();
+                    new Notification({ title: 'QuankSight · 任务完成', body: task.name }).show();
             } });
         // [p2-m4] daily briefing
         briefing = createBriefingService({ store, models, key, notify: notifyRuntime, onReady: b => {
             try {
                 if (b.trigger !== 'schedule' || (win && !win.isDestroyed() && win.isFocused()) || !Notification.isSupported()) return;
                 const need = b.counts.attention || 0, done = b.counts.done || 0;
-                const n = new Notification({ title: 'QuanK · 今日简报', body: (need ? `${need} 项需要你处理，` : '') + `上次以来完成 ${done} 项` });
+                const n = new Notification({ title: 'QuankSight · 今日简报', body: (need ? `${need} 项需要你处理，` : '') + `上次以来完成 ${done} 项` });
                 n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'feed' }); }); n.show();
             } catch {}
         } });
@@ -603,7 +614,7 @@ else {
             onReport: async (r, md) => { const pool = store.data.quant?.pool || []; await research?.handle({ action: 'archive', kind: 'quant', reportId: r.id, date: r.date, title: `${r.title} · ${r.date}`, summary: r.summary, metrics: r.metrics, text: md || [r.summary, ...(r.items || []).map(x => `- ${x.title}${x.detail ? '：' + x.detail : ''}`)].filter(Boolean).join('\n'), tags: ['量化日报', ...pool.slice(0, 3).map(p => p.name).filter(Boolean)] }); }, // [v0.53] 日报复盘 → 资料库
             dir: path.join(app.getPath('userData'), 'quant'), store, lookup: createStockLookup(), notify: notifyRuntime, onAlert: a => { try { if (!normalizeWatch(store.data.quant?.watch).notify || !Notification.isSupported()) return; // [q3]
                 if (a.kind !== 'change' || !/^(BUY|STRONG_BUY|SELL|STRONG_SELL)$/i.test(String(a.to || ''))) return; // [v0.52.1] only buy / sell points
-                const n = new Notification(a.kind === 'report' ? { title: `QuanK · ${a.title}`, body: a.ok ? `${a.summary || '已生成'}${(a.warnings || []).length ? '\n⚠ ' + a.warnings[0] : ''}`.slice(0, 200) : `生成失败：${a.summary || ''}`.slice(0, 200) } : a.kind === 'digest' ? { title: 'QuanK · 盘前量化简报', body: `${a.counts.total} 只：${a.counts.buy} 个买点，${a.counts.sell} 个风控提示` } : { title: 'QuanK · 量化信号变化', body: `${a.name || a.code}：${quantActionLabel(a.from)} → ${quantActionLabel(a.to, a.toText)}${a.score != null ? `，综合分 ${a.score}` : ''}` });
+                const n = new Notification(a.kind === 'report' ? { title: `QuankSight · ${a.title}`, body: a.ok ? `${a.summary || '已生成'}${(a.warnings || []).length ? '\n⚠ ' + a.warnings[0] : ''}`.slice(0, 200) : `生成失败：${a.summary || ''}`.slice(0, 200) } : a.kind === 'digest' ? { title: 'QuankSight · 盘前量化简报', body: `${a.counts.total} 只：${a.counts.buy} 个买点，${a.counts.sell} 个风控提示` } : { title: 'QuankSight · 量化信号变化', body: `${a.name || a.code}：${quantActionLabel(a.from)} → ${quantActionLabel(a.to, a.toText)}${a.score != null ? `，综合分 ${a.score}` : ''}` });
                 n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', ...(a.kind === 'change' ? { code: a.code } : {}), ...(a.kind === 'report' ? { report: a.reportId } : {}) }); }); n.show(); } catch {} },
             seal: s => safeStorage.isEncryptionAvailable() ? seal(s) : s,
             unseal,
@@ -617,7 +628,7 @@ else {
             onError: error => console.warn('[Quant]', error.message),
         });
         register('quant', async p => { const result = await quant.handle(p); return { result, state: view() }; });
-        market = createMarketService({ store, lookup: createStockLookup(), notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'market', code: a.code }); }); n.show(); } catch {} } }); // [F1]
+        market = createMarketService({ store, lookup: createStockLookup(), notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuankSight · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'market', code: a.code }); }); n.show(); } catch {} } }); // [F1]
         // [F2] research documents: announcements, reports, library, exports. Charts are rasterised in a hidden offscreen window.
         const rasterize = async (svg, { width = 960, height = 460 } = {}) => {
             const w = new BrowserWindow({ show: false, width, height, useContentSize: true, webPreferences: { offscreen: true, javascript: false, sandbox: true, contextIsolation: true, nodeIntegration: false } });
@@ -629,12 +640,12 @@ else {
             } finally { if (!w.isDestroyed()) w.destroy(); }
         };
         const researchAsk = async (system, user) => { const route = models?.resolve('legacy', '', { tools: false, vision: false }); const s = route?.settings || store.data.settings; if (!s?.model || !s?.baseUrl) throw new Error('未配置模型'); const r = await complete(s, route ? route.key() : key(), [{ role: 'system', content: system }, { role: 'user', content: user }], AbortSignal.timeout(60000)); return String(r?.text || '').trim(); };
-        research = createResearchService({ store, documents: toolRuntime.documents, market, quant, compliance: { settings: () => security?.compliance(), note: (r, m) => security?.noteReview(r, m) }, finance: code => knowledge ? knowledge.forReport(code) : Promise.reject(new Error('知识库未就绪')), ask: researchAsk, rasterize, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', code: a.code }); }); n.show(); } catch {} } });
-        knowledge = createKnowledgeService({ store, research, market, web: appDeps.web, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'library', ...(a.documentId ? { document: a.documentId } : {}) }); }); n.show(); } catch {} } }); // [F3]
-        portfolio = createPortfolioService({ store, quant, market, knowledge, research, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', ...(a.code ? { code: a.code } : {}) }); }); n.show(); } catch {} } }); // [F4]
+        research = createResearchService({ store, documents: toolRuntime.documents, market, quant, compliance: { settings: () => security?.compliance(), note: (r, m) => security?.noteReview(r, m) }, finance: code => knowledge ? knowledge.forReport(code) : Promise.reject(new Error('知识库未就绪')), ask: researchAsk, rasterize, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuankSight · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', code: a.code }); }); n.show(); } catch {} } });
+        knowledge = createKnowledgeService({ store, research, market, web: appDeps.web, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuankSight · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'library', ...(a.documentId ? { document: a.documentId } : {}) }); }); n.show(); } catch {} } }); // [F3]
+        portfolio = createPortfolioService({ store, quant, market, knowledge, research, notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuankSight · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'quant', ...(a.code ? { code: a.code } : {}) }); }); n.show(); } catch {} } }); // [F4]
         // [F5] 安全与合规
         const aiDefault = () => { const r = models.resolve('legacy', '', { tools: false, vision: false }); const s0 = r?.settings || store.data.settings; if (!s0?.model || !s0?.baseUrl) return null; return { baseUrl: String(s0.baseUrl).replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, ''), model: s0.model, key: r ? r.key() : key(), name: r?.profile?.name || s0.name || '' }; };
-        security = createSecurityService({ store, audit: auditLog, egress, vault, dir: app.getPath('userData'), appName: APP_NAME, notify: () => { if (security?.locked) { approve.cancelAll(); void coding?.cancelActive(); void closeCodingRunners(); } notifyRuntime(); },
+        security = createSecurityService({ store, audit: auditLog, egress, vault, dir: app.getPath('userData'), appName: APP_NAME, displayName: DISPLAY_NAME, notify: () => { if (security?.locked) { approve.cancelAll(); void coding?.cancelActive(); void closeCodingRunners(); } notifyRuntime(); },
             idleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return 0; } },
             touchId: { can: () => { try { return process.platform === 'darwin' && systemPreferences.canPromptTouchID(); } catch { return false; } }, prompt: reason => systemPreferences.promptTouchID(reason) },
             saveFile: async ({ title, defaultName, filters }) => { const r = await dialog.showSaveDialog(win, { title, defaultPath: path.join(app.getPath('documents'), defaultName), filters }); return r.canceled ? null : r.filePath; },
@@ -722,7 +733,7 @@ else {
             }));
             const searchPath = [...entries.filter((_, i) => !caches[i]), ...entries.filter((_, i) => caches[i])].join(path.delimiter);
             const candidates = await detectAgents({ searchPath });
-            if (security?.locked) throw new Error('QuanK 已锁定，请先解锁');
+            if (security?.locked) throw new Error('QuankSight 已锁定，请先解锁');
             return Promise.all(candidates.map(async candidate => ({
                 ...candidate, npmCache: /[\\/]_npx[\\/]/.test(await realpath(candidate.command).catch(() => candidate.command)),
             })));
@@ -768,7 +779,7 @@ else {
         });
         register('codingBrowse', async () => {
             const result = await dialog.showOpenDialog(win, { title: '选择代理可执行文件', properties: ['openFile'] });
-            if (security?.locked) throw new Error('QuanK 已锁定，请先解锁');
+            if (security?.locked) throw new Error('QuankSight 已锁定，请先解锁');
             return result.canceled ? null : result.filePaths[0];
         });
         let codingDrained = false;
@@ -815,7 +826,7 @@ else {
             } finally { if (changingEncryption) previewDiskTransitions--; }
         });
         powerMonitor.on('lock-screen', () => security?.onSleep()); powerMonitor.on('suspend', () => security?.onSleep());
-        trade = createTradeService({ store, quant, market, portfolio, broker: createBrokerBrowser({ BrowserWindow }), notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'tasks', tab: 'trade' }); }); n.show(); } catch {} } }); // [v0.52]
+        trade = createTradeService({ store, quant, market, portfolio, broker: createBrokerBrowser({ BrowserWindow }), notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuankSight · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'tasks', tab: 'trade' }); }); n.show(); } catch {} } }); // [v0.52]
         register('dataset', async p => { const result = await dataset.handle(p); return p?.action === 'view' ? { result } : { result, state: view() }; }); // [v0.53]
         register('trade', async p => { const result = await trade.handle(p); return ['view', 'readBack'].includes(p?.action) ? { result } : { result, state: view() }; });
         register('portfolio', async p => { const result = await portfolio.handle(p); return ['view', 'overview', 'risk', 'stress', 'simulate'].includes(p?.action) ? { result } : { result, state: view() }; });
@@ -825,7 +836,7 @@ else {
         app.on('before-quit', () => { quant?.stop().catch(() => {}); });
         register('miniapp', async p => { const result = await miniapps.handle(p); return ['get', 'storage', 'versions', 'export'].includes(p?.action) ? { result } : { result, state: view() }; });
         await store.save();
-        Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'QuanK', submenu: [{ label: '显示工作台', click: focus }, { label: '取消所有操作确认', accelerator: 'CommandOrControl+Shift+Escape', click: () => approve.cancelAll() }, { label: '撤销浏览器任务授权', click: () => { toolRuntime.revokeGrants(); approve.cancelAll(); } }, { role: 'about' }, { type: 'separator' }, { role: 'quit' }] }, { label: '编辑', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] }, { label: '视图', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'resetZoom' }] }]));
+        Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'QuankSight', submenu: [{ label: '显示工作台', click: focus }, { label: '取消所有操作确认', accelerator: 'CommandOrControl+Shift+Escape', click: () => approve.cancelAll() }, { label: '撤销浏览器任务授权', click: () => { toolRuntime.revokeGrants(); approve.cancelAll(); } }, { role: 'about' }, { type: 'separator' }, { role: 'quit' }] }, { label: '编辑', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] }, { label: '视图', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'resetZoom' }] }]));
         const workspace = createWorkspaceService({ store, active, view });
         for (const [name, handler] of Object.entries(workspace))
             register(name, handler);
@@ -864,7 +875,7 @@ else {
             return view();
         });
         register('pickFolder', async () => {
-            const result = await dialog.showOpenDialog(win, { title: '选择授权给 QuanK 的文件夹', properties: ['openDirectory'] });
+            const result = await dialog.showOpenDialog(win, { title: '选择授权给 QuankSight 的文件夹', properties: ['openDirectory'] });
             if (!result.canceled) {
                 const folderPath = result.filePaths[0];
                 if (!store.data.folders.some(f => f.path === folderPath)) {
@@ -993,7 +1004,7 @@ else {
         });
         register('exportText', async (p) => {
             const content = text(p.text, 500000);
-            const result = await dialog.showSaveDialog(win, { title: '保存成果', defaultPath: (p.name || 'QuanK 成果').replace(/[\\/:*?"<>|]/g, '_') + '.md', filters: [{ name: 'Markdown', extensions: ['md'] }] });
+            const result = await dialog.showSaveDialog(win, { title: '保存成果', defaultPath: (p.name || 'QuankSight 成果').replace(/[\\/:*?"<>|]/g, '_') + '.md', filters: [{ name: 'Markdown', extensions: ['md'] }] });
             if (!result.canceled) {
                 await writeFile(result.filePath, content, 'utf8');
                 store.log('已导出文件', path.basename(result.filePath));
@@ -1049,8 +1060,8 @@ else {
     }).catch(e => {
         // F581 selftest: never raise a native dialog; the launcher writes the
         // failure to its report JSON instead.
-        if (process.env.QUANK_SELFTEST === '1') console.error('[QuanK selftest] 启动失败：' + e.message);
-        else dialog.showErrorBox('QuanK 启动失败', e.message);
+        if (process.env.QUANK_SELFTEST === '1') console.error('[QuankSight selftest] 启动失败：' + e.message);
+        else dialog.showErrorBox('QuankSight 启动失败', e.message);
         app.quit();
     });
     app.on('activate', focus);
@@ -1060,7 +1071,7 @@ else {
         if (officeEditWindows?.hasUnsaved() || officeWindows?.hasUnsaved()) {
             event.preventDefault();
             focus();
-            win?.webContents.send('actwill:openPage', { page: 'notice', message: 'QuanK Office 有尚未保存的修改。请在文档窗口保存后退出。' });
+            win?.webContents.send('actwill:openPage', { page: 'notice', message: 'QuankSight 有尚未保存的修改。请在文档窗口保存后退出。' });
             return;
         }
         if (!officeQuitApproved && libreoffice?.sessions().length) {

@@ -47,7 +47,7 @@ for (const [intent, prompts] of Object.entries(examples))
 
 const review = {
   id: 'coding-1', title: 'ATR 止损', status: 'review', updatedAt: 1, branch: 'quank/iter-1',
-  agent: {id: 'builtin', name: 'QuanK 内置', kind: 'builtin'},
+  agent: {id: 'builtin', name: 'QuankSight 内置', kind: 'builtin'},
   result: {diffStat: {files: 2, insertions: 18, deletions: 4}, backtest: {before: {returnPct: null, maxDrawdownPct: 5.1}, after: {returnPct: null, maxDrawdownPct: 4.8}}},
 };
 function setup({mode = 'local', settings = {}, agents = [], task = review, answer = true} = {}) {
@@ -89,7 +89,7 @@ const toolCall = (name, args) => ({message: {role: 'assistant', content: '我会
 test('启动确认显示内置、项目和需求，空代理列表仍交给任务服务', async () => {
   const f = setup();
   await f.run('start', start);
-  assert.match(f.dialogs[0][1], /代理：QuanK 内置.*\n项目：\/quant\/project\n需求：把止损改成 ATR 动态止损/);
+  assert.match(f.dialogs[0][1], /代理：QuankSight 内置.*\n项目：\/quant\/project\n需求：把止损改成 ATR 动态止损/);
   assert.deepEqual(f.calls, [['start', {...start, fallback: 'auto', allowedAgents: [], source: 'chat', chatId: 'chat-1'}]]);
   assert.deepEqual(f.pages, [['tasks', {coding:{task:review.id}}]]);
 });

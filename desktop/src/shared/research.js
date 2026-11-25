@@ -14,7 +14,7 @@ export function money(v) {
   return a >= 1e8 ? (n / 1e8).toFixed(2) + '亿' : a >= 1e4 ? (n / 1e4).toFixed(2) + '万' : n.toFixed(2);
 }
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-export const DISCLAIMER = '本报告由 QuanK 在本机根据公开行情、公司公告和你自己的量化策略自动生成，仅供研究参考，不构成任何投资建议。投资有风险，决策请独立判断。';
+export const DISCLAIMER = '本报告由 QuankSight 在本机根据公开行情、公司公告和你自己的量化策略自动生成，仅供研究参考，不构成任何投资建议。投资有风险，决策请独立判断。';
 
 // ---------- M2: announcements ----------
 /** Order matters: the first matching type wins (a rating agency's "三季报亏损的关注公告" is a risk, not a periodic report). */
@@ -165,7 +165,7 @@ export function buildStockReport({code, name = '', date = '', quote = null, bars
   sections.push({id: 'risk', title: '风险提示', bullets: risks});
   if (gaps.includes('行情')) risks.splice(risks.length - 1, 0, '行情接口暂时不可用，本报告未包含实时报价、区间表现与 K 线。');
   const summary = clip(core[0] || '', 160);
-  return {kind: 'stock', title, subtitle: `${date || ''} · QuanK 投研报告`, date, code, name, sections, summary, gaps, disclaimer: DISCLAIMER};
+  return {kind: 'stock', title, subtitle: `${date || ''} · QuankSight 量见 · 投研报告`, date, code, name, sections, summary, gaps, disclaimer: DISCLAIMER};
 }
 
 // ---------- renderings ----------
@@ -201,7 +201,7 @@ export function reportToPptx(spec) {
   return JSON.stringify({slides: slides.slice(0, 50)});
 }
 
-/** Standalone HTML (inline CSS, QuanK colours). charts: {kline: '<svg…>', returns: '<svg…>'} generated locally. */
+/** Standalone HTML (inline CSS, QuankSight colours). charts: {kline: '<svg…>', returns: '<svg…>'} generated locally. */
 export function reportToHtml(spec, {charts = {}} = {}) {
   const table = t => `<table><thead><tr>${t[0].map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${t.slice(1).map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   const body = (spec.sections || []).map(sec => `<section><h2>${esc(sec.title)}</h2>${(sec.paragraphs || []).map(p => `<p>${esc(p)}</p>`).join('')}${sec.bullets?.length ? `<ul>${sec.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}${sec.chart && charts[sec.chart] ? `<figure class="chart">${charts[sec.chart]}</figure>` : ''}${sec.table?.length ? table(sec.table) : ''}</section>`).join('');
@@ -227,7 +227,7 @@ export function briefingReport(b) {
   for (const s of b.sections || []) if (s.items?.length) sections.push({id: clip(s.id || s.title, 30), title: clip(s.title, 60), bullets: s.items.slice(0, 30).map(i => clip(i.text || i.title || '', 400)).filter(Boolean)});
   if (!sections.length) sections.push({id: 'empty', title: '今日简报', paragraphs: ['今天没有需要汇报的事项。']});
   const date = clip(b.day || '', 10);
-  return {kind: 'briefing', title: `QuanK 每日简报 · ${date}`, subtitle: date, date, sections, summary: clip(b.summary || '', 160), gaps: [], disclaimer: '本简报由 QuanK 根据本机工作空间自动整理。'};
+  return {kind: 'briefing', title: `QuankSight 每日简报 · ${date}`, subtitle: date, date, sections, summary: clip(b.summary || '', 160), gaps: [], disclaimer: '本简报由 QuankSight 根据本机工作空间自动整理。'};
 }
 
 /** Portfolio review: market overview, holdings, signal distribution, recent signal changes and notices. */
@@ -256,7 +256,7 @@ export function reviewReport({date = '', overview = null, pool = [], holdings = 
   const risks = [...held.filter(h => fin(h.pnlPct) && h.pnlPct <= -20).map(h => `${nameOf(h.code)} 浮亏 ${pct(h.pnlPct)}`), ...pool.filter(p => /SELL/.test(String(p.last?.action || ''))).map(p => `${p.name || p.code} 处于「${actionLabel(p.last.action, p.last.actionText)}」`), ...imp.filter(n => n.type === 'risk').slice(0, 5).map(n => `${n.name || n.code} 风险公告：${clip(n.title, 60)}`)];
   sections.push({id: 'risk', title: '风险提示', bullets: risks.length ? risks : ['暂未发现需要特别留意的持仓或公告风险。']});
   if (sections.length === 1) sections.unshift({id: 'empty', title: '组合复盘', paragraphs: ['还没有股票池、持仓或行情数据。启动量化引擎并添加股票后再导出。']});
-  return {kind: 'review', title: `QuanK 组合复盘 · ${date}`, subtitle: date, date, sections, summary: sections.find(s => s.id === 'signals')?.paragraphs?.[0] || '', gaps: [], disclaimer: DISCLAIMER};
+  return {kind: 'review', title: `QuankSight 组合复盘 · ${date}`, subtitle: date, date, sections, summary: sections.find(s => s.id === 'signals')?.paragraphs?.[0] || '', gaps: [], disclaimer: DISCLAIMER};
 }
 
 /** Engine analysis report ({title, date, summary, metrics, warnings, items, md}) -> report structure. */

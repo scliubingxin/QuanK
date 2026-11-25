@@ -7,7 +7,7 @@ export function documentLibrary({ state, action, date, filter }) {
   const size = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : (n || 0) + ' B';
   const office = d => state.officeNative && ["docx", "xlsx", "pptx"].includes(d.format);
   const card = d => {
-    const edit = office(d) ? b("编辑", "documentEditor", d.id, "primary", "QuanK Office 编辑") : d.format === "pdf" ? "" : d.hasRichSource ? b("Word 画布", "documentCanvas", d.id, "primary")
+    const edit = office(d) ? b("编辑", "documentEditor", d.id, "primary", "QuankSight Office 编辑") : d.format === "pdf" ? "" : d.hasRichSource ? b("Word 画布", "documentCanvas", d.id, "primary")
       : !state.officeNative && d.format === "docx" ? b("Word 分段编辑", "documentWordEditor", d.id, "primary") : b("编辑内容", "documentEditor", d.id, "primary");
     const more = [d.format === "xlsx" ? b("生成仪表盘", "dashboardFromDocument", d.id, "") : "", ["md", "html"].includes(d.format) ? b("转换为 Word", "documentConvert", d.id, "") : "",
       office(d) && !state.officeWorkspace ? b("收回编辑结果", "officeCollect", d.id, "") : "", b("AI 修改", "documentContinue", d.id, ""), !d.hasRichSource && d.format !== "pdf" ? b("精确修改", "documentEdit", d.id, "") : "",
@@ -88,7 +88,7 @@ export function documentCards(documents, action, native = false, workspace = fal
     const name = d.name + '.' + d.format;
     const id = escape(d.id);
     const office = ['docx', 'xlsx', 'pptx'].includes(d.format);
-    const edit = native && office ? action('QuanK Office 编辑', 'documentEditor', d.id)
+    const edit = native && office ? action('QuankSight Office 编辑', 'documentEditor', d.id)
       : d.hasRichSource ? action('Word 画布', 'documentCanvas', d.id)
       : d.format === 'docx' ? action('Word 分段编辑', 'documentWordEditor', d.id)
       : d.format === 'pdf' ? '' : action('编辑内容', 'documentEditor', d.id);

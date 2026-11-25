@@ -139,7 +139,7 @@ test('M1 vault: AES-GCM, encrypted Store, enable keeps a plaintext copy, disable
   assert.ok(!back.includes('SECRET-MARK'));
   assert.deepEqual(openBackup(back, 'correct horse').payload.workspace.chats, [1]);
   assert.throws(() => openBackup(back, 'wrong pass'), /密码不对/);
-  assert.throws(() => openBackup('{}', 'x'), /不是 QuanK 备份/);
+  assert.throws(() => openBackup('{}', 'x'), /不是 QuankSight 备份/);
   assert.throws(() => checkPassphrase('1234567'), /至少 8 位/); assert.throws(() => checkPassphrase('11111111'), /太简单/);
   const h = hashPassword('lock-me-1'); assert.ok(verifyPassword('lock-me-1', h)); assert.ok(!verifyPassword('lock-me-2', h)); assert.ok(!verifyPassword('x', 'junk'));
   await rm(dir, {recursive: true, force: true});
@@ -171,7 +171,7 @@ test('security service: lock settings, lock / unlock, backoff, idle lock, privac
   await S.handle({action: 'unlock', password: 'lock-me-1'}); assert.equal(S.locked, false);
   await assert.rejects(S.handle({action: 'unlock', method: 'touchid'}).then(() => S.lock()).then(() => S.handle({action: 'unlock', method: 'touchid'})), /触控 ID 不可用/);
   await S.handle({action: 'unlock', password: 'lock-me-1'});
-  assert.deepEqual(S.lockState(), {appName: 'QuanK', touchId: false, retryIn: 0});
+  assert.deepEqual(S.lockState(), {appName: 'QuankSight', touchId: false, retryIn: 0});
   await assert.rejects(S.handle({action: 'lockSettings', enabled: false, current: 'x'}), /当前解锁密码/);
   await S.handle({action: 'lockSettings', enabled: false, current: 'lock-me-1'}); assert.equal(S.summary().lockEnabled, false);
   S.onSleep(); assert.equal(S.locked, false, 'no lock when disabled');
@@ -181,12 +181,12 @@ test('security service: lock settings, lock / unlock, backoff, idle lock, privac
   const r = await S.handle({action: 'review', text: '稳赚不赔', kind: 'text'});
   assert.equal(r.level, 'high'); assert.equal((await S.view()).reviews[0].findings[0].rule, 'guarantee');
   const actions = h.records.map(x => x.action);
-  for (const a of ['修改应用锁', '锁定 QuanK', '解锁失败', '解锁 QuanK', '修改隐私与外发设置', '修改合规设置', '合规检查']) assert.ok(actions.includes(a), a);
+  for (const a of ['修改应用锁', '锁定 QuankSight', '解锁失败', '解锁 QuankSight', '修改隐私与外发设置', '修改合规设置', '合规检查']) assert.ok(actions.includes(a), a);
   assert.match(h.records.find(x => x.action === '修改隐私与外发设置').detail, /离线模式开启，发给模型前隐藏金额开启/);
   assert.equal((await S.handle({action: 'testModel'})).status, 401);
   assert.ok(h.records.some(x => x.kind === 'model' && /失败：401/.test(x.detail)));
   const enc = await S.handle({action: 'encrypt', enabled: true}); assert.equal(enc.backup, 'workspace.plain-backup-1.json');
-  const ex = await S.handle({action: 'auditExport'}); assert.ok(ex.rows > 5); assert.match(ex.saved, /^QuanK-审计日志-\d{4}-\d{2}-\d{2}\.csv$/);
+  const ex = await S.handle({action: 'auditExport'}); assert.ok(ex.rows > 5); assert.match(ex.saved, /^QuankSight-审计日志-\d{4}-\d{2}-\d{2}\.csv$/);
 });
 
 test('security service: encrypted backup export, inspect and restore (keeps the lock, relaunches)', async () => {
@@ -272,8 +272,8 @@ test('UI: page, overview cards, forms, lock screen, lazy tabs', async () => {
   assert.throws(() => securityUI.backupPayload(new bf.FormData(f2)), /不一致/);
   const cf = new JSDOM(`<form>${securityUI.complianceForm(C.normalizeComplianceSettings({}))}</form>`).window;
   assert.equal(securityUI.compliancePayload(new cf.FormData(cf.document.querySelector('form'))).settings.disclaimer, C.DEFAULT_DISCLAIMER);
-  const ls = securityUI.lockScreen({appName: 'QuanK', touchId: true});
-  assert.match(ls, /QuanK 已锁定/); assert.match(ls, /data-action="secUnlockTouch"/); assert.ok(!/持仓.*\d{3,}/.test(ls));
+  const ls = securityUI.lockScreen({appName: 'QuankSight', touchId: true});
+  assert.match(ls, /QuankSight 已锁定/); assert.match(ls, /data-action="secUnlockTouch"/); assert.ok(!/持仓.*\d{3,}/.test(ls));
   const w = new JSDOM(`<body>${page}</body>`).window, calls = [];
   const call = async p => { calls.push(p.action); return {result: p.action === 'view' ? v : p.action === 'auditList' ? {items: []} : {}}; };
   securityUI.mountSecurity(w.document, call); await new Promise(r => setTimeout(r, 0));

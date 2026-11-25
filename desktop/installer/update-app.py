@@ -45,7 +45,7 @@ def apply_update(app,payload,verify=verify_native,clone=clone_native,commit=os.r
  if len(entries)!=4 or {e.get('path') for e in entries}!=PATCH_PATHS:raise ValueError('补丁路径集合无效')
  def base_guard():
   i=info(app)
-  if i.get('CFBundleIdentifier')!='com.quank.desktop' or i.get('CFBundleShortVersionString')!=m['base_version']:raise ValueError('此小更新仅支持 QuanK 0.37.0，请使用完整安装包')
+  if i.get('CFBundleIdentifier')!='com.quank.desktop' or i.get('CFBundleShortVersionString')!=m['base_version']:raise ValueError('此小更新仅支持 QuankSight 0.37.0，请使用完整安装包')
   a=app/'Contents/Resources/app.asar';regular(a)
   if digest(a)!=m['base_asar_sha256'] or digest(app/'Contents/Info.plist')!=m['base_info_sha256']:raise ValueError('原应用与指定基线不一致')
  for e in entries:
@@ -53,7 +53,7 @@ def apply_update(app,payload,verify=verify_native,clone=clone_native,commit=os.r
   if p.stat().st_size!=e['bytes'] or not 0<e['bytes']<=20*1024**2 or e['mode'] not in [0o644,0o755] or digest(p)!=e['sha256']:raise ValueError('补丁文件摘要/大小/权限校验失败')
  progress('1/4 校验补丁和原应用版本');base_guard()
  progress('2/4 检查原应用签名；失败时不会创建候选或替换应用');verify(app)
- stage=Path(tempfile.mkdtemp(prefix='.QuanK-update-',dir=app.parent));candidate=stage/'QuanK.app';backup=stage/'previous.app';committed=False
+ stage=Path(tempfile.mkdtemp(prefix='.QuankSight-update-',dir=app.parent));candidate=stage/'QuankSight.app';backup=stage/'previous.app';committed=False
  try:
   progress('3/4 克隆并应用四个文件');clone(app,candidate)
   for e in entries:
@@ -81,8 +81,8 @@ def apply_update(app,payload,verify=verify_native,clone=clone_native,commit=os.r
 def main():
  if sys.platform!='darwin' or os.uname().machine!='arm64':raise ValueError('仅支持 Apple 芯片 Mac')
  app=Path(sys.argv[1]);allowed={Path.home()/'Applications/QuanK.app',Path('/Applications/QuanK.app')}
- if app not in allowed:raise ValueError('仅更新个人或系统 Applications 中的 QuanK.app')
- if subprocess.run(['/usr/bin/pgrep','-f',re.escape(str(app)+'/Contents/MacOS/Electron')],stdout=subprocess.DEVNULL).returncode==0:raise ValueError('请先从菜单彻底退出 QuanK')
+ if app not in allowed:raise ValueError('仅更新个人或系统 Applications 中的 QuankSight.app')
+ if subprocess.run(['/usr/bin/pgrep','-f',re.escape(str(app)+'/Contents/MacOS/Electron')],stdout=subprocess.DEVNULL).returncode==0:raise ValueError('请先从菜单彻底退出 QuankSight')
  apply_update(app,Path(__file__).resolve().parent)
 if __name__=='__main__':
  try:main()

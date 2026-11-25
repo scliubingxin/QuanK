@@ -3,6 +3,7 @@ import { stat, cp, readdir, readFile, writeFile } from 'node:fs/promises';
 // [rebrand] Product identity. QuanK keeps its data in <appData>/QuanK and its keychain key under the name QuanK.
 // Older builds (WillBuddy / Actwill AI / actwill-desktop) are found and copied over once; the old folder is left untouched.
 export const APP_NAME = 'QuanK';
+export const DISPLAY_NAME = 'QuankSight';
 export const LEGACY_CRYPTO_NAME = 'Actwill AI';
 export const LEGACY_DATA_DIRS = ['WillBuddy', 'Actwill AI', 'actwill-desktop'];
 const SKIP = /^(Singleton(Lock|Socket|Cookie)|Cache|Code Cache|GPUCache|DawnCache|DawnGraphiteCache|DawnWebGPUCache|GrShaderCache|ShaderCache|Crashpad|blob_storage)$/;

@@ -435,15 +435,28 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
             schedule();
         }
     }
+    // [V100-5] drag/ime 统一复位入口 + 看门狗：渲染层异常时不允许交互标志永久卡住。
+    let dragOn = false, imeOn = false, dragTimer = 0, imeTimer = 0;
+    function setDrag(on) {
+        clearTimeout(dragTimer);
+        if (on === dragOn) { if (on) dragTimer = setTimeout(() => setDrag(false), 10_000); return; }
+        dragOn = on; session.interaction?.({drag:on});
+        if (on) dragTimer = setTimeout(() => setDrag(false), 10_000);
+    }
+    function setIme(on) {
+        clearTimeout(imeTimer);
+        if (on !== imeOn) { imeOn = on; session.interaction?.({ime:on}); }
+        if (on) imeTimer = setTimeout(() => setIme(false), 15_000);
+    }
     const ime = createComposition(text => action(() => request('ime',{text}),true), text => {
         composition.textContent = text;
         composition.hidden = !text;
     });
-    input.addEventListener('compositionstart',() => {session.interaction?.({ime:true}); ime.start();});
-    input.addEventListener('compositionupdate',event => ime.update(event.data));
-    input.addEventListener('compositionend',event => {input.value = ''; void Promise.resolve(ime.end(event.data)).finally(() => session.interaction?.({ime:false}));});
+    input.addEventListener('compositionstart',() => {setIme(true); ime.start();});
+    input.addEventListener('compositionupdate',event => {setIme(true); ime.update(event.data);});
+    input.addEventListener('compositionend',event => {input.value = ''; void ime.end(event.data); setIme(false);});
     input.addEventListener('focus',() => {focused = true; renderOverlay();});
-    input.addEventListener('blur',() => {focused = false; queueThumbnails(); ime.cancel(); input.value = ''; renderOverlay();});
+    input.addEventListener('blur',() => {focused = false; queueThumbnails(); ime.cancel(); input.value = ''; renderOverlay(); setDrag(false); setIme(false);});
     input.addEventListener('keydown',event => {
         if (ime.active) return;
         const key = officeShortcut(event);
@@ -511,9 +524,9 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
             renderOverlay();
             input.focus({preventScroll:true});
         }
-        session.interaction?.({drag:true});
         pointerId = event.pointerId;
-        sheet.setPointerCapture(pointerId);
+        try { sheet.setPointerCapture(pointerId); } catch { /* capture 不可用时仍走 document 级兜底 */ }
+        setDrag(true);
         graphicDrag = !session.readOnly && session.kind === 'impress' && session.selection.kind === 'graphic' &&
             session.selection.rects.some(rect => {
                 const bounds = sheet.getBoundingClientRect();
@@ -540,10 +553,14 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         else pointer(event,1);
         graphicDrag = false;
     }
-    sheet.addEventListener('pointerup',event => {endPointer(event); session.interaction?.({drag:false});});
-    sheet.addEventListener('pointercancel',() => session.interaction?.({drag:false}));
-    input.addEventListener('blur',() => session.interaction?.({ime:false, drag:false}));
-    sheet.addEventListener('pointercancel',endPointer);
+    // [V100-5] document 捕获级兜底：pointerup 落在 input / document 而不是 sheet 上也能复位。
+    const end = event => { if (pointerId === event.pointerId) endPointer(event); setDrag(false); };
+    document.addEventListener('pointerup', end, {capture:true, signal:pointerLifetime.signal});
+    document.addEventListener('pointercancel', end, {capture:true, signal:pointerLifetime.signal});
+    sheet.addEventListener('lostpointercapture', end);
+    window.addEventListener('blur', () => { setDrag(false); setIme(false); }, {signal:pointerLifetime.signal});
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { setDrag(false); setIme(false); } }, {signal:pointerLifetime.signal});
+    sheet.addEventListener('pointerup', end);
     port.addEventListener('scroll',() => {renderOverlay(); schedule();}, {passive:true});
     let thumbObserver, thumbQueued = false;
     const thumbnails = new Map();
@@ -666,6 +683,7 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         observer.disconnect();
         if (resizeFrame) cancelAnimationFrame(resizeFrame);
         pointerLifetime.abort();
+        clearTimeout(dragTimer); clearTimeout(imeTimer);
         thumbObserver?.disconnect();
         clearTimeout(thumbnailRefresh);
         thumbnails.clear();

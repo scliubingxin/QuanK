@@ -14,7 +14,7 @@ import { buildBriefing } from '../src/shared/briefing.js';
 import { executeAppTool, appToolDefinitions } from '../services/app-tools.mjs';
 
 const CST = (d, h, m) => Date.UTC(2026, 10, d, h - 8, m);
-// A made-up engine with two analysis scripts; QuanK learns everything from the adapter's `reports` list.
+// A made-up engine with two analysis scripts; QuankSight learns everything from the adapter's `reports` list.
 const REPORTS = [
   {id: 'day', title: '示例日报', script: 'rep.py', args: ['{date}'], output: 'out/r_{date}.json', markdown: 'out/r_{date}.md', schedule: 'daily',
     fields: {summary: 'sum', metrics: [['条数', 'n'], ['比例', 'rate', 'pct'], ['缺失', 'none']], warnings: [{path: 'warn', text: '只有 {got} 条，基线 {base} 条'}, {path: 'quiet', text: '不应出现'}], items: {path: 'tips', title: 'f', detail: 's', level: 'lv'}}},

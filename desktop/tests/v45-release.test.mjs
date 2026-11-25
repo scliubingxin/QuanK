@@ -7,10 +7,10 @@ const read = p => readFile(new URL(p, import.meta.url), 'utf8');
 
 test('README links to the latest DMG, release history and screenshots', async () => {
   const md = await read('../../README.md');
-  for (const section of ['一分钟看懂 QuanK', '下载与安装', '核心能力', '界面一览', '隐私与安全', '常见问题'])
+  for (const section of ['一分钟看懂 QuankSight', '下载与安装', '核心能力', '界面一览', '隐私与安全', '常见问题'])
     assert.ok(md.includes(`## ${section}`), section);
   assert.match(md, /\[发布记录\]\(docs\/releases\/README\.md\)/);
-  assert.match(md, /releases\/latest\) 下载最新的 `QuanK-v<版本>-mac-arm64\.dmg`/);
+  assert.match(md, /releases\/latest\) 下载最新的 `QuankSight-v<版本>-mac-arm64\.dmg`/);
   assert.doesNotMatch(md, /^## 更新记录|^- \*\*v\d+/m);
   assert.ok(md.indexOf('## 下载与安装') < md.indexOf('## 核心能力'));
   for (const [, image] of md.matchAll(/\((docs\/images\/[^)]+)\)/g))

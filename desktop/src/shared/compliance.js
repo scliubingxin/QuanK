@@ -3,7 +3,7 @@
 // (保本 / 稳赚 / 目标价必达 …), inducement and personalised advice wording, missing disclaimer, missing data source or
 // report date, AI-generated content without a label. Also owns the configurable standard disclaimer and risk notes.
 
-export const DEFAULT_DISCLAIMER = '本文内容由 QuanK 根据公开数据与用户本机数据生成，仅供研究参考，不构成任何投资建议或收益承诺。市场有风险，投资需谨慎，请独立判断并自行承担投资决策的风险。';
+export const DEFAULT_DISCLAIMER = '本文内容由 QuankSight 根据公开数据与用户本机数据生成，仅供研究参考，不构成任何投资建议或收益承诺。市场有风险，投资需谨慎，请独立判断并自行承担投资决策的风险。';
 export const DEFAULT_RISK_NOTES = ['历史表现不代表未来收益，回测结果不等于实际收益。', '数据可能存在延迟或错误，请以交易所与上市公司公告为准。'];
 export const AI_LABEL = '本文部分内容由人工智能生成，已标注 AI 研判段落，请注意甄别。';
 

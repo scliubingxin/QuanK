@@ -1,12 +1,12 @@
 // [v0.52] Broker web page window (main process). One visible window on an in-memory session ('qk-broker', not a
-// persistent partition): the login lives only while QuanK runs and is never written to disk. QuanK only reads the page,
+// persistent partition): the login lives only while QuankSight runs and is never written to disk. QuankSight only reads the page,
 // fills input fields and outlines the submit button (src/shared/trade.js fillScript); it never clicks anything.
 import { fillScript, calibrateScript, readRowsScript } from '../src/shared/trade.js';
 
 const httpsOnly = u => { try { const x = new URL(String(u)); return x.protocol === 'https:' && !x.username && !x.password; } catch { return false; } };
 function bounded(p, ms, what) { let t; return Promise.race([p, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(`${what}超时`)), ms); })]).finally(() => clearTimeout(t)); }
 
-export function createBrokerBrowser({BrowserWindow, title = 'QuanK · 券商网页版'}) {
+export function createBrokerBrowser({BrowserWindow, title = 'QuankSight · 券商网页版'}) {
   let win = null;
   const alive = () => win && !win.isDestroyed();
   function ensure() {

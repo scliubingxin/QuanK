@@ -2,7 +2,7 @@
 
 ## 用途
 
-`app_deck_build` / `app_deck_themes` 两个助手工具：把资料、日报复盘、研究结果做成原生可编辑的 QuanK 投研 PPT。文件保存到成果中心（带版本）、右侧页签预览，对话里返回文件卡片（页数、版式清单、数据占位说明）。
+`app_deck_build` / `app_deck_themes` 两个助手工具：把资料、日报复盘、研究结果做成原生可编辑的 QuankSight 量见 · 投研 PPT。文件保存到成果中心（带版本）、右侧页签预览，对话里返回文件卡片（页数、版式清单、数据占位说明）。
 
 ## 主题与版式
 
@@ -12,7 +12,7 @@
 
 ## 数据绑定
 
-spec 字段可写 `{"$data": "quote:600438"}`、`"financials:600438:5y"`、`"kline:600438:1d:120"`、`"backtest:<strategy>"`、`"signals:pool"`。生成前由 QuanK 行情/财务/量化服务**只读**取数填入；每页底部自动加「数据来源 · 截至 <sourceAsOf>」。取不到的数据显示「—」并写入 warnings，不编造。金额隐藏开启时持仓金额脱敏。
+spec 字段可写 `{"$data": "quote:600438"}`、`"financials:600438:5y"`、`"kline:600438:1d:120"`、`"backtest:<strategy>"`、`"signals:pool"`。生成前由 QuankSight 行情/财务/量化服务**只读**取数填入；每页底部自动加「数据来源 · 截至 <sourceAsOf>」。取不到的数据显示「—」并写入 warnings，不编造。金额隐藏开启时持仓金额脱敏。
 
 ## 调用链
 
@@ -29,11 +29,11 @@ assistant → app_deck_build(outline) → 大纲卡片确认 → spec → build_
 
 ## 数据来源
 
-- 报价与 K 线：腾讯行情（QuanK `createMarketService`，1/5/15/30 分钟与日 K）。
+- 报价与 K 线：腾讯行情（QuankSight `createMarketService`，1/5/15/30 分钟与日 K）。
 - 财务：东方财富 F10 `datacenter-web / RPT_LICO_FN_CPD` 年度报告（`deck-data.mjs`，只读、超时、缓存），近 5 年营收/归母净利/毛利率/ROE。
 - 估值：腾讯报价字段 PE(TTM)/PB(LF)；PE 为负或历史分位无来源时显示「—」。
-- 量化信号与回测：QuanK 本机量化引擎（临时副本，勿改用户策略项目）。
+- 量化信号与回测：QuankSight 本机量化引擎（临时副本，勿改用户策略项目）。
 
 ## 来源与许可
 
-见 `desktop/runtime/deck/THIRD_PARTY.md`。ppt-deck-pro 用户自研，随 QuanK 分发。
+见 `desktop/runtime/deck/THIRD_PARTY.md`。ppt-deck-pro 用户自研，随 QuankSight 分发。

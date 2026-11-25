@@ -1,9 +1,9 @@
 {
   "name": "quank-desktop",
-  "productName": "QuanK",
-  "version": "1.0.0",
+  "productName": "QuankSight",
+  "version": "1.0.1",
   "private": true,
-  "description": "QuanK desktop AI workspace",
+  "description": "QuankSight 量见 · 金融量化工作台",
   "author": "Actwill",
   "license": "Apache-2.0",
   "type": "module",
@@ -55,7 +55,7 @@
   },
   "build": {
     "appId": "com.quank.desktop",
-    "productName": "QuanK",
+    "productName": "QuankSight",
     "asar": true,
     "files": [
       "main.mjs",

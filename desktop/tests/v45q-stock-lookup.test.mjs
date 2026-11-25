@@ -58,7 +58,7 @@ test('chat tool: 「添加宁德时代」 resolves the name, confirms with name 
   const seen = [], asked = [];
   const quant = {view: () => ({status: 'running', pool: []}), handle: async p => {
     seen.push(p);
-    if (p.action === 'resolveStock') return p.query === '茅' ? {choices: [{code: '600519', name: '贵州茅台'}, {code: '600199', name: '金种子酒'}]} : p.query === '腾讯' ? {error: 'QuanK 股票池目前只支持沪深北 A 股'} : {code: '300750', name: '宁德时代', board: '深A'};
+    if (p.action === 'resolveStock') return p.query === '茅' ? {choices: [{code: '600519', name: '贵州茅台'}, {code: '600199', name: '金种子酒'}]} : p.query === '腾讯' ? {error: 'QuankSight 股票池目前只支持沪深北 A 股'} : {code: '300750', name: '宁德时代', board: '深A'};
     if (p.action === 'findStock') return {candidates: [{code: '300750', name: '宁德时代'}]};
     return {pool: [{code: p.code, name: p.name}], logo: true};
   }};

@@ -19,8 +19,10 @@ function safe(target, method, ...args) {
 }
 
 export function createOfficeEditWindows({
-  BrowserWindow, ipcMain, here, sessions, documents, onEvent = () => {}, canOpen = () => true,
+  BrowserWindow, ipcMain, MessageChannelMain: Channel, here, sessions, documents,
+  onEvent = () => {}, canOpen = () => true,
 }) {
+  if (typeof Channel !== 'function') throw Error('createOfficeEditWindows: MessageChannelMain is required');
   const windows = new Map();      // webContents.id -> binding
   const byDocument = new Map();   // docId -> BrowserWindow
   const opening = new Map();      // docId -> Promise
@@ -41,7 +43,7 @@ export function createOfficeEditWindows({
   ipcMain.handle('willbuddy-office-window:attach', async (event, payload) => {
     const binding = bindingOf(event);
     if (!binding) throw Error('拒绝不可信 Office 编辑窗口');
-    if (!canOpen()) throw Error('QuanK 已锁定，请先解锁');
+    if (!canOpen()) throw Error('QuankSight 已锁定，请先解锁');
     const id = binding.docId, revision = binding.revision;
     if (typeof payload?.token !== 'string' || !/^[a-f0-9-]{36}$/.test(payload.token)) throw Error('Office 窗口标识无效');
     const manager = await sessions();
@@ -49,7 +51,7 @@ export function createOfficeEditWindows({
     const view = await manager.open({documentId:id, mode:'edit', ...(Number.isFinite(revision) ? {revision} : {})});
     binding.view = view;
     binding.closeView = () => manager.closeView(view);
-    const {port1, port2} = new MessageChannelMain();
+    const {port1, port2} = new Channel();
     binding.dispose = bindOfficeViewPort(port1, view, binding.closeView, () => bindingOf(event) === binding);
     binding.off = [
       view.session.on('saved', detail => onEvent(id, 'saved', detail)),
@@ -105,7 +107,7 @@ export function createOfficeEditWindows({
   }
 
   async function create(id, revision, target) {
-    let documentName = 'QuanK Office';
+    let documentName = 'QuankSight';
     try {
       const entry = documents?.read?.(id);
       if (entry?.name) documentName = entry.name + '.' + entry.format;
@@ -114,7 +116,7 @@ export function createOfficeEditWindows({
       width:1360, height:900, minWidth:900, minHeight:620, show:false,
       // v0.58.1 review A2: macOS native title bar with traffic lights; closing
       // goes through the O5 exit-protection card in w.on('close') below.
-      title:documentName, titleBarStyle:'hiddenInset',
+      title:documentName + ' — QuankSight', titleBarStyle:'hiddenInset',
       ...(process.platform === 'darwin' ? {trafficLightPosition:{x:18,y:16}} : {}),
       icon:path.join(here,'assets/icon-512.png'), backgroundColor:'#FFFFFF',
       webPreferences:{preload:path.join(here,'preload.cjs'), contextIsolation:true, nodeIntegration:false, sandbox:true},

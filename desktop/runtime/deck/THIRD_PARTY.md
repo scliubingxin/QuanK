@@ -4,11 +4,11 @@
 
 | 组件 | 来源 | 许可 |
 | --- | --- | --- |
-| `deckkit/*.py`、`build_deck.py` | ppt-deck-pro，用户自研，随 QuanK 分发（JSON spec → 原生可编辑 PPTX 渲染器） | 用户自研，随 QuanK 分发 |
-| `research.py`、`data.py` | QuanK 本轮新增（D59） | QuanK 项目许可（见仓库根 LICENSE） |
-| `assets/quank_logo.png`、`assets/quank_logo_white.png` | QuanK 既有品牌资源 `desktop/src/assets/logo.png`（白色版由本地着色生成） | QuanK 项目许可 |
+| `deckkit/*.py`、`build_deck.py` | ppt-deck-pro，用户自研，随 QuankSight 分发（JSON spec → 原生可编辑 PPTX 渲染器） | 用户自研，随 QuankSight 分发 |
+| `research.py`、`data.py` | QuankSight 本轮新增（D59） | QuankSight 项目许可（见仓库根 LICENSE） |
+| `assets/quank_logo.png`、`assets/quank_logo_white.png` | QuankSight 既有品牌资源 `desktop/src/assets/logo.png`（白色版由本地着色生成） | QuankSight 项目许可 |
 
-移植时已按要求移除来源技能中的第三方客户品牌、实景照片、安全标识与角标；原 `.b64` 素材全部删除。生成内容只使用 QuanK 品牌色（皇家蓝 `#2F62F5`、深蓝 `#0B2BA6/#14213D`、浅蓝灰 `#EEF2FF`）与原生形状/渐变。
+移植时已按要求移除来源技能中的第三方客户品牌、实景照片、安全标识与角标；原 `.b64` 素材全部删除。生成内容只使用 QuankSight 品牌色（皇家蓝 `#2F62F5`、深蓝 `#0B2BA6/#14213D`、浅蓝灰 `#EEF2FF`）与原生形状/渐变。
 
 ## Python 运行依赖
 
@@ -23,4 +23,4 @@
 
 ## 来源确认
 
-- ppt-deck-pro 为用户自研，随 QuanK 分发（用户 2026-11-25 确认）。
+- ppt-deck-pro 为用户自研，随 QuankSight 分发（用户 2026-11-25 确认）。

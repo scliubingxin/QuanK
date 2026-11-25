@@ -19,7 +19,7 @@ const messages = {
   timeout: 'Coding 智能体响应超时',
   crashed: 'Coding 智能体异常退出或请求失败',
   cancelled: 'Coding 会话已取消',
-  locked: 'QuanK 已锁定，请先解锁',
+  locked: 'QuankSight 已锁定，请先解锁',
   project: '请选择有效的本地策略项目目录，工作路径必须位于项目内',
 };
 
@@ -408,7 +408,7 @@ export function createCodingRunner({
       const result = await request('initialize', {
         protocolVersion: 1,
         clientCapabilities: { fs: { readTextFile: true, writeTextFile: true }, terminal: true },
-        clientInfo: { name: 'quank', title: 'QuanK', version: '1.0.0' },
+        clientInfo: { name: 'quank', title: 'QuankSight', version: '1.0.0' },
       });
       if (result?.protocolVersion !== 1) throw failure('no_acp');
       phase = 'session';
@@ -416,7 +416,7 @@ export function createCodingRunner({
       if (typeof session?.sessionId !== 'string' || !session.sessionId) throw failure('crashed');
       ensureOpen();
       sessionId = session.sessionId;
-      const warning = offline() ? 'QuanK 已开启离线模式，本机代理仍可启动，联网能力由代理自身决定。' : '';
+      const warning = offline() ? 'QuankSight 已开启离线模式，本机代理仍可启动，联网能力由代理自身决定。' : '';
       await record('coding.start', warning ? 'ok_offline' : 'ok');
       if (warning) events.emit('update', { sessionUpdate: 'warning', message: warning });
       return { sessionId, agentInfo: result.agentInfo ?? null, ...(warning ? { warning } : {}) };

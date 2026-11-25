@@ -1,4 +1,4 @@
-// [F1g] skills ported from AWS Quick + QuanK-branded decks
+// [F1g] skills ported from AWS Quick + QuankSight-branded decks
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -32,7 +32,7 @@ test('skill bodies: compliance and safety rules survive the port', async () => {
   assert.equal(new Set(src.skills.map(s => s.id)).size, src.skills.length, 'unique ids');
 });
 
-test('decks: QuanK theme is the default and QuanK decks carry the real logo', () => {
+test('decks: QuankSight theme is the default and QuankSight decks carry the real logo', () => {
   assert.equal(DEFAULT_THEME, 'quank'); assert.equal(getTheme().primary, '2F62F5'); assert.equal(THEMES.quank.coverBg, '0B2BA6'); assert.equal(THEMES.quank.accent, '8C7CFF');
   assert.ok(QUANK_LOGO.width > 100 && QUANK_LOGO.height > 100 && Buffer.from(QUANK_LOGO.base64, 'base64').subarray(1, 4).toString() === 'PNG');
   const deck = {title: 'x', slides: [{layout: 'cover', title: '季度复盘', subtitle: '仅供内部'}, {layout: 'cards', title: '三项进展', cards: [{title: 'a', body: 'b'}, {title: 'c', body: 'd'}, {title: 'e', body: 'f'}]}, {layout: 'closing', title: '谢谢'}]};

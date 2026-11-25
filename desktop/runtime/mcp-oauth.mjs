@@ -39,7 +39,7 @@ export async function discoverAuth(mcpUrl, {fetcher = fetch, signal} = {}) {
   let hint = null;
   try {
     const r = await fetcher(resource, {method: 'POST', redirect: 'error', credentials: 'omit', headers: {'Content-Type': 'application/json', Accept: 'application/json, text/event-stream'},
-      body: JSON.stringify({jsonrpc: '2.0', id: 1, method: 'initialize', params: {protocolVersion: '2025-06-18', capabilities: {}, clientInfo: {name: 'QuanK', version: '1'}}}), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000)});
+      body: JSON.stringify({jsonrpc: '2.0', id: 1, method: 'initialize', params: {protocolVersion: '2025-06-18', capabilities: {}, clientInfo: {name: 'QuankSight', version: '1'}}}), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000)});
     hint = resourceMetadataHint(r.headers.get('www-authenticate'));
     await r.body?.cancel();
   } catch (e) { if (signal?.aborted) throw e; }
@@ -70,7 +70,7 @@ export async function registerClient(meta, {redirectUri, fetcher = fetch, signal
   if (clientId) return {client_id: String(clientId)};
   if (!meta.registration_endpoint) throw Error('授权服务器不支持自动注册客户端（RFC 7591）；请改用 API Key / Bearer Token');
   const r = await fetcher(meta.registration_endpoint, {method: 'POST', redirect: 'error', credentials: 'omit', headers: {'Content-Type': 'application/json', Accept: 'application/json'},
-    body: JSON.stringify({client_name: 'QuanK', redirect_uris: [redirectUri], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none'}),
+    body: JSON.stringify({client_name: 'QuankSight', redirect_uris: [redirectUri], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none'}),
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000)});
   const text = await r.text();
   if (!r.ok) throw Error(`注册客户端失败（HTTP ${r.status}）${clip(text, 120) ? '：' + clip(text, 120) : ''}`);
@@ -115,7 +115,7 @@ export function loopback({state, timeoutMs = 300e3, signal} = {}) {
     let finish;
     const result = new Promise((resolve, reject) => { finish = (e, v) => { clearTimeout(timer); try { server.close(); } catch {} e ? reject(e) : resolve(v); }; });
     result.catch(() => {}); // a rejection before the caller awaits (denied / timeout / cancel) is not an unhandled rejection
-    const page = ok => `<!doctype html><meta charset="utf-8"><title>QuanK</title><body style="font-family:-apple-system,sans-serif;text-align:center;padding-top:80px;color:#0b2f55"><h2>${ok ? '登录完成' : '登录未完成'}</h2><p>${ok ? '可以关闭此页面，回到 QuanK。' : '请回到 QuanK 查看原因。'}</p></body>`;
+    const page = ok => `<!doctype html><meta charset="utf-8"><title>QuankSight</title><body style="font-family:-apple-system,sans-serif;text-align:center;padding-top:80px;color:#0b2f55"><h2>${ok ? '登录完成' : '登录未完成'}</h2><p>${ok ? '可以关闭此页面，回到 QuankSight。' : '请回到 QuankSight 查看原因。'}</p></body>`;
     const server = createServer((req, res) => {
       const u = new URL(req.url, 'http://127.0.0.1');
       if (u.pathname !== '/callback') { res.writeHead(404).end(); return; }

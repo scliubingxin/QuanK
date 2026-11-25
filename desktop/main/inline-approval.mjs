@@ -26,7 +26,7 @@ export function createInlineApprovals({ changed = () => {}, created = () => {}, 
   }
   function request(action, summary, signal, options = {}) {
     if (signal?.aborted) return Promise.reject(signal.reason);
-    const { agent = 'QuanK', chatId, codingTaskId, source, network, taskLabel, choices, promptChoices } = options;
+    const { agent = 'QuankSight', chatId, codingTaskId, source, network, taskLabel, choices, promptChoices } = options;
     const risk = options.highRisk || approvalRisk(action);
     const requestId = randomUUID();
     const card = { requestId, action: action.replace(/[？?]$/, ''), summary,

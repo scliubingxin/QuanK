@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""QuanK deck engine: JSON spec -> native editable .pptx (python-pptx + lxml).
+"""QuankSight deck engine: JSON spec -> native editable .pptx (python-pptx + lxml).
 
 usage:
   python3 build_deck.py --spec deck.json --out out.pptx
@@ -24,7 +24,7 @@ try:
     import pptx  # noqa
     from lxml import etree  # noqa
 except ImportError:
-    sys.stderr.write("[QuanK deck] 缺少内置 Python 依赖 python-pptx / lxml，请在「设置 → 运行环境」修复内置 Python 后重试。\n")
+    sys.stderr.write("[QuankSight deck] 缺少内置 Python 依赖 python-pptx / lxml，请在「设置 → 运行环境」修复内置 Python 后重试。\n")
     sys.exit(3)
 
 from deckkit import core as C  # noqa: E402
@@ -46,7 +46,7 @@ RESEARCH_LAYOUTS = ["cover", "summary", "company", "financials", "valuation", "c
                     "signals", "catalysts_risks", "event", "disclaimer"]
 
 DEFAULT_BRAND = {
-    "name": "QuanK",
+    "name": "QuankSight",
     "font": u"PingFang SC",
     "security_label": u"",
     "tag": "",
@@ -194,7 +194,7 @@ def page_data_context(slide):
 
 
 def strip_chart_embeddings(path):
-    """QuanK document service rejects embedded workbooks; charts keep their cached data."""
+    """QuankSight document service rejects embedded workbooks; charts keep their cached data."""
     import zipfile, os
     from lxml import etree
     from pptx.oxml.ns import qn
@@ -235,7 +235,7 @@ def outline_to_spec(outline, theme, title):
         slides.append({"layout": "cover", "title": title or "投研报告"})
     if not any(s.get("layout") == "disclaimer" for s in slides):
         slides.append({"layout": "disclaimer", "text": DISCLAIMER_TEXT})
-    spec = {"theme": theme or "research", "title": title or "投研报告", "slides": slides, "brand": {"name": "QuanK"}}
+    spec = {"theme": theme or "research", "title": title or "投研报告", "slides": slides, "brand": {"name": "QuankSight"}}
     return spec
 
 
@@ -321,7 +321,7 @@ def build(spec, out, base_dir, warnings=None, mask_amounts=False, source_as_of=N
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="QuanK deck %s - JSON spec to native editable PPTX" % VERSION)
+    ap = argparse.ArgumentParser(description="QuankSight deck %s - JSON spec to native editable PPTX" % VERSION)
     ap.add_argument("--spec", "-s", help="deck spec JSON file ('-' = stdin)")
     ap.add_argument("--outline", help="confirmed outline JSON file; builds a spec (use with --theme/--title)")
     ap.add_argument("--data", help="resolved data map JSON (ref -> value); fills {\"$data\"} fields")
@@ -362,15 +362,15 @@ def main(argv=None):
     errs = validate(spec)
     if errs:
         result = {"ok": False, "errors": errs}
-        print(json.dumps(result, ensure_ascii=False) if a.json else "[QuanK deck] SPEC ERRORS:\n" + "\n".join("  - " + e for e in errs))
+        print(json.dumps(result, ensure_ascii=False) if a.json else "[QuankSight deck] SPEC ERRORS:\n" + "\n".join("  - " + e for e in errs))
         return 2
     if a.spec_out:
         with io.open(a.spec_out, "w", encoding="utf-8") as f:
             json.dump(spec, f, ensure_ascii=False, indent=1)
-        print(json.dumps({"ok": True, "spec": spec}, ensure_ascii=False) if a.json else "[QuanK deck] spec -> %s" % a.spec_out)
+        print(json.dumps({"ok": True, "spec": spec}, ensure_ascii=False) if a.json else "[QuankSight deck] spec -> %s" % a.spec_out)
         return 0
     if a.check:
-        msg = "[QuanK deck] spec OK (%d slides)" % len(spec["slides"])
+        msg = "[QuankSight deck] spec OK (%d slides)" % len(spec["slides"])
         print(json.dumps({"ok": True, "slides": len(spec["slides"])}, ensure_ascii=False) if a.json else msg)
         return 0
     base_dir = os.path.dirname(os.path.abspath(a.spec)) if a.spec and a.spec != "-" else os.getcwd()
@@ -384,7 +384,7 @@ def main(argv=None):
     if a.json:
         print(json.dumps(result, ensure_ascii=False))
     else:
-        print("[QuanK deck] OK -> %s" % result["file"])
+        print("[QuankSight deck] OK -> %s" % result["file"])
         print("  slides: %d" % result["slides"])
         for i, l in enumerate(layouts, 1):
             print("   %2d  %s" % (i, l))

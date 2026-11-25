@@ -282,7 +282,7 @@ export function spreadsheetEditor(files) {
     sheets: sheets.map(({ name, sheetIndex }) => ({ name, sheetIndex })),
     cells,
     calculation: hasFormula
-      ? "QuanK bounded formula subset; editor computes current values without saving"
+      ? "QuankSight bounded formula subset; editor computes current values without saving"
       : "constants",
   };
 }

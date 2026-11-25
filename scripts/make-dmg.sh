@@ -1,22 +1,22 @@
 #!/bin/sh
-# Build a drag-to-install DMG from a packaged QuanK.app.  Usage: sh make-dmg.sh <QuanK.app> <out.dmg> <bg.png> <bg@2x.png>
+# Build a drag-to-install DMG from a packaged app.  Usage: sh make-dmg.sh <app> <out.dmg> <bg.png> <bg@2x.png>
 # The window layout (icon positions, background) is set through Finder; if Finder scripting is not allowed the DMG
 # still works, only without the custom layout.
 set -u
 APP=$1; OUT=$2; BG=$3; BG2=$4
 T() { perl -e 'alarm shift; exec @ARGV' -- "$@"; }
-VOL=QuanK; WD=$(mktemp -d /tmp/quank-dmg.XXXXXX); SRC=$WD/src; RW=$WD/rw.dmg
+VOL=QuankSight; WD=$(mktemp -d /tmp/quank-dmg.XXXXXX); SRC=$WD/src; RW=$WD/rw.dmg
 mkdir -p "$SRC/.background"
-ditto "$APP" "$SRC/QuanK.app" || exit 11
+ditto "$APP" "$SRC/QuankSight.app" || exit 11
 ln -s /Applications "$SRC/应用程序"
 tiffutil -cathidpicheck "$BG" "$BG2" -out "$SRC/.background/background.tiff" >/dev/null 2>&1 || cp "$BG" "$SRC/.background/background.tiff"
 cat > "$SRC/首次打开.command" <<'EOF'
 #!/bin/sh
-# 首次打开 QuanK：去掉下载隔离标记后启动（只针对「应用程序」里的 QuanK）。
-A=/Applications/QuanK.app
-if [ ! -d "$A" ]; then echo "请先把 QuanK 拖到「应用程序」，再双击本文件。"; read -r _; exit 1; fi
+# 首次打开 QuankSight：去掉下载隔离标记后启动（只针对「应用程序」里的 QuankSight）。
+A=/Applications/QuankSight.app
+if [ ! -d "$A" ]; then echo "请先把 QuankSight 拖到「应用程序」，再双击本文件。"; read -r _; exit 1; fi
 xattr -dr com.apple.quarantine "$A" 2>/dev/null
-open "$A" && echo "QuanK 已启动，可以关闭此窗口。"
+open "$A" && echo "QuankSight 已启动，可以关闭此窗口。"
 EOF
 chmod 755 "$SRC/首次打开.command"
 # HFS+ needs generous headroom for ~20k files (metadata + block rounding): 40% + 300 MB.
@@ -38,7 +38,7 @@ tell application "Finder"
     set icon size of vo to 104
     set text size of vo to 13
     set background picture of vo to file ".background:background.tiff"
-    set position of item "QuanK.app" of container window to {170, 205}
+    set position of item "QuankSight.app" of container window to {170, 205}
     set position of item "应用程序" of container window to {490, 205}
     set position of item "首次打开.command" of container window to {330, 520}
     close

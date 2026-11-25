@@ -13,7 +13,7 @@ const settle = () => new Promise(r => setTimeout(r, 20));
 test('explicit memories are always selected; learned ones only when relevant', () => {
   const mem = [
     {id: 'u1', text: '请用简洁的中文回答', source: 'user', updated: 2},
-    {id: 'a1', text: '用户负责 QuanK 桌面版的 Office 编辑器', source: 'auto', updated: 3},
+    {id: 'a1', text: '用户负责 QuankSight 桌面版的 Office 编辑器', source: 'auto', updated: 3},
     {id: 'a2', text: '用户喜欢用深蓝色作为品牌主色', source: 'auto', updated: 4},
   ];
   const ids = q => selectMemories(mem, q).map(m => m.id);
@@ -90,11 +90,11 @@ function setup(reply, learn) {
 
 test('conversation injects relevant memories, records them on the reply and learns in the background', async () => {
   const {store, service, calls} = setup('好的，已按微软雅黑处理。', '[{"text":"用户希望报告统一使用微软雅黑","kind":"preference"}]');
-  store.data.memories.push({id: 'u1', text: '请用简洁的中文回答'}, {id: 'a1', text: '用户在做 QuanK 项目', source: 'auto'});
+  store.data.memories.push({id: 'u1', text: '请用简洁的中文回答'}, {id: 'a1', text: '用户在做 QuankSight 项目', source: 'auto'});
   await service.run({id: 'c1', prompt: '记住：以后报告统一使用微软雅黑'});
   await settle();
   const system = calls[0].history[0].content;
-  assert.match(system, /长期记忆/); assert.match(system, /请用简洁的中文回答/); assert.doesNotMatch(system, /QuanK 项目/);
+  assert.match(system, /长期记忆/); assert.match(system, /请用简洁的中文回答/); assert.doesNotMatch(system, /QuankSight 项目/);
   const reply = store.data.chats[0].messages.at(-1);
   assert.deepEqual(reply.memories, [{id: 'u1', text: '请用简洁的中文回答'}]);
   assert.equal(store.data.memories.find(m => m.id === 'u1').uses, 1);

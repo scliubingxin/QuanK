@@ -42,7 +42,7 @@ await click('[data-page="tools"]');
 fill('#tool-url','https://example.com');await click('[data-action="browserOpen"]');assert.equal(calls.at(-1).type,'browser');assert.match(w.document.body.textContent,/网页夹具/);
 await click('[data-action="browserRead"]');assert.match(w.document.querySelector('#modal').textContent,/正文夹具/);w.document.querySelector('#modal').close();
 fill('#tool-executable','node');fill('#tool-args','["--version"]');fill('#tool-folderId','folder');await click('[data-action="commandRun"]');assert.equal(calls.at(-1).type,'cli');assert.equal(JSON.stringify(calls.at(-1).args),'["--version"]');assert.match(w.document.body.textContent,/CLI fixture output/);
-await click('[data-action="browserInspect"]');assert.match(w.document.querySelector('#modal').textContent,/关键词/);await click('[data-action="browserFill"]');fill('[name="browserText"]','QuanK');await click('#modalSubmit');assert.equal(calls.at(-1).operation,'browser_fill');assert.equal(calls.at(-1).ref,'e1');await click('[data-action="browserInspect"]');await click('[data-action="browserClick"]');assert.equal(calls.at(-1).operation,'browser_click');
+await click('[data-action="browserInspect"]');assert.match(w.document.querySelector('#modal').textContent,/关键词/);await click('[data-action="browserFill"]');fill('[name="browserText"]','QuankSight');await click('#modalSubmit');assert.equal(calls.at(-1).operation,'browser_fill');assert.equal(calls.at(-1).ref,'e1');await click('[data-action="browserInspect"]');await click('[data-action="browserClick"]');assert.equal(calls.at(-1).operation,'browser_click');
 console.log('PASS: 17 UI flows (mock native bridge), local attachment references, model content escaping, all 7 navigation pages');
 dom.window.close();
 

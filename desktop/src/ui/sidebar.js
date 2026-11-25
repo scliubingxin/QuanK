@@ -7,7 +7,7 @@ export const NAV_LAYOUT = [
   {group: 'library', icon: 'folder', title: '资料库', items: [
     ['research', 'file', '投研资料', '按股票整理的研报、公告、笔记、日报复盘与训练数据'], // [v0.53]
     ['library', 'file', '成果中心', '对话产出的文档与成果'],
-    ['files', 'folder', '本地文件', '授权给 QuanK 的文件夹'],
+    ['files', 'folder', '本地文件', '授权给 QuankSight 的文件夹'],
     ['studio', 'grid', '创作', '仪表盘、信息图、小应用']]},
   {group: 'capabilities', icon: 'agent', title: '智能体·连接·工具', items: [
     ['agents', 'agent', '智能体', '自定义角色、知识、技能与 MCP'],

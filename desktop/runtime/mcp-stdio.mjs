@@ -10,7 +10,7 @@ import { McpClient } from './mcp.mjs';
 
 const DENY_COMMANDS = new Set(['sh', 'bash', 'zsh', 'fish', 'dash', 'ksh', 'csh', 'tcsh', 'osascript', 'sudo', 'su', 'env', 'eval', 'exec', 'launchctl', 'open', 'xargs', 'nohup', 'rm', 'curl', 'wget', 'ssh', 'scp']);
 const DENY_ENV = /^(PATH|HOME|USER|SHELL|DYLD_.*|LD_.*|NODE_OPTIONS|ELECTRON_.*|PYTHONSTARTUP|PYTHONHOME|BASH_ENV|ENV|ZDOTDIR)$/;
-const HINT = {uvx: '请先安装 uv：https://docs.astral.sh/uv/ （安装后重启 QuanK）', uv: '请先安装 uv：https://docs.astral.sh/uv/', npx: '请先安装 Node.js：https://nodejs.org/', node: '请先安装 Node.js：https://nodejs.org/', python3: '请先安装 Python 3', docker: '请先安装并启动 Docker Desktop'};
+const HINT = {uvx: '请先安装 uv：https://docs.astral.sh/uv/ （安装后重启 QuankSight）', uv: '请先安装 uv：https://docs.astral.sh/uv/', npx: '请先安装 Node.js：https://nodejs.org/', node: '请先安装 Node.js：https://nodejs.org/', python3: '请先安装 Python 3', docker: '请先安装并启动 Docker Desktop'};
 const clip = (s, n = 200) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 
 export function searchDirs(env = process.env, home = os.homedir()) {
@@ -107,7 +107,7 @@ export class StdioMcpClient extends McpClient {
       if (line.length > 1048576) { this.#fail(Error('MCP响应超过1MiB')); continue; }
       let v; try { v = JSON.parse(line); } catch { continue; }
       if (v?.method && v.id !== undefined) { // a request from the server: answer ping, refuse everything else (sampling, roots…)
-        this.#write(v.method === 'ping' ? {jsonrpc: '2.0', id: v.id, result: {}} : {jsonrpc: '2.0', id: v.id, error: {code: -32601, message: 'QuanK 不支持此请求'}});
+        this.#write(v.method === 'ping' ? {jsonrpc: '2.0', id: v.id, result: {}} : {jsonrpc: '2.0', id: v.id, error: {code: -32601, message: 'QuankSight 不支持此请求'}});
         continue;
       }
       if (v?.method) continue; // notifications

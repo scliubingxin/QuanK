@@ -7,7 +7,7 @@ import { compactComposer } from '../src/ui/composer.js';
 
 const read = p => readFile(new URL(p, import.meta.url), 'utf8');
 const esc = s => String(s ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
-const base = {state: {agents: [{id: 'assistant', name: 'QuanK 助手'}, {id: 'fin-research', name: '投研分析师'}]}, agentId: 'fin-research', files: [], images: [], sendImages: false, live: false, toolsEnabled: true, icon: n => `<svg data-i="${n}"></svg>`, escape: esc, modelName: 'deepseek-chat', modelMarkup: ''};
+const base = {state: {agents: [{id: 'assistant', name: 'QuankSight 助手'}, {id: 'fin-research', name: '投研分析师'}]}, agentId: 'fin-research', files: [], images: [], sendImages: false, live: false, toolsEnabled: true, icon: n => `<svg data-i="${n}"></svg>`, escape: esc, modelName: 'deepseek-chat', modelMarkup: ''};
 
 test('composer shows the selected agent avatar and the mode chips', () => {
   const doc = new JSDOM(compactComposer({...base, modes: {show: true, plan: true, research: false, incognito: false, incognitoAllowed: true}})).window.document;

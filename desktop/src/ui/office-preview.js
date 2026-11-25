@@ -125,7 +125,7 @@ export function filePreviewPanel(document, {action, icon, native, inTab}) {
         ${action('下载', 'documentExport', id)}
         ${action('版本历史', 'documentHistory', id)}${action('在成果中心查看', 'documentLocate', id)}
       </div></details>
-      ${inTab && officeFormats.has(format) ? action('<span aria-hidden="true">✎</span> <span class="file-edit-label">编辑</span><span class="file-sr">在独立窗口编辑</span>', 'documentOfficeWindow', id, 'file-window-edit') : officeFormats.has(format) ? action('<span aria-hidden="true">✎</span> <span class="file-edit-label" aria-hidden="true">编辑</span><span class="file-sr">QuanK Office 编辑</span>', 'documentEditor', id, 'file-primary') : ''}
+      ${inTab && officeFormats.has(format) ? action('<span aria-hidden="true">✎</span> <span class="file-edit-label">编辑</span><span class="file-sr">在独立窗口编辑</span>', 'documentOfficeWindow', id, 'file-window-edit') : officeFormats.has(format) ? action('<span aria-hidden="true">✎</span> <span class="file-edit-label" aria-hidden="true">编辑</span><span class="file-sr">QuankSight Office 编辑</span>', 'documentEditor', id, 'file-primary') : ''}
     </header>
     ${inTab && officeFormats.has(format) ? `<div class="file-editing-banner" data-office-editing data-id="${escape(id)}" hidden>正在独立窗口中编辑 · <button type="button" data-action="officeWindowFocus" data-id="${escape(id)}">切到窗口</button></div>` : ''}
     <div class="file-preview-toolbar" ${pdfFrame ? '' : 'hidden'}>

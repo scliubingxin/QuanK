@@ -11,7 +11,7 @@ import { grantedCodeProject } from './code-projects.mjs';
 
 const activeStatuses = new Set(['preparing', 'running', 'waiting_permission']);
 const fallbackErrors = new Set(['not_found', 'no_acp', 'auth', 'quota', 'timeout', 'crashed']);
-const builtin = { id: 'builtin', name: 'QuanK 内置编码', kind: 'builtin' };
+const builtin = { id: 'builtin', name: 'QuankSight 内置编码', kind: 'builtin' };
 const defaultSpec = new URL('./QUANT_CODING_SPEC.md', import.meta.url);
 const decisions = new Set(['allow', 'deny', 'always']);
 const stopError = () => Object.assign(new Error('任务已停止'), { kind: 'cancelled' });
@@ -58,7 +58,7 @@ export function createCodingTasks({ store, coding, runnerFactory, quant, researc
   (store.data.coding ??= {}).tasks = rows;
   let saving, dirty = false;
   function unlocked() {
-    if (locked()) throw new Error('QuanK 已锁定，请先解锁');
+    if (locked()) throw new Error('QuankSight 已锁定，请先解锁');
   }
   function save() {
     (store.data.coding ??= {}).tasks = rows;
@@ -114,7 +114,7 @@ export function createCodingTasks({ store, coding, runnerFactory, quant, researc
   const interrupted = rows.filter(row => activeStatuses.has(row.task.status));
   for (const row of interrupted) {
     delete row.task.pendingPermission;
-    markError(row, 'stopped', Object.assign(new Error('QuanK 重启，未完成的任务已停止'), { kind: 'restart' }));
+    markError(row, 'stopped', Object.assign(new Error('QuankSight 重启，未完成的任务已停止'), { kind: 'restart' }));
   }
   const ready = Promise.all(interrupted.map(async row => {
     if (row.project && row.task.branch) await clearCodingContext(row.project).catch(() => {});

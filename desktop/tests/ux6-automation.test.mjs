@@ -8,7 +8,7 @@ const NOW = new Date(2026, 10, 19, 17, 0).getTime();
 const H = 3600e3;
 const ui = {action: (l, a, id = '', k = 'secondary') => `<button class="${k}" data-action="${a}" data-id="${id}">${l}</button>`, empty: (t, d, b = '') => `<div class="empty">${t}${d}${b}</div>`};
 const state = () => ({
-  agents: [{id: 'assistant', name: 'QuanK 助手'}, {id: 'research', name: '研究分析师'}],
+  agents: [{id: 'assistant', name: 'QuankSight 助手'}, {id: 'research', name: '研究分析师'}],
   chats: [{id: 'c1', messages: []}],
   tasks: [
     {id: 'a', mode: 'agent', name: '量化算法每日迭代部署', prompt: '每个工作日早盘前执行…', agentId: 'research', toolsEnabled: true, enabled: true, nextRun: NOW + 16 * H, status: 'done', chatId: 'c1',

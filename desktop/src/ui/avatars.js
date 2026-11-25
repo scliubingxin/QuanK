@@ -1,6 +1,6 @@
 // [F1d] Hand-drawn SVG avatars: agents (illustrated characters), skills and MCP connectors (illustrated glyphs),
 // Office-style document icons and per-kind feed message icons. Pure strings, no external assets, palette from the
-// QuanK reference (royal blue #2F62F5, cobalt #0B2BA6→#183FF5, violet #8C7CFF→#B38CFF).
+// QuankSight reference (royal blue #2F62F5, cobalt #0B2BA6→#183FF5, violet #8C7CFF→#B38CFF).
 const hash = s => [...String(s || '')].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7);
 const esc = s => String(s ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 const BG = [['#2F62F5', '#8C7CFF'], ['#0B2BA6', '#2F62F5'], ['#4A7CFC', '#B38CFF'], ['#1236F0', '#5B8DEF'], ['#6A5CF0', '#B38CFF'], ['#3D5AFE', '#7B6CF6']];

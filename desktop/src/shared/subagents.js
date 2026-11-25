@@ -1,4 +1,4 @@
-export const builtinCodingAgent = {id:'builtin', name:'QuanK 内置编码'};
+export const builtinCodingAgent = {id:'builtin', name:'QuankSight 内置编码'};
 export const codingFallbacks = ['auto', 'external', 'builtin'];
 
 export function getSubagents(data, agent) {

@@ -15,7 +15,7 @@ export function encryptBytes(plain, key) {
   return Buffer.concat([MAGIC, iv, c.getAuthTag(), ct]);
 }
 export function decryptBytes(buf, key) {
-  if (!isEncrypted(buf)) throw new Error('不是 QuanK 加密数据');
+  if (!isEncrypted(buf)) throw new Error('不是 QuankSight 加密数据');
   const iv = buf.subarray(4, 16), tag = buf.subarray(16, 32), d = createDecipheriv('aes-256-gcm', key, iv);
   d.setAuthTag(tag);
   try { return Buffer.concat([d.update(buf.subarray(32)), d.final()]); } catch { throw new Error('本机数据解密失败：密钥不匹配或文件已损坏'); }
@@ -47,15 +47,15 @@ export function sealBackup(payload, passphrase, meta = {}) {
     cipher: 'aes-256-gcm', iv: iv.toString('base64'), tag: c.getAuthTag().toString('base64'), data: ct.toString('base64'), counts: meta.counts || {}});
 }
 export function openBackup(text, passphrase) {
-  let env; try { env = JSON.parse(String(text)); } catch { throw new Error('这不是 QuanK 备份文件'); }
-  if (env?.format !== 'quank-backup' || env.v !== 1 || env.kdf?.name !== 'scrypt') throw new Error('这不是 QuanK 备份文件，或备份版本不受支持');
+  let env; try { env = JSON.parse(String(text)); } catch { throw new Error('这不是 QuankSight 备份文件'); }
+  if (env?.format !== 'quank-backup' || env.v !== 1 || env.kdf?.name !== 'scrypt') throw new Error('这不是 QuankSight 备份文件，或备份版本不受支持');
   if (!(env.kdf.N <= 1 << 20 && env.kdf.r <= 16 && env.kdf.p <= 4)) throw new Error('备份文件参数异常');
   const key = scryptSync(String(passphrase ?? ''), Buffer.from(env.kdf.salt, 'base64'), 32, {N: env.kdf.N, r: env.kdf.r, p: env.kdf.p, maxmem: SCRYPT.maxmem});
   const d = createDecipheriv('aes-256-gcm', key, Buffer.from(env.iv, 'base64'));
   d.setAuthTag(Buffer.from(env.tag, 'base64'));
   let plain; try { plain = Buffer.concat([d.update(Buffer.from(env.data, 'base64')), d.final()]); } catch { throw new Error('密码不对，或备份文件已损坏'); }
   const payload = JSON.parse(plain.toString('utf8'));
-  if (payload?.workspace?.schema !== 1) throw new Error('备份里没有有效的 QuanK 数据');
+  if (payload?.workspace?.schema !== 1) throw new Error('备份里没有有效的 QuankSight 数据');
   return {payload, created: env.created, counts: env.counts || {}};
 }
 

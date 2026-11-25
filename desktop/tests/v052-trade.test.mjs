@@ -233,7 +233,7 @@ test('service real: needs calibration, fills the broker page, checks read-back, 
   await assert.rejects(h.svc.handle({action: 'report', id: order.id, status: 'filled', shares: 700}), /1–400 股/);
   const f = await h.svc.handle({action: 'report', id: order.id, status: 'partial', shares: 300, price: 11.12});
   assert.deepEqual([f.order.status, f.order.filledShares, f.recorded], ['partial', 300, 'engine']);
-  assert.deepEqual(h.calls.at(-1), ['quant', {action: 'record', code: '600438', side: 'buy', price: 11.12, shares: 300, date: '2026-11-23', note: `QuanK 委托单 ${order.id}`}]);
+  assert.deepEqual(h.calls.at(-1), ['quant', {action: 'record', code: '600438', side: 'buy', price: 11.12, shares: 300, date: '2026-11-23', note: `QuankSight 委托单 ${order.id}`}]);
   const h2 = harness({record: false}); await h2.svc.tick();
   await h2.svc.handle({action: 'settings', settings: {mode: 'real', confirmReal: true}});
   h2.store.data.trade.broker = T.normalizeBroker({...T.BROKER_PRESETS[0], buy: {code: '#a', price: '#b', shares: '#c'}});
@@ -277,7 +277,7 @@ test('UI, feed, audit and wiring', async () => {
   await h.svc.handle({action: 'settings', settings: {mode: 'real', confirmReal: true}});
   html = tradeUI.tradeBox(h.svc.view());
   assert.match(html, /真实下单/); assert.match(html, /不会替你点击提交/);
-  assert.match(tradeUI.REAL_RISK_HTML, /QuanK 不会替你点击提交/); assert.match(tradeUI.REAL_RISK_HTML, /向券商报告/);
+  assert.match(tradeUI.REAL_RISK_HTML, /QuankSight 不会替你点击提交/); assert.match(tradeUI.REAL_RISK_HTML, /向券商报告/);
   const w = new JSDOM(`<form>${tradeUI.settingsForm(T.normalizeTradeSettings({}))}</form>`).window;
   const p = tradeUI.settingsPayload(new w.FormData(w.document.querySelector('form')));
   assert.deepEqual([p.settings.mode, p.settings.baseAmount, p.settings.maxDaily, p.settings.fromStops], ['paper', '5000', '50000', true]);

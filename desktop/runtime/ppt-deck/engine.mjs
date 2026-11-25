@@ -55,7 +55,7 @@ const SECTIONS = new Set(['section']);
 /** 把校验后的 deck 展开为最终页列表（含拆页、章节编号、续页标题）。 */
 export function planDeck(input, { images } = {}) {
   const spec = validateDeck(input), theme = getTheme(spec.theme);
-  const brand = { name: 'QuanK', showLogo: true, ...(spec.brand || {}) };
+  const brand = { name: 'QuankSight', showLogo: true, ...(spec.brand || {}) };
   { const bi = brandImages(spec, images); images = bi.images; if (bi.markImageId) brand.markImageId = bi.markImageId; } // [F1g]
   const ctx = { theme, brand, images, page: 1, total: 1, pageNumbers: spec.pageNumbers !== false };
   let secNo = 0; const pages = [];
@@ -83,7 +83,7 @@ const col = (c) => String(c).replace('#', '');
 /** 渲染到 PptxGenJS 实例。PptxGenCtor 由调用方传入（桌面端为 vendor 版本，Web 端为 npm 版本）。 */
 export function renderDeck(PptxGenCtor, input, { images, title } = {}) {
   const built = buildDeckLayout(input, { images }), deck = new PptxGenCtor();
-  deck.layout = 'LAYOUT_WIDE'; deck.author = 'QuanK'; deck.lang = 'zh-CN'; deck.title = title || built.spec.title || ''; deck.company = built.brand.name;
+  deck.layout = 'LAYOUT_WIDE'; deck.author = 'QuankSight'; deck.lang = 'zh-CN'; deck.title = title || built.spec.title || ''; deck.company = built.brand.name;
   deck.theme = { headFontFace: FONT.zh, bodyFontFace: FONT.zh };
   for (const sl of built.slides) {
     const slide = deck.addSlide(); slide.background = { color: col(built.theme.bg) };

@@ -1,5 +1,5 @@
 // [q1] Private quant engine helpers shared by main, renderer and tests. Pure: no Node / DOM APIs.
-// QuanK only knows a generic contract. Everything specific to a strategy project (entry script, packages, endpoints,
+// QuankSight only knows a generic contract. Everything specific to a strategy project (entry script, packages, endpoints,
 // response fields, config keys, files to skip) is described by wb-engine.json inside that private project.
 export const ADAPTER_FILE = 'wb-engine.json';
 export const ACTIONS = {

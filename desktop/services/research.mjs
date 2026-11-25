@@ -12,7 +12,7 @@ import { parseNoticeList, parseNoticeContent, keyPoints, NOTICE_PROMPT, buildSto
 import { applyStandardNotes, reviewSpec, describeReview } from '../src/shared/compliance.js'; // [F5]
 
 const LIST = 'https://np-anotice-stock.eastmoney.com/api/security/ann', BODY = 'https://np-cnotice-stock.eastmoney.com/api/content/ann';
-const UA = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 QuanK', referer: 'https://data.eastmoney.com/'};
+const UA = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 QuankSight', referer: 'https://data.eastmoney.com/'};
 export const REPORT_FORMATS = ['docx', 'pptx', 'html'];
 export const EXPORT_KINDS = {briefing: '每日简报', review: '组合复盘', quant_report: '量化引擎报告'};
 export const WATCH_INTERVALS = [15, 30, 60, 120];

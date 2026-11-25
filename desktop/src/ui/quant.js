@@ -156,7 +156,7 @@ ${R.hasToken ? '<label class="check"><input type="checkbox" name="clearToken"> �
 <p class="hint">只接受 HTTPS 地址，并校验服务器证书、拒绝跳转，防止信号和账号被中间人篡改。每次请求都在 Authorization 请求头里带上 Bearer 密钥；密钥和密码用系统钥匙串加密保存在本机，不写入任何配置文件，也不会显示在界面或对话里。服务器需要提供 /wb-engine.json 描述文件（与本地策略项目相同）。</p>
 </div>
 <label>Python 解释器（需装好引擎声明的依赖包）<input name="python" value="${escape(q.python || '')}" placeholder="${escape(q.pythonFound || '自动查找')}"></label>
-<label>AI 研判<select name="ai"><option value="willbuddy" ${q.ai !== 'none' ? 'selected' : ''}>使用 QuanK 当前配置的模型</option><option value="none" ${q.ai === 'none' ? 'selected' : ''}>关闭（只用算法结论）</option></select></label>
+<label>AI 研判<select name="ai"><option value="willbuddy" ${q.ai !== 'none' ? 'selected' : ''}>使用 QuankSight 当前配置的模型</option><option value="none" ${q.ai === 'none' ? 'selected' : ''}>关闭（只用算法结论）</option></select></label>
 <label class="check"><input type="checkbox" name="autoStart" ${q.autoStart !== false ? 'checked' : ''}> 需要时自动启动引擎</label>
 <label class="check"><input type="checkbox" name="startupEngine" ${q.startupEngine === true ? 'checked' : ''}> 启动时自动启动本地引擎</label>
 <p class="hint">本地模式会常驻一个策略 Python 进程，占用内存和 CPU。远程模式只在启动时测试一次连接。</p>
@@ -181,7 +181,7 @@ export function quantWatchForm(q) {
 <label class="check"><input type="checkbox" name="premarket" ${w.premarket ? 'checked' : ''}> 工作日开盘前生成一份盘前量化简报</label>
 <label>盘前简报时间<input type="time" name="premarketTime" min="06:00" max="09:29" value="${escape(w.premarketTime)}"></label>
 <label class="check"><input type="checkbox" name="notify" ${w.notify ? 'checked' : ''}> 信号变化和盘前简报发系统通知</label>
-<p class="hint">交易时段指工作日 09:30–11:30、13:00–15:00（不识别法定节假日，休市日行情不变不会产生提醒）。需要 QuanK 保持运行。<b>价格是实时的</b>：交易时段行情页、股票池和个股详情每秒刷新价格，价格提醒每 3 秒检查一次。策略信号要跑完整的模型（每只股票几秒到几十秒，引擎还会缓存 2 分钟），所以最快每 1 分钟重算一次；股票越多耗时越长。</p>`;
+<p class="hint">交易时段指工作日 09:30–11:30、13:00–15:00（不识别法定节假日，休市日行情不变不会产生提醒）。需要 QuankSight 保持运行。<b>价格是实时的</b>：交易时段行情页、股票池和个股详情每秒刷新价格，价格提醒每 3 秒检查一次。策略信号要跑完整的模型（每只股票几秒到几十秒，引擎还会缓存 2 分钟），所以最快每 1 分钟重算一次；股票越多耗时越长。</p>`;
 }
 export const quantWatchPayload = fm => ({action: 'watch', enabled: on(fm, 'enabled'), interval: Number(val(fm, 'interval')) || 15, premarket: on(fm, 'premarket'), premarketTime: val(fm, 'premarketTime') || '09:15', notify: on(fm, 'notify')});
 function alertsBox(q, {action, date}) {
@@ -211,7 +211,7 @@ function holdingsBox(q, {action}) {
   const tools = action('刷新持仓', 'quantHoldings') + (q.features.record ? action('记录买卖', 'quantTrade', '', 'primary') : '');
   const body = rows.length ? `<div class="table-scroll"><table class="q-table q-hold-table"><thead><tr><th>股票</th><th>持仓（股）</th><th>成本</th><th>现价</th><th>市值</th><th>浮动盈亏</th><th></th></tr></thead><tbody>${rows.map(({p, h}) => `<tr><td><b>${escape(p.name || p.code)}</b> <small>${escape(p.code)}</small></td><td>${n0(h.shares)}</td><td>${f(h.cost)}</td><td>${f(h.price)}</td><td>${money(h.value)}</td><td class="${tone(h.pnl)}">${money(h.pnl)}${h.pnlPct != null ? ` <small>${pct(h.pnlPct)}</small>` : ''}</td><td>${action('详情', 'quantOpen', p.code)}</td></tr>`).join('')}</tbody>${tot.stocks ? `<tfoot><tr><th>合计 ${tot.stocks} 只</th><td></td><td></td><td></td><td>${money(tot.value)}</td><td class="${tone(tot.pnl)}">${money(tot.pnl)}</td><td></td></tr></tfoot>` : ''}</table></div>`
     : '<p class="empty-note">点「刷新持仓」从本机引擎读取各股票的持仓。</p>';
-  return `<section class="q-box q-holdings"><div class="plaza-section-head"><h2>持仓与定投</h2><small>${q.plan?.label ? `定投计划：${escape(q.plan.label)} · ` : ''}只记录你在券商的实际成交，QuanK 不会替你下单。</small><span class="q-head-tools">${tools}</span></div>${body}</section>`;
+  return `<section class="q-box q-holdings"><div class="plaza-section-head"><h2>持仓与定投</h2><small>${q.plan?.label ? `定投计划：${escape(q.plan.label)} · ` : ''}只记录你在券商的实际成交，QuankSight 不会替你下单。</small><span class="q-head-tools">${tools}</span></div>${body}</section>`;
 }
 function holdingTotalsUi(list) {
   const ok = list.filter(h => h && h.shares > 0), every = k => ok.length && ok.every(h => h[k] != null);
@@ -231,7 +231,7 @@ export function quantTradeForm(q, {code = '', side = 'buy', price = null, today 
 <div class="form-row"><label>方向<select name="side"><option value="buy" ${side === 'buy' ? 'selected' : ''}>买入</option><option value="sell" ${side === 'sell' ? 'selected' : ''}>卖出</option></select></label><label>成交日期<input name="date" type="date" value="${escape(today)}"></label></div>
 <div class="form-row"><label>成交价<input name="price" type="number" step="0.001" min="0" required value="${price ?? ''}"></label><label>股数（${lot} 的整数倍）<input name="shares" type="number" step="${lot}" min="${lot}" required></label></div>
 <label>备注（可留空）<input name="note" maxlength="60"></label>
-<p class="hint">只记录你在券商实际成交的买卖，用来更新本机引擎里的持仓、成本和后续仓位建议；QuanK 不会替你下单。</p>`;
+<p class="hint">只记录你在券商实际成交的买卖，用来更新本机引擎里的持仓、成本和后续仓位建议；QuankSight 不会替你下单。</p>`;
 }
 export const quantTradePayload = fm => ({action: 'record', code: val(fm, 'code'), side: val(fm, 'side') === 'sell' ? 'sell' : 'buy', price: Number(val(fm, 'price')), shares: Number(val(fm, 'shares')), date: val(fm, 'date'), note: val(fm, 'note').trim()});
 export function quantPlanForm(q) {
@@ -270,6 +270,6 @@ export function quantReportAutoForm(q) {
   const a = normalizeReportAuto(q?.reportAuto), daily = (q?.reportDefs || []).filter(d => d.schedule === 'daily').map(d => d.title);
   return `<label class="check"><input type="checkbox" name="enabled" ${a.enabled ? 'checked' : ''}> 工作日收盘后自动生成${daily.length ? `（${escape(daily.join('、'))}）` : ''}</label>
 <label>生成时间<input type="time" name="time" min="15:00" max="23:59" value="${escape(a.time)}"></label>
-<p class="hint">需要 QuanK 保持运行。生成结果进入「动态」和每日简报；有告警时发系统通知（沿用「盯盘与提醒」里的通知开关）。</p>`;
+<p class="hint">需要 QuankSight 保持运行。生成结果进入「动态」和每日简报；有告警时发系统通知（沿用「盯盘与提醒」里的通知开关）。</p>`;
 }
 export const quantReportAutoPayload = fm => ({action: 'reportAuto', enabled: on(fm, 'enabled'), time: val(fm, 'time') || '18:00'});

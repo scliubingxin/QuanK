@@ -5,7 +5,7 @@ import { publicUrl } from './web-lookup.mjs';
 
 const SUGGEST = 'https://searchapi.eastmoney.com/api/suggest/get?type=14&token=D43BF722C8E33BDC906FB84D85E326E8&count=10&input=';
 const F10 = 'https://emweb.securities.eastmoney.com/PC_HSF10/CompanySurvey/PageAjax?code=';
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 QuanK';
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 QuankSight';
 const LOGO_MAX = 200 * 1024, TEXT_MAX = 2 * 1024 * 1024;
 const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -125,7 +125,7 @@ export async function resolveStock(lookup, query) {
   const a = list.filter(x => x.aShare);
   if (m) { const hit = a.find(x => x.code === m[1]); return {code: m[1], name: hit?.name || '', board: hit?.board || ''}; }
   if (!a.length) return {error: list.length
-    ? `QuanK 股票池目前只支持沪深北 A 股；「${q}」找到的是：${list.slice(0, 3).map(x => `${x.name}（${x.board || '其他'} ${x.code}）`).join('、')}`
+    ? `QuankSight 股票池目前只支持沪深北 A 股；「${q}」找到的是：${list.slice(0, 3).map(x => `${x.name}（${x.board || '其他'} ${x.code}）`).join('、')}`
     : `没有找到「${q}」对应的股票，请换个名称或直接给 6 位代码`};
   const exact = a.filter(x => x.name === q || NORM(x.name) === NORM(q) || x.pinyin.toUpperCase() === q.toUpperCase());
   if (exact.length === 1) return view(exact[0]);

@@ -328,5 +328,5 @@ export function topicDigest(topic, items, {date = '', since = ''} = {}) {
   if (lib.length) sections.push({id: 'library', title: '资料库中的相关内容', bullets: lib.slice(0, 15).map(x => `${SEARCH_KINDS[x.kind] || x.kind}｜${row(x)}${x.excerpt ? ` —— ${clip(x.excerpt, 120)}` : ''}`)});
   if (!items.length) sections.push({id: 'empty', title: '本期动态', paragraphs: ['本期没有发现与关键词相关的新公告、资讯或资料。']});
   sections.push({id: 'note', title: '说明', bullets: ['资讯来自公开搜索结果，未经核实；公告以交易所披露原文为准。', '本周报按关键词自动汇集，不代表对主题的判断。']});
-  return {kind: 'topic', title: `研究主题周报：${topic.name} · ${date}`, subtitle: date, date, sections, summary: `${topic.name}：本期 ${items.length} 条相关动态。`, gaps: [], disclaimer: '本周报由 QuanK 在本机按关键词自动汇集，仅供研究参考，不构成投资建议。'};
+  return {kind: 'topic', title: `研究主题周报：${topic.name} · ${date}`, subtitle: date, date, sections, summary: `${topic.name}：本期 ${items.length} 条相关动态。`, gaps: [], disclaimer: '本周报由 QuankSight 在本机按关键词自动汇集，仅供研究参考，不构成投资建议。'};
 }

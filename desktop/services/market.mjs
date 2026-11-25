@@ -5,7 +5,7 @@ import { INDICES, PERIODS, secid, session, sma, macd, kdj, quoteFromBars } from 
 
 const H = 'https://push2.eastmoney.com/api/qt/', HIS = 'https://push2his.eastmoney.com/api/qt/', EX = 'https://push2ex.eastmoney.com/';
 const FS_A = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
-const UA = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 QuanK', referer: 'https://quote.eastmoney.com/'};
+const UA = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 QuankSight', referer: 'https://quote.eastmoney.com/'};
 const POOL_UT = '7eea3edcaed734bea9cbfc24409ed989';
 const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 /** '-' / '' / null -> null; numbers stay numbers. */

@@ -18,7 +18,7 @@ export function infographicPage(state, {action, heading, empty, date, tab = 'inf
 <small class="graph-alias">${escape(SIZES[g.spec?.size]?.[2] || '')} · 更新于 ${escape(date(g.updated))}</small>
 <div class="actions">${action('编辑', 'infographicEdit', g.id, 'primary')}${action('PNG', 'infographicPngSaved', g.id)}${action('PDF', 'infographicPdfSaved', g.id)}${action('复制', 'infographicCopy', g.id)}${action('删除', 'infographicRemove', g.id)}</div></div>`).join('');
   const brandLine = `<p class="ig-brand-line"><span class="ig-swatch" style="background:${brand.primary}"></span><span class="ig-swatch" style="background:${brand.accent}"></span>${brand.name ? escape(brand.name) : '未设置品牌名'}${brand.logo ? ' · 已设置 logo' : ''} ${action('品牌设置', 'brandEdit', '')}</p>`;
-  const head = heading('', '信息图与海报', '描述想要的内容，QuanK 会排成一页数据摘要卡、流程图、时间线、对比、清单或海报；也可以在对话里直接说“做一张信息图”。所有文字都可编辑，导出 PNG / PDF 都在本机完成。', action('＋ 新建信息图', 'infographicNew', '', 'primary'));
+  const head = heading('', '信息图与海报', '描述想要的内容，QuankSight 会排成一页数据摘要卡、流程图、时间线、对比、清单或海报；也可以在对话里直接说“做一张信息图”。所有文字都可编辑，导出 PNG / PDF 都在本机完成。', action('＋ 新建信息图', 'infographicNew', '', 'primary'));
   return `<div class="page">${head}${tabs}${brandLine}${list.length ? `<div class="cards ig-cards">${cards}</div>` : empty('还没有信息图', '点“新建信息图”描述内容，或在对话里说“把这些要点做成一张信息图”。')}</div>`;
 }
 

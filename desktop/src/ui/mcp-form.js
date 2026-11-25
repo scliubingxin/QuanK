@@ -13,7 +13,7 @@ export function mcpForm(c = {}) {
 <label>服务地址<input name="url" type="url" maxlength="250" value="${escape(stdio ? '' : c.url || '')}" placeholder="https://…/mcp"></label>
 <label>认证方式<select name="auth" data-mcp-auth><option value="none" ${sel('none', auth)}>无认证</option><option value="bearer" ${sel('bearer', auth)}>API Key / Bearer Token</option><option value="oauth" ${sel('oauth', auth)}>浏览器登录（OAuth）</option></select></label>
 <label data-mcp-auth-section="bearer" ${auth === 'bearer' ? '' : 'hidden'}>Bearer Token<input name="token" type="password" data-mcp-secret autocomplete="off" spellcheck="false" maxlength="4096" placeholder="${c.hasToken ? '已保存；留空保留同一地址的令牌' : '8–4096 字符，不含 Bearer 前缀'}"></label>
-<p class="hint" data-mcp-auth-section="oauth" ${auth === 'oauth' ? '' : 'hidden'}>保存后在卡片上点「登录」，会在系统浏览器打开该服务的登录页；QuanK 只保存服务签发的访问令牌（系统钥匙串加密），过期时自动刷新，不会看到你的密码。</p>
+<p class="hint" data-mcp-auth-section="oauth" ${auth === 'oauth' ? '' : 'hidden'}>保存后在卡片上点「登录」，会在系统浏览器打开该服务的登录页；QuankSight 只保存服务签发的访问令牌（系统钥匙串加密），过期时自动刷新，不会看到你的密码。</p>
 </div>
 <div data-mcp-section="stdio" ${stdio ? '' : 'hidden'}>
 <label>命令<input name="command" maxlength="300" value="${escape(stdio ? c.command || '' : '')}" placeholder="uvx、npx、node、python3，或绝对路径"></label>

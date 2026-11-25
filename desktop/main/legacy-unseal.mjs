@@ -1,5 +1,5 @@
-// [rebrand] Runs in a short-lived child of QuanK (QUANK_LEGACY_UNSEAL=1) under the old keychain name, so values sealed by
-// WillBuddy can be read once and re-sealed under QuanK. Ciphertexts arrive in a 0600 file inside a private 0700 temp folder
+// [rebrand] Runs in a short-lived child of QuankSight (QUANK_LEGACY_UNSEAL=1) under the old keychain name, so values sealed by
+// WillBuddy can be read once and re-sealed under QuankSight. Ciphertexts arrive in a 0600 file inside a private 0700 temp folder
 // (QUANK_LEGACY_IN); plaintexts leave on stdout (pipe only, never written to disk).
 // IMPORTANT: main.mjs must NOT await this. In an ESM entry Electron emits `ready` only after the module's top-level code has
 // finished, so awaiting app.whenReady() at the top level deadlocks (that was the "legacy unseal: timed out" in rebrand-fix).

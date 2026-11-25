@@ -1,6 +1,6 @@
 // [q1] Local private quant engine: the user's own strategy project, run as a child process on 127.0.0.1.
 // Everything project-specific comes from wb-engine.json in that project (see src/shared/quant.js), so this file carries
-// no strategy details. QuanK writes the engine's config (random local login, no push, AI gateway from QuanK's model
+// no strategy details. QuankSight writes the engine's config (random local login, no push, AI gateway from QuankSight's model
 // settings), keeps the session cookie in this process only, and exposes generic summaries to the renderer and chat tools.
 import { execFile, spawn as nodeSpawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';

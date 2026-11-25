@@ -2,7 +2,7 @@
 // Signals (BUY / STRONG_BUY / SELL / STRONG_SELL changes) and stop-loss breaches become *draft orders*: side, shares, limit
 // price and amount, after a risk pre-check (order / daily caps, cash, position and industry caps). Nothing is ever sent
 // to a broker from here: in paper mode drafts fill against live quotes into a paper ledger; in real mode the user
-// confirms, QuanK fills the broker page and the user presses the broker's own submit button.
+// confirms, QuankSight fills the broker page and the user presses the broker's own submit button.
 
 export const num = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 const r2 = v => Math.round(v * 100) / 100;
@@ -162,7 +162,7 @@ export function paperSummary(paper, quotes = {}) {
 
 // ---------- broker page profile ----------
 export const BROKER_PRESETS = [{id: 'cmschina', name: '招商证券（网页版）', url: 'https://t.cmschina.com/pch5/trade/ssologin/#/?t=jykstd'}];
-export const BROKER_FIELDS = {code: '股票代码输入框', price: '委托价格输入框', shares: '委托数量输入框', submit: '「买入 / 卖出」提交按钮（只用来高亮，QuanK 不会点它）'};
+export const BROKER_FIELDS = {code: '股票代码输入框', price: '委托价格输入框', shares: '委托数量输入框', submit: '「买入 / 卖出」提交按钮（只用来高亮，QuankSight 不会点它）'};
 const SEL_OK = s => typeof s === 'string' && s.length > 0 && s.length <= 600 && !/[<{};]|javascript:|url\(/i.test(s); // [v0.53] '>' is the child combinator of the fallback path selectors
 export function normalizeBroker(b) {
   const o = b && typeof b === 'object' ? b : {};
@@ -175,7 +175,7 @@ export const brokerReady = (b, side) => { const x = normalizeBroker(b); return !
 
 // ---------- scripts injected into the broker page ----------
 // The fill script only sets input values (native setter + input / change events) and outlines the submit button.
-// It contains no click(), submit(), requestSubmit() or synthetic mouse / keyboard events: QuanK cannot place an order.
+// It contains no click(), submit(), requestSubmit() or synthetic mouse / keyboard events: QuankSight cannot place an order.
 export function fillScript({fields, values}) {
   return `(() => {
   const F = ${JSON.stringify(fields)}, V = ${JSON.stringify(values)}, out = {set: {}, read: {}, missing: [], submitFound: false};
@@ -200,7 +200,7 @@ export function fillScript({fields, values}) {
     btn.scrollIntoView?.({block: 'center'});
     let tip = document.getElementById('__qk_tip');
     if (!tip) { tip = document.createElement('div'); tip.id = '__qk_tip'; document.body.appendChild(tip); }
-    tip.textContent = 'QuanK 已填好委托：请核对代码、价格、数量，确认无误后由你自己点击红框里的按钮提交';
+    tip.textContent = 'QuankSight 已填好委托：请核对代码、价格、数量，确认无误后由你自己点击红框里的按钮提交';
     tip.setAttribute('style', 'position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:2147483647;background:#14213d;color:#fff;padding:10px 16px;border-radius:12px;font:600 14px -apple-system,PingFang SC,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.25);pointer-events:none');
   }
   return out;
@@ -213,7 +213,7 @@ export function calibrateScript(steps) {
   const bar = document.createElement('div');
   bar.setAttribute('style', 'position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:2147483647;background:#2f62f5;color:#fff;padding:10px 16px;border-radius:12px;font:600 14px -apple-system,PingFang SC,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.25)');
   document.body.appendChild(bar);
-  const show = () => { bar.textContent = 'QuanK 标注（' + (i + 1) + '/' + STEPS.length + '）：请点击「' + STEPS[i][1] + '」  · 按 Esc 取消'; };
+  const show = () => { bar.textContent = 'QuankSight 标注（' + (i + 1) + '/' + STEPS.length + '）：请点击「' + STEPS[i][1] + '」  · 按 Esc 取消'; };
   const esc = s => (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/[^\\w-]/g, '\\\\$&');
   const sel = el => {
     if (el.id && !/\\d{4,}/.test(el.id)) return '#' + esc(el.id);

@@ -1,5 +1,12 @@
 > v0.46.0 之前（WillBuddy 时期 0.1 – 0.37.x）的迭代记录已归档到 [docs/releases/ITERATION_LOG_v0.1-v0.37.md](docs/releases/ITERATION_LOG_v0.1-v0.37.md)；每个版本的发布记录见 [docs/releases/](docs/releases/README.md)。
 
+## v1.0.1 · 2026-11-25 · QuankSight 量见更名、编辑窗口与自动保存修复
+
+- 独立编辑窗口的 MessageChannelMain 改为依赖注入，消除真实 Electron 的 `MessageChannelMain is not defined`；展开改为覆盖层，`↙` 改为「在主区域打开」，Esc 还原。
+- 修复 Office 自动保存：输入层 drag/ime 自愈 + 控制器 20 秒过期兜底；隔离真实验证从未修复的 30 秒未保存变为修复后 ≤5 秒已保存。
+- 产品更名为 QuankSight 量见；数据目录、bundle id、keychain、CLI 与环境变量保持不变。
+- 详见 [v1.0.1 发布记录](docs/releases/v1.0.1.md)。
+
 ## v1.0.0 · 2026-11-25 · 白屏修复、独立窗口编辑与投研 PPT 引擎
 
 - 修复持久化展开状态导致的启动白屏：展开状态只在本次会话有效，页签渲染失败自动恢复主区域并给出可关闭提示；Office 画布 ResizeObserver 合并 rAF、按尺寸去重、1% 相对误差和 A→B→A 抖动识别，从源头消除缩放回环。

@@ -15,7 +15,7 @@ test('file cards group existing operations into the menu and expose both open co
   const html = documentCards([doc, {...doc, id:'deck', format:'pptx'}], action, true, true, 'chat');
   assert.match(html, /季度研报\.docx/);
   assert.match(html, /8\.8 KB · v2/);
-  for (const label of ['预览', 'QuanK Office 编辑', '导出 PDF', '下载', '在成果中心查看']) {
+  for (const label of ['预览', 'QuankSight Office 编辑', '导出 PDF', '下载', '在成果中心查看']) {
     assert.ok(html.match(/<details class="file-menu">[\s\S]*?<\/details>/)[0].includes(label));
   }
   assert.match(html, /在右侧打开/);

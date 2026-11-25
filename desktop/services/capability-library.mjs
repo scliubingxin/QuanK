@@ -275,7 +275,7 @@ export function createCapabilityLibrary({
       const controller = new AbortController();
       signing.set(id, controller);
       try {
-        if ((await approve("浏览器登录 MCP", row.name + "\n" + row.url + "\n将在系统浏览器打开该服务的登录页；登录后 QuanK 只保存服务签发的访问令牌（系统钥匙串加密），过期时自动刷新。", controller.signal)) !== true) throw Error("已取消登录");
+        if ((await approve("浏览器登录 MCP", row.name + "\n" + row.url + "\n将在系统浏览器打开该服务的登录页；登录后 QuankSight 只保存服务签发的访问令牌（系统钥匙串加密），过期时自动刷新。", controller.signal)) !== true) throw Error("已取消登录");
         const grant = await (signInFn || signIn)(row.url, { openExternal, signal: controller.signal });
         await mutate(() => {
           const c = store.data.mcpConnections.find((c) => c.id === id);

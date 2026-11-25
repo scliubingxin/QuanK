@@ -17,7 +17,7 @@ export class BrowserService {
   signal?.throwIfAborted();url=validateWebUrl(url);if(external){await bounded(this.shell.openExternal(url),signal,30000);signal?.throwIfAborted();return {status:'opened',external:true,url};}
   let evictedId;
   if(this.windows.size>=5){const oldest=[...this.windows].find(([,w])=>!w.isDestroyed() && w.isVisible?.()===false);if(!oldest)throw new Error('最多打开 5 个内置浏览器窗口，请先关闭不用的窗口');evictedId=oldest[0];oldest[1].close();if(this.windows.size>=5)throw new Error('旧后台网页尚未关闭，请重试');}
-  const id=randomUUID(),win=new this.Window({width:1180,height:820,show:visible,title:'QuanK 浏览器',webPreferences:{partition:'actwill-browser',sandbox:true,nodeIntegration:false,contextIsolation:true,webSecurity:true}});
+  const id=randomUUID(),win=new this.Window({width:1180,height:820,show:visible,title:'QuankSight 浏览器',webPreferences:{partition:'actwill-browser',sandbox:true,nodeIntegration:false,contextIsolation:true,webSecurity:true}});
   this.windows.set(id,win);this.states.set(id,{epoch:0,key:'willbuddy_'+randomUUID().replaceAll('-',''),snapshot:null});
   const allowed=value=>{try{validateWebUrl(value);return true;}catch{return false;}};
   for(const event of ['will-navigate','will-redirect','will-frame-navigate'])win.webContents.on(event,(e,url)=>{if(!allowed(typeof url==='string'?url:e.url))e.preventDefault();});

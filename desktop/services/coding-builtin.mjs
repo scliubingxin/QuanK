@@ -19,9 +19,9 @@ const ITERATION_BRANCH = /^quank\/iter-[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 const DEFAULT_SPEC = '先理解需求和现有代码，保留策略原有行为，执行相关测试和回测，记录变更、验证结果及未完成事项。';
 const messages = {
   limit: '内置 Coding 已达到工具轮数或任务时间上限',
-  locked: 'QuanK 已锁定，请先解锁',
+  locked: 'QuankSight 已锁定，请先解锁',
   cancelled: 'Coding 会话已取消',
-  offline: 'QuanK 已开启离线模式，内置 Coding 无法请求模型',
+  offline: 'QuankSight 已开启离线模式，内置 Coding 无法请求模型',
   project: '路径必须位于本地策略项目目录内',
   unsupported_tools: '内置 Coding 需要支持 function calling 的模型，请选择支持工具调用的模型',
   model: '内置 Coding 模型请求失败，请检查模型配置、鉴权与网络',
@@ -332,7 +332,7 @@ async function gitArgs(subcommand, args, root) {
 }
 
 export function createBuiltinRunner({
-  projectDir, cwd, terminalPython = '', name = 'QuanK 内置 Coding', models, model, modelChoice = 'legacy',
+  projectDir, cwd, terminalPython = '', name = 'QuankSight 内置 Coding', models, model, modelChoice = 'legacy',
   modelEffort, request = complete, spec = DEFAULT_SPEC, locked = () => false, offline = () => false,
   onPermission, audit = () => {}, totalMs = TASK_MS,
 } = {}) {

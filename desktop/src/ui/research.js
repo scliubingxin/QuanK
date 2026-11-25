@@ -55,7 +55,7 @@ ${defs.length ? `<label>引擎报告（选「量化引擎报告」时）<select 
 const exportPayload = fm => ({action: 'export', kind: ['review', 'briefing', 'quant_report'].includes(val(fm, 'kind')) ? val(fm, 'kind') : 'review', format: ['docx', 'pptx', 'html'].includes(val(fm, 'format')) ? val(fm, 'format') : 'docx', ...(val(fm, 'reportId') ? {id: val(fm, 'reportId')} : {})});
 function watchForm(w = {}) {
   return `<label class="check"><input type="checkbox" name="enabled" ${w.enabled === false ? '' : 'checked'}> 自动检查股票池公告：业绩预告、定期报告、风险事项、股东变动、回购分红等进入「动态」并发系统通知</label>
-<label>检查间隔<select name="interval">${[15, 30, 60, 120].map(n => `<option value="${n}" ${n === (w.interval || 30) ? 'selected' : ''}>每 ${n} 分钟</option>`).join('')}</select></label><p class="hint">工作日 7:00–23:00 检查；需要 QuanK 保持运行。公告来自公开公告接口，以交易所披露的原文为准。</p>`;
+<label>检查间隔<select name="interval">${[15, 30, 60, 120].map(n => `<option value="${n}" ${n === (w.interval || 30) ? 'selected' : ''}>每 ${n} 分钟</option>`).join('')}</select></label><p class="hint">工作日 7:00–23:00 检查；需要 QuankSight 保持运行。公告来自公开公告接口，以交易所披露的原文为准。</p>`;
 }
 const watchPayload = fm => ({action: 'watch', enabled: on(fm, 'enabled'), interval: Number(val(fm, 'interval')) || 30});
 

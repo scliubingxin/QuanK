@@ -53,11 +53,11 @@ test('F581 编辑按钮走独立窗口，同一文档只开一个窗口且不弹
     isVisible(){return true;} setTitle(t){this.title=t;} async loadURL(u){this.webContents.mainFrame.url=u;} destroy(){this.emit('closed');}
   }
   const savedPorts = [];
-  globalThis.MessageChannelMain = class {
+  class Channel {
     constructor(){ this.port1={on(){},close(){},postMessage(m){savedPorts.push(m);},start(){}}; this.port2={close(){}}; }
-  };
+  }
   const manager = createOfficeEditWindows({
-    BrowserWindow:Window, ipcMain:{handle:(name,fn)=>handlers.set(name,fn)}, here:path.resolve('desktop-fixture'),
+    BrowserWindow:Window, ipcMain:{handle:(name,fn)=>handlers.set(name,fn)}, MessageChannelMain:Channel, here:path.resolve('desktop-fixture'),
     sessions:async()=>({open:async input=>{opened++;assert.equal(input.mode,'edit');return view;},closeView:async()=>{}}),
     documents:{bytes:()=>({bytes:Buffer.alloc(2*1024*1024)})},
     canOpen:()=>true, onEvent:(id,type,detail)=>events.push({id,type,detail}),
@@ -158,4 +158,11 @@ test('F581 runtimeRoot 与 bundledExecutable 都规范化符号链接运行时�
     if (previous.env === undefined) delete process.env.QUANK_DEV_OFFICE_RUNTIME;
     else process.env.QUANK_DEV_OFFICE_RUNTIME = previous.env;
   }
+});
+
+
+test('V100-3 createOfficeEditWindows 必须注入 MessageChannelMain（无全局 mock）', () => {
+  assert.throws(() => createOfficeEditWindows({BrowserWindow:class{}, ipcMain:{}, here:'x', sessions:async()=>({}), documents:{}}),
+    /MessageChannelMain is required/);
+  assert.equal(globalThis.MessageChannelMain, undefined, '测试不得依赖全局 MessageChannelMain');
 });

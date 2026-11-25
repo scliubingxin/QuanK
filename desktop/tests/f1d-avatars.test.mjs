@@ -44,7 +44,7 @@ test('Office icons and feed icons', () => {
 });
 
 test('wiring: home apps, agents page, plaza cards, library use the drawn avatars', async () => {
-  const state = {agents: [{id: 'fin-research', name: '投研分析师', description: '个股研究'}, {id: 'assistant', name: 'QuanK 助手', description: ''}], capabilityPresets: capabilityPresets(), skillPackages: []};
+  const state = {agents: [{id: 'fin-research', name: '投研分析师', description: '个股研究'}, {id: 'assistant', name: 'QuankSight 助手', description: ''}], capabilityPresets: capabilityPresets(), skillPackages: []};
   const doc = new JSDOM(appsCard(state, {action: () => ''})).window.document;
   assert.ok(doc.querySelector('.qk-pane-agents .qk-app .qk-badge.av-agent svg')); assert.ok(doc.querySelector('.qk-pane-skills .qk-app .qk-badge.av-skill svg'));
   const [app, pc, cl, docs, css] = await Promise.all(['../src/app.js', '../src/ui/preset-catalog.js', '../src/ui/capability-library.js', '../src/ui/documents.js', '../src/workbench.css'].map(read));

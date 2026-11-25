@@ -107,7 +107,7 @@ export function officeApproval(plan, {label, reason, chatId, quantData}) {
     ...(table?.cells ?? []).map(row => row.map(cell => cell.changed && cell.oldValue ? `${cell.oldValue} → ${cell.newValue}` : cell.newValue).join(' | ')),
   ].filter(Boolean).join('\n'));
   return {action: '修改文档', details, summary: [heading, details.reason, ...lines].filter(Boolean).join('\n'),
-    options: {agent: 'QuanK 助手', chatId, highRisk: plan.highRisk,
+    options: {agent: 'QuankSight 助手', chatId, highRisk: plan.highRisk,
       choices: plan.highRisk ? ['deny', 'allow'] : ['deny', 'allow', 'always'],
       ...(plan.highRisk ? {promptChoices: {allow: '确认'}} : {taskLabel: '授权在当前任务结束时失效。', promptChoices: {always: '本任务内允许'}})}};
 }
@@ -156,9 +156,9 @@ export function routeOfficeIntent(prompt, {currentDocId, specifiedDocId} = {}) {
 }
 
 const quantColumns = {
-  pool: {source: 'QuanK 股票池', headers: ['代码', '名称'], chartFields: []},
-  quotes: {source: 'QuanK 行情', headers: ['代码', '名称', '现价', '涨跌幅 (%)'], chartFields: [2, 3]},
-  backtest: {source: 'QuanK 回测', headers: ['代码', '名称', '策略收益 (%)', '基准收益 (%)'], chartFields: [2, 3]},
+  pool: {source: 'QuankSight 股票池', headers: ['代码', '名称'], chartFields: []},
+  quotes: {source: 'QuankSight 行情', headers: ['代码', '名称', '现价', '涨跌幅 (%)'], chartFields: [2, 3]},
+  backtest: {source: 'QuankSight 回测', headers: ['代码', '名称', '策略收益 (%)', '基准收益 (%)'], chartFields: [2, 3]},
 };
 
 function sourceTime(value) {
@@ -281,7 +281,7 @@ export function createOfficeTools({adapter, documents, currentTab = () => null, 
     const plan = await adapter.preview(key, ops, {track: true, signal, expectedRevision});
     if (!plan.previewToken) return plan;
     const grantKey = JSON.stringify([chatId, current.identity]);
-    const card = officeApproval(plan, {label: current.label, reason: args.reason ?? '刷新 QuanK 量化数据', chatId, quantData});
+    const card = officeApproval(plan, {label: current.label, reason: args.reason ?? '刷新 QuankSight 量化数据', chatId, quantData});
     try {
       const granted = signal && taskGrants.get(signal)?.has(grantKey);
       const decision = !plan.highRisk && granted ? 'allow'
