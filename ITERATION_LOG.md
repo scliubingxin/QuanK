@@ -1,5 +1,11 @@
 > v0.46.0 之前（WillBuddy 时期 0.1 – 0.37.x）的迭代记录已归档到 [docs/releases/ITERATION_LOG_v0.1-v0.37.md](docs/releases/ITERATION_LOG_v0.1-v0.37.md)；每个版本的发布记录见 [docs/releases/](docs/releases/README.md)。
 
+## v0.58.0 · 2026-11-25 · 页签内 Office 编辑与 AI Office
+
+- Word、PPT、Excel 在右侧页签打开即可编辑，支持选区样式与 AI、自动保存和版本历史。
+- 助手可预览并申请授权修改文档，支持 7 天内撤回。
+- 详见 [v0.58.0 发布记录](docs/releases/v0.58.0.md)。
+
 ## v0.57.1 · 2026-11-24 · 智能体界面与 Office 编辑修复
 
 - 统一模态框滚动和固定操作区，改进环境变量表格和连接测试。

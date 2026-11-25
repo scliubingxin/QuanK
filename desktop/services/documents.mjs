@@ -24,14 +24,16 @@ const summary = (d) => ({
   sha256: d.sha256,
   text: d.text,
   parentRevision: d.parentRevision,
+  reason: d.reason,
   conversionSource: d.conversionSource,
   attachmentSource: d.attachmentSource,
   hasRichSource: typeof d.richSource === "string",
-  history: (d.history || []).map(({ revision, time, sha256, size }) => ({
+  history: (d.history || []).map(({ revision, time, sha256, size, reason }) => ({
     revision,
     time,
     sha256,
     size,
+    reason,
   })),
 });
 export const documentViews = (data) => (data.documents || []).map(summary);
@@ -54,9 +56,9 @@ export function createDocumentService({
     if (!d) throw Error("文档不存在");
     return d;
   };
-  async function save(candidate, signal, guard=()=>{}) {
+  async function save(candidate, signal, guard=()=>{}, locked = false) {
     signal?.throwIfAborted();
-    return lock(async () => {
+    const commit = async () => {
       signal?.throwIfAborted();await guard();signal?.throwIfAborted();
       if (
         candidate.conversionSource &&
@@ -93,9 +95,10 @@ export function createDocumentService({
         document: summary(candidate),
         verified: true,
       };
-    });
+    };
+    return locked ? commit() : lock(commit);
   }
-  function record(name, format, result, prior) {
+  function record(name, format, result, prior, mergeKey) {
     return {
       id: prior?.id || uid(),
       name: name.replace(new RegExp('(?:\\.'+format+')+$','i'),''),
@@ -109,6 +112,9 @@ export function createDocumentService({
       ...(prior
         ? {
             parentRevision: prior.revision,
+            officeRequests: prior.officeRequests,
+            officeCopyRequest: prior.officeCopyRequest,
+            finalizedOfficeKeys: prior.finalizedOfficeKeys,
             history: [
               ...(prior.history || []),
               {
@@ -117,8 +123,10 @@ export function createDocumentService({
                 sha256: prior.sha256,
                 size: prior.size,
                 base64: prior.base64,
+                reason: prior.reason,
+                mergeKey: prior.mergeKey,
               },
-            ].slice(-5),
+            ].filter(version => !mergeKey || version.mergeKey !== mergeKey).slice(-5),
           }
         : {}),
     };
@@ -310,6 +318,17 @@ export function createDocumentService({
         notify();return candidates.map(summary);
       });
     },
+    async importOfficeCopy(id, bytes, requestId) {
+      return lock(async () => {
+        const prior = find(id);
+        const copied = store.data.documents.find(item => item.officeCopyRequest === requestId);
+        if (copied) return {document:summary(copied)};
+        const candidate = record(prior.name.slice(0,96) + ' 副本', prior.format,
+          {bytes, ...inspectDocument(prior.format, bytes)});
+        candidate.officeCopyRequest = requestId;
+        return save(candidate, undefined, undefined, true);
+      });
+    },
     async importFile(name, format, bytes, signal, guard, ocrProvenance) {
       checkName(name);
       if (!formats.includes(format) && format !== 'pdf') throw Error("格式不支持");
@@ -367,22 +386,39 @@ export function createDocumentService({
       signal?.throwIfAborted();
       return save(record(prior.name, prior.format, result, prior), signal);
     },
-    async replaceBytes(id, revision, bytes, signal, { nativeOffice = false, guard = () => {} } = {}) {
+    async replaceBytes(id, revision, bytes, signal, options = {}) {
+      if (revision instanceof Uint8Array) {
+        const input = revision;
+        options = bytes ?? {};
+        bytes = input;
+        revision = options.expectedRevision;
+      }
+      const {nativeOffice = false, guard = () => {}, requestId, expectedRevision, mergeKey, finalize, reason} = options;
       if (typeof guard !== "function") throw Error("文档提交守卫无效");
-      const prior = structuredClone(find(id));
-      if (prior.richSource && !nativeOffice) throw Error("画布文档请使用Word画布编辑");
-      if (prior.revision !== revision)
-        throw Error("文档版本已变化，不能覆盖新版本");
-      return save(
-        record(
-          prior.name,
-          prior.format,
-          { bytes, ...inspectDocument(prior.format, bytes) },
-          prior,
-        ),
-        signal,
-        guard,
-      );
+      return lock(async () => {
+        signal?.throwIfAborted();
+        const prior = find(id);
+        const receipt = requestId && prior.officeRequests?.find(item => item.id === requestId);
+        if (receipt) return {status:"succeeded", document:summary(prior), revision:receipt.revision, verified:true};
+        if (prior.richSource && !nativeOffice) throw Error("画布文档请使用Word画布编辑");
+        if (prior.revision !== (expectedRevision ?? revision)) {
+          if (expectedRevision !== undefined) return {status:"conflict", conflict:true, code:"OFFICE_CONFLICT", revision:prior.revision};
+          throw Error("文档版本已变化，不能覆盖新版本");
+        }
+        let candidate;
+        if (finalize && bytes == null) {
+          candidate = {...prior, parentRevision:prior.revision};
+        } else {
+          const activeMergeKey = mergeKey && !prior.finalizedOfficeKeys?.includes(mergeKey) ? mergeKey : undefined;
+          candidate = record(prior.name, prior.format, {bytes, ...inspectDocument(prior.format, bytes)}, prior, activeMergeKey);
+          candidate.reason = reason;
+          candidate.mergeKey = activeMergeKey;
+        }
+        if (finalize && mergeKey) candidate.finalizedOfficeKeys = [...new Set([...(prior.finalizedOfficeKeys ?? []), mergeKey])];
+        if (requestId) candidate.officeRequests = [...(prior.officeRequests ?? []), {id:requestId, revision:candidate.revision}];
+        const result = await save(candidate, signal, guard, true);
+        return {...result, revision:candidate.revision};
+      });
     },
     preview(id,revision) {
       const current=find(id);

@@ -1,3 +1,10 @@
+import {createOfficeApprovalBridge, createOfficeQuantReader, createOfficeTools} from './services/office-tools.mjs';
+import {createFileOfficeUndoStore, createNativeOfficeOpsEngine, createOpsAdapter} from './services/office-ops.mjs';
+import {createOfficeCommitJournal, migrateOfficeDrafts, registerOfficeAutosave} from './services/office-autosave.mjs';
+import {randomUUID as officeRequestId} from 'node:crypto';
+import {createOfficeAI} from './services/office-ai.mjs';
+import {bindOfficeViewPort, createOfficeSessionManager} from './services/office-session.mjs';
+import {startOfficeLokWorker} from './runtime/office-lok-worker.mjs';
 import {documentPreviewMetadata} from './runtime/documents.mjs';
 import {execFile as execOfficePowerCommand} from 'node:child_process';
 import {availableParallelism, loadavg} from 'node:os';
@@ -83,10 +90,10 @@ import { createConversationService } from './services/conversation.mjs';
 import { createTaskService } from './services/tasks.mjs';
 import { recoverInterruptedWork } from './services/recovery.mjs';
 import { requiredText as text } from './services/validation.mjs';
-import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Menu, safeStorage, shell, Notification, session, protocol, nativeImage, powerMonitor, systemPreferences } from 'electron';
+import { app, BrowserWindow, MessageChannelMain, ipcMain, dialog, globalShortcut, Menu, safeStorage, shell, Notification, session, protocol, nativeImage, powerMonitor, systemPreferences } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { realpath, readFile, writeFile, stat } from 'node:fs/promises';
+import { realpath, readFile, writeFile, stat, mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { ToolRuntime } from './runtime/tools.mjs';
 import { prepareUserData, rekeySecrets, APP_NAME, LEGACY_CRYPTO_NAME } from './runtime/identity.mjs';
@@ -141,6 +148,7 @@ function approvalCreated(card) {
     try { notifyApproval(card); } catch {}
 }
 const inlineApprovals = createInlineApprovals({ changed: notifyRuntime, created: approvalCreated });
+const officeApprovals = createOfficeApprovalBridge(inlineApprovals, {changed:notifyRuntime});
 const approveInline = createApprover({ approvals: inlineApprovals, context: () => approvalContext.getStore() });
 const approve = Object.assign(async (title, detail, signal, scope) => { // [F5 M3] every confirmation and its answer is audited
     let r; try { r = await approveInline(title, detail, signal, scope); } catch (e) { auditLog?.record({ kind: 'approval', action: '授权请求', target: String(title || '').slice(0, 60), detail: `取消：${String(e?.message || e).slice(0, 60)}` }).catch(() => {}); throw e; }
@@ -149,6 +157,7 @@ const approve = Object.assign(async (title, detail, signal, scope) => { // [F5 M
     return r;
 }, { cancelAll: () => approveInline.cancelAll() });
 let officeEngine, quantAutostart, previewDiskTransitions = 0;
+let officeTabs, officeTabsStarting;
 let toolRuntime, genoffice, models, projects, libreoffice, officeWindows, connectors, graphService, dashboards, miniapps, quant, market, research, knowledge, portfolio, trade, dataset; // [p3-m1][p3-m5][p4-m1][p4-m4][q1][F1][F2][F3][F4]
 const pdfImports = createPdfImportControl({notify: notifyRuntime});
 const executeTool = (name, args, signal, context) => {
@@ -157,7 +166,7 @@ const executeTool = (name, args, signal, context) => {
     return approvalContext.run({ ...approvalContext.getStore(), ...(agent ? { agent } : {}) },
         () => toolRuntime.execute(name, args, signal, context));
 };
-const view = () => { if (security?.locked) return { locked: true, lock: security.lockState() }; const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,trade:_trade,research:_research,coding:_coding,knowledge:_knowledge,portfolio:_portfolio,security:_security,quant:_quant,...publicData}=store.data; return { ...publicData, inlineApprovals: inlineApprovals.list(), coding: coding?.view(), appVersion: app.getVersion(), pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeEngine:officeEngine?.state()||null,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, research: research?.view()||null, knowledge: knowledge?.view()||null, portfolio: portfolio?.view()||null, trade: trade?.view()||null, dataset: dataset?.view()||null, security: security?.summary()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
+const view = () => { if (security?.locked) return { locked: true, lock: security.lockState() }; const { encryptedKey, ...settings } = store.data.settings; const {knowledgeIndexes,knowledgeVectorIndexes,modelProfiles,codeProjects,connectors:_connectors,connectorItems:_connectorItems,graph:_graph,dashboards:_dashboards,miniapps:_miniapps,trade:_trade,research:_research,coding:_coding,knowledge:_knowledge,portfolio:_portfolio,security:_security,quant:_quant,...publicData}=store.data; return { ...publicData, inlineApprovals: officeApprovals.list(), coding: coding?.view(), appVersion: app.getVersion(), pdfImport: pdfImports.view(), officeNative:!!libreoffice,officeInTab:!!officeWindows,officeEngine:officeEngine?.state()||null,officeWorkspace:!!officeWindows,officeEdits:libreoffice?.sessions()||[], capabilityPresets:capabilityPresets(), codeProjects:projects?.view()||[], ...(connectors?.view()||{connectors:[],connectorItems:[]}), graph: graphService?.view()||null, dashboards: dashboards?.view()||[], miniapps: miniapps?.view()||[], quant: quant?.view()||null, market: market?.view()||null, research: research?.view()||null, knowledge: knowledge?.view()||null, portfolio: portfolio?.view()||null, trade: trade?.view()||null, dataset: dataset?.view()||null, security: security?.summary()||null, modelProfiles:models?.view()||[], mcpConnections:mcpViews(store.data), documents:documentViews(store.data), skillPackages:skillViews(store.data), imageAttachments:imageViews(store.data), settings: { ...settings, hasKey: !!sessionKey || !!encryptedKey, keySaved: !!encryptedKey, secureStorage: safeStorage.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text' }, browsers: browser.list(), desktop: { platform: process.platform, shortcutReady } }; };
 function key() {
     if (sessionKey)
         return sessionKey;
@@ -207,7 +216,10 @@ const runTask = (id, options) => tasks.run(id, options);
 const legacyChild = process.env.QUANK_LEGACY_UNSEAL === '1';
 if (legacyChild) legacyUnsealChild({ app, safeStorage, name: LEGACY_CRYPTO_NAME });
 // Data lives in <appData>/QuanK; an older build's data folder is copied there once (packaged app only).
-const dataDir = legacyChild ? { dir: app.getPath('userData'), migratedFrom: null } : await prepareUserData(app.getPath('appData'), { migrate: app.isPackaged });
+const devUserData = !app.isPackaged && process.env.QUANK_DEV_USER_DATA;
+if (!app.isPackaged && process.env.QUANK_DEV_OFFICE_RUNTIME && !devUserData) throw Error('开发版 Office 必须指定隔离用户数据目录');
+if (devUserData && (!path.isAbsolute(devUserData) || !path.resolve(devUserData).startsWith('/tmp/') && !path.resolve(devUserData).startsWith('/private/tmp/'))) throw Error('开发版 Office 数据目录必须在 /tmp 内');
+const dataDir = devUserData ? {dir:path.resolve(devUserData), migratedFrom:null} : legacyChild ? { dir: app.getPath('userData'), migratedFrom: null } : await prepareUserData(app.getPath('appData'), { migrate: app.isPackaged });
 if (!legacyChild) app.setPath('userData', dataDir.dir);
 if (!legacyChild) app.setName(APP_NAME); // keychain key "QuanK Safe Storage"; older sealed values are re-sealed once after the store loads
 app.setAboutPanelOptions({ applicationName: 'QuanK', applicationVersion: app.getVersion() });
@@ -306,6 +318,39 @@ else {
         runs = sharedRunQueue({store, active, notify:notifyRuntime});
         const mcpSecrets=createMcpSecretCodec(safeStorage);
         models=createModelService({store,secrets:createModelSecretCodec(safeStorage),legacyKey:key});
+        const officeAI = createOfficeAI({models, store, key, getPrivacy:() => ({
+            encrypted:vault.encrypted, privacy:security?.privacy(),
+        })});
+        const officeAIRequests = new Map();
+        register('officeAI', async ({token, input, cancel}) => {
+            if (typeof token !== 'string' || !/^[a-f0-9-]{36}$/.test(token)) throw Error('Office AI 请求无效');
+            if (cancel) {
+                officeAIRequests.get(token)?.abort();
+                return;
+            }
+            if (officeAIRequests.has(token)) throw Error('Office AI 请求重复');
+            const controller = new AbortController();
+            officeAIRequests.set(token, controller);
+            try {
+                const {action, kind, selection, language, tone, instruction} = input ?? {};
+                return await officeAI.run({action, kind, selection, language, tone, instruction}, {
+                    signal:controller.signal,
+                    onDelta:delta => win?.webContents.send('actwill:officeAIDelta', {token, delta}),
+                });
+            } finally {
+                officeAIRequests.delete(token);
+            }
+        });
+        register('officeAISettings', async ({allowUpload}) => {
+            if (typeof allowUpload !== 'boolean') throw Error('Office AI 设置无效');
+            const previous = store.data.settings.office;
+            store.data.settings.office = {...previous, ai:{...previous?.ai, allowUpload}};
+            try { await store.save(); }
+            catch (error) { store.data.settings.office = previous; throw error; }
+            if (!allowUpload) for (const controller of officeAIRequests.values()) controller.abort();
+            notifyRuntime();
+            return view();
+        });
         register('modelProfile',async p=>{await models.update(p);return view();});
         register('modelTest', async p => { // [F1c] 「测试连接」/「获取模型列表」: one short request to the address the user typed
             const url = qkModelEndpoint(String(p?.baseUrl || '').trim()), base = url.replace(/\/chat\/completions$/, '');
@@ -331,14 +376,28 @@ else {
         register('imagePreview',p=>images.preview(p.id));
         register('imageRemove',async p=>{await images.remove(p.id);return view();});
         // [ux5] services the chat app tools can drive; getters so later-created services are picked up
-        const appDeps = { get codingTasks() { return codingTasks; }, notify: notifyRuntime, openPage: (page, extra = {}) => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { ...extra, page }); }, // [v0.53.1] page filters / tabs
+        let officeTools;
+        const appDeps = { get office() {return officeTools;}, officeBlockReason:officeAI.blockReason,
+            officeCommitted:(card, chatId) => officeTabs?.refresh(card.docId, () => officeTools.resultAction(card, 'officeRollback', {chatId})),
+            redactOfficeResult:result => {
+                if (!security?.privacy()?.maskAmounts) return result;
+                const redact = value => {
+                    if (Array.isArray(value)) return value.map(redact);
+                    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k,v]) =>
+                        [k, ['id','kind','status','sheet','cell','index','revision','changes','target','row','column'].includes(k) ? v : redact(v)]));
+                    if (typeof value === 'string') return value.replace(/\p{N}+/gu, '***');
+                    return typeof value === 'number' ? '***' : value;
+                };
+                return redact(result);
+            },
+            get codingTasks() { return codingTasks; }, notify: notifyRuntime, openPage: (page, extra = {}) => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { ...extra, page }); }, // [v0.53.1] page filters / tabs
             openConnectorForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'connectors', connector: p }); }, web: createWebLookup(), // [ux9]
             openMcpForm: p => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'agents', mcp: p }); }, get capabilities() { return capabilityLibrary; }, // [mcp2]
             runTask: (id, o) => runTask(id, o), get workspace() { try { return workspace; } catch { return null; } },
             get connectors() { return connectors; }, get dashboards() { return dashboards; }, get briefing() { return briefing; }, get miniapps() { return miniapps; }, get quant() { return quant; }, get market() { return market; }, get research() { return research; }, get knowledge() { return knowledge; }, get portfolio() { return portfolio; }, get trade() { return trade; }, get dataset() { return dataset; }, get security() { return security; }, get audit() { return auditLog; }, privacy: () => store.data.security?.privacy, openDocument: id => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'library', document: id }); }, openMarket: (code, period, name) => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'market', code, period, name }); }, openQuant: code => { focus(); if (win && !win.isDestroyed()) win.webContents.send('actwill:openPage', { page: 'quant', code }); } };
         conversations = createConversationService({ appTools: appDeps, approve, rules: approvalRules, models, secrets:mcpSecrets, images, queue:runs, store, active, key, view, executeTool, releaseToolGrants:id=>toolRuntime.releaseGrants(id), notify: notifyRuntime,notifyStream:event=>{if(win&&!win.isDestroyed())win.webContents.send('actwill:stream',event);cliAsk?.stream(event);},onCompleted:e=>{conversationFinished(e);cliAsk?.finished(e);} });
         if(runtimeRoot()){
-            const kit=createOfficeWorkspace({documents:toolRuntime.documents,directory:path.join(store.dir,'office-kit'),runtime:officeRuntime,approve,notify:notifyRuntime,
+            const kit=createOfficeWorkspace({documents:toolRuntime.documents,directory:path.join(store.dir,'office-kit'),runtime:officeRuntime,approve,requireOpenApproval:false,notify:notifyRuntime,
                 allowStandby:()=>officeWarmEnabled()&&!closing,
                 onStandbyTiming:timing=>officeEngine?.record('editorWorker',timing),
                 audit:async event=>{const prev=store.data.executions;store.data.executions=[event,...prev.filter(e=>e.id!==event.id)].slice(0,300);try{await store.save();}catch(e){store.data.executions=prev;throw e;}notifyRuntime();}});
@@ -347,6 +406,128 @@ else {
                 focus();
                 win?.webContents.send('actwill:openPage', { page: 'notice', message });
             }});
+            const officeClosePrompts = new Map();
+            register('officeCloseDecision', ({token, choice}) => {
+                if (['save','discard','cancel'].includes(choice)) officeClosePrompts.get(token)?.(choice);
+            });
+            const promptOfficeClose = (docId, card) => new Promise(resolve => {
+                if (!win || win.isDestroyed() || security?.locked) return resolve('cancel');
+                const token = officeRequestId();
+                const finish = choice => {
+                    clearTimeout(timeout);
+                    officeClosePrompts.delete(token);
+                    resolve(choice);
+                };
+                const timeout = setTimeout(() => finish('cancel'), 60_000);
+                officeClosePrompts.set(token, finish);
+                focus();
+                win.webContents.send('actwill:openPage', {page:'office-close', docId, token, card});
+            });
+            const documents = toolRuntime.documents;
+            const userData = app.getPath('userData');
+            const versions = {
+                head:docId => documents.read(docId).revision,
+                fingerprint:docId => {
+                    const {revision, sha256, time} = documents.read(docId);
+                    return {identity:revision, sha256, mtime:time};
+                },
+                async record(job) {
+                    if (job.isCopy) {
+                        const result = await documents.importOfficeCopy(job.docId, job.bytes, job.id);
+                        return {copyId:result.document.id};
+                    }
+                    const result = await documents.replaceBytes(job.docId, job.bytes, {
+                        expectedRevision:job.expectedRevision, requestId:job.id, mergeKey:job.mergeKey,
+                        reason:job.reason, nativeOffice:true,
+                    });
+                    if (result.conflict) throw Object.assign(Error('Office 保存冲突'), {code:'OFFICE_CONFLICT'});
+                    return result;
+                },
+                finalize:({docId, mergeKey}) => documents.replaceBytes(docId, documents.read(docId).revision, null,
+                    undefined, {mergeKey, finalize:true, nativeOffice:true}),
+            };
+            const journal = createOfficeCommitJournal({userData, codec:vault.codec, versions});
+            const recovered = await journal.recover();
+            if (recovered.completed || recovered.deferred) {
+                store.log('Office 提交恢复', '已补录 ' + recovered.completed + '，待处理 ' + recovered.deferred);
+                await store.save();
+            }
+
+            register('officeAttach', async ({id, token}) => {
+                if (typeof token !== 'string' || !/^[a-f0-9-]{36}$/.test(token)) throw Error('Office 页签标识无效');
+                if (previewDiskTransitions) throw Error('安全设置正在更新，请重新打开文档');
+                const encrypted = vault.encrypted;
+                const frame = win.webContents.mainFrame;
+                if (!officeTabsStarting) officeTabsStarting = (async () => {
+                    const scratchDirectory = path.join(app.getPath('userData'), 'office', 'tmp');
+                    await mkdir(scratchDirectory, {recursive:true, mode:0o700});
+                    const worker = await startOfficeLokWorker({...await officeRuntime(), scratchDirectory});
+                    const autosave = registerOfficeAutosave({
+                        promptClose:promptOfficeClose,
+                        defaults:{userData, codec:vault.codec, versions, journal},
+                    });
+                    const manager = createOfficeSessionManager({
+                        worker, autosave, keepActiveViews:true, ephemeralSource:encrypted,
+                        resolveDocument:({documentId}) => documents.bytes(documentId, documents.read(documentId).revision),
+                        commit:(docId, bytes, options) => documents.replaceBytes(docId, bytes, {...options, nativeOffice:true}),
+                    });
+                    void worker.closed.then(() => {
+                        manager.abandon();
+                        if (officeTabs === manager) officeTabs = officeTabsStarting = undefined;
+                    });
+                    return manager;
+                })().then(manager => officeTabs = manager).catch(error => {
+                    officeTabsStarting = undefined;
+                    throw error;
+                });
+                const manager = await officeTabsStarting;
+                const view = await manager.open({documentId:id, mode:'edit'});
+                const closeView = attached => manager.closeView(attached);
+                if (closing || security?.locked || vault.encrypted !== encrypted || win.webContents.mainFrame !== frame || frame.detached) {
+                    await closeView(view);
+                    throw Error('Office 页签已失效');
+                }
+                const {port1, port2} = new MessageChannelMain();
+                const dispose = bindOfficeViewPort(port1, view, closeView, () => !closing && !security?.locked && vault.encrypted === encrypted);
+                try { frame.postMessage('actwill:officePort', token, [port2]); }
+                catch (error) { dispose(); port2.close(); throw error; }
+                return true;
+            });
+            const officeDocuments = toolRuntime.documents;
+            const officeScratch = path.join(app.getPath('userData'), 'office', 'tmp');
+            const officeUndo = createFileOfficeUndoStore(path.join(app.getPath('userData'), 'office', 'undo'));
+            const opsEngine = await createNativeOfficeOpsEngine(officeDocuments, {
+                undoStore:officeUndo,
+                async withNativeDocument(source, perform) {
+                    if (officeAI.blockReason()) throw Error(officeAI.blockReason());
+                    await mkdir(officeScratch, {recursive:true, mode:0o700});
+                    const worker = await startOfficeLokWorker({...await officeRuntime(), scratchDirectory:officeScratch});
+                    const sessionId = officeRequestId();
+                    try {
+                        await worker.request('open', {sessionId, format:source.format, bytes:source.bytes, readOnly:false});
+                        const {viewId} = await worker.request('attach', {sessionId});
+                        return await perform((op, payload = {}) => worker.request(op, {...payload, sessionId, viewId}));
+                    } finally {
+                        await worker.close();
+                    }
+                },
+            });
+            const adapter = createOpsAdapter(opsEngine);
+            officeTools = createOfficeTools({
+                adapter, documents:officeDocuments,
+                blockReason:() => security?.locked || previewDiskTransitions ? '安全设置正在更新，Office AI 已暂停。' : officeAI.blockReason(),
+                requestApproval:(...args) => officeApprovals.request(...args),
+                readQuant:(...args) => createOfficeQuantReader({store, market, quant})(...args),
+                openDocument:(docId, {target} = {}) => ({documentId:docId, target}),
+            });
+            register('officeResultAction', async ({chatId, token, action, index}) => {
+                const chat = store.data.chats.find(item => item.id === chatId);
+                const card = chat?.messages.flatMap(message => message.officeResults ?? []).find(item => item.undoToken === token);
+                if (!card) throw Error('Office 结果不存在');
+                const result = await officeTools.resultAction(card, action, {chatId, index});
+                if (action === 'officeRollback' && result?.status === 'succeeded') await officeTabs?.refresh(card.docId);
+                return result;
+            });
             register('officeOpen',p=>officeWindows.open(p.id,p.revision));
             officeEngine=createOfficeEngine({
                 enabled:officeWarmEnabled, defer:deferOfficeWarm, notify:notifyRuntime,
@@ -601,13 +782,19 @@ else {
             app.on('will-quit', () => { cliServer.stop().catch(() => {}); });
         }
         register('security', async p => {
-            const enabling = p?.action === 'encrypt' && p.enabled && !security.locked;
-            if (enabling) previewDiskTransitions++;
+            const changingEncryption = p?.action === 'encrypt' && !security.locked && Boolean(p.enabled) !== vault.encrypted;
+            if (changingEncryption) previewDiskTransitions++;
             try {
-                if (enabling) await libreoffice?.clearPreviewDisk();
+                if (changingEncryption) {
+                    await (await officeTabsStarting)?.close();
+                    if (p.enabled) await libreoffice?.clearPreviewDisk();
+                }
                 const result = await security.handle(p);
+                if (changingEncryption && Boolean(p.enabled) === vault.encrypted) {
+                    await migrateOfficeDrafts(app.getPath('userData'), vault.codec);
+                }
                 return ['view', 'egressList', 'auditList', 'auditVerify', 'review', 'secrets', 'testModel'].includes(p?.action) ? { result } : { result, state: view() };
-            } finally { if (enabling) previewDiskTransitions--; }
+            } finally { if (changingEncryption) previewDiskTransitions--; }
         });
         powerMonitor.on('lock-screen', () => security?.onSleep()); powerMonitor.on('suspend', () => security?.onSleep());
         trade = createTradeService({ store, quant, market, portfolio, broker: createBrokerBrowser({ BrowserWindow }), notify: notifyRuntime, onAlert: a => { try { if (!Notification.isSupported()) return; const n = new Notification({ title: `QuanK · ${a.title}`, body: a.detail }); n.on('click', () => { focus(); win?.webContents.send('actwill:openPage', { page: 'tasks', tab: 'trade' }); }); n.show(); } catch {} } }); // [v0.52]
@@ -843,6 +1030,7 @@ else {
         }, 1000);
     }).catch(e => { dialog.showErrorBox('QuanK 启动失败', e.message); app.quit(); });
     app.on('activate', focus);
+    let officeTabsQuitApproved = false, officeTabsQuitPending = false;
     let officeQuitApproved = false, officeQuitPending = false;
     app.on('before-quit', (event) => {
         if (officeWindows?.hasUnsaved()) {
@@ -858,6 +1046,20 @@ else {
                 void approve('放弃副本并退出', '编辑副本尚未收回。确认退出会清理这些副本。', undefined, { highRisk: true })
                     .then(allowed => { if (allowed) { officeQuitApproved = true; app.quit(); } })
                     .catch(() => {}).finally(() => { officeQuitPending = false; });
+            }
+            return;
+        }
+        if (officeTabs && !officeTabsQuitApproved) {
+            event.preventDefault();
+            if (!officeTabsQuitPending) {
+                officeTabsQuitPending = true;
+                void officeTabs.close().then(() => {
+                    officeTabsQuitApproved = true;
+                    app.quit();
+                }).catch(error => {
+                    focus();
+                    win?.webContents.send('actwill:openPage', {page:'notice', message:error.message});
+                }).finally(() => { officeTabsQuitPending = false; });
             }
             return;
         }

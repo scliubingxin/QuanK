@@ -51,6 +51,7 @@ export function mountOfficePreview(host, invoke, engineReady = () => false, pane
         e.data?.token !== token
       )
         return;
+      if (sent && panel && e.data.kind === 'office-preview-position') { panel.position?.(e.data); return; }
       if (sent && panel && e.data.kind === 'office-panel-state') { panel.state(e.data); return; }
       if (sent && panel && e.data.kind === 'office-panel-metadata') { panel.metadata(e.data); return; }
       if (e.data.kind === "office-complete" && sent) {
@@ -104,7 +105,7 @@ export function mountOfficePreview(host, invoke, engineReady = () => false, pane
 const outlinePreference = 'quank.filePreview.outlineOpen';
 const officeFormats = new Set(['docx', 'xlsx', 'pptx']);
 
-export function filePreviewPanel(document, {action, icon, native}) {
+export function filePreviewPanel(document, {action, icon, native, inTab}) {
   const {id, name, format, revision} = document;
   const fileName = escape(name + '.' + format);
   const pdfFrame = (native && officeFormats.has(format)) || format === 'pdf';
@@ -124,7 +125,7 @@ export function filePreviewPanel(document, {action, icon, native}) {
         ${action('下载', 'documentExport', id)}
         ${action('版本历史', 'documentHistory', id)}${action('在成果中心查看', 'documentLocate', id)}
       </div></details>
-      ${officeFormats.has(format) ? action('<span aria-hidden="true">✎</span> <span class="file-edit-label" aria-hidden="true">编辑</span><span class="file-sr">QuanK Office 编辑</span>', 'documentEditor', id, 'file-primary') : ''}
+      ${inTab && officeFormats.has(format) ? '<output data-office-edit-status>只读</output>' : officeFormats.has(format) ? action('<span aria-hidden="true">✎</span> <span class="file-edit-label" aria-hidden="true">编辑</span><span class="file-sr">QuanK Office 编辑</span>', 'documentEditor', id, 'file-primary') : ''}
     </header>
     <div class="file-preview-toolbar" ${pdfFrame ? '' : 'hidden'}>
       ${['docx', 'pdf'].includes(format) ? `<button type="button" class="file-icon-button file-find-toggle" aria-expanded="false" title="搜索文字" aria-label="搜索文字">${searchIcon}</button><form class="file-find">${searchField('file-preview-search', '搜索文字', '')}</form>` : ''}
@@ -160,7 +161,7 @@ export function previewStatus({current, pages, zoom, format, sheet, sheets}) {
   };
 }
 
-export function mountFilePreviewPanel(panel, invoke, engineReady) {
+export function mountFilePreviewPanel(panel, invoke, engineReady, position = () => {}) {
   const host = panel.querySelector('.file-preview-host');
   if (!host) return () => {};
   if (host.classList.contains('html-host')) return mountHtmlPreview(host);
@@ -214,6 +215,7 @@ export function mountFilePreviewPanel(panel, invoke, engineReady) {
   }
   return mountOfficePreview(host, invoke, engineReady, {
     connect(post) { send = post; },
+    position,
     state(state) {
       const status = previewStatus({...state, format: outline.dataset.format});
       if (activeOutline !== state.activeOutline) {

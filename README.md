@@ -4,7 +4,7 @@
   <p><b>量化工作，一键搞定</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.57.1-2F62F5" alt="version">
+    <img src="https://img.shields.io/badge/version-0.58.0-2F62F5" alt="version">
     <img src="https://img.shields.io/badge/macOS-12%2B%20·%20Apple%20芯片-0B2BA6" alt="platform">
     <img src="https://img.shields.io/badge/license-Apache--2.0-8C7CFF" alt="license">
   </p>
@@ -58,6 +58,7 @@
 - **组合与风控**：查看组合敞口和风险指标，运行压力测试与调仓模拟。
 - **半自动委托**：生成委托并支持模拟撮合，真实委托由你在券商页面确认提交。
 - **QuanK Office 编辑与预览**：编辑 Word / Excel / PowerPoint，在对话右侧分页预览并查看大纲。
+- **页签内 Office 与 AI**：Word、PPT、Excel 打开即编辑，支持选区 AI、自动保存与版本历史。
 - **安全与合规**：管理本机数据加密、凭据、外发记录、操作审计与导出审阅。
 - **命令行与 MCP**：在终端调用行情、量化和投研工具，或用 MCP 接入其他客户端。
 

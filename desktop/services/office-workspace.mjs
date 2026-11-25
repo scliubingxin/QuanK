@@ -19,7 +19,7 @@ const INTERNAL=Symbol('wb-internal-uno');// [lane:ribbon] symbol keys never surv
 import {pathToFileURL} from 'node:url';import path from 'node:path';import {mkdtemp,mkdir,writeFile,lstat,rm,open,realpath} from 'node:fs/promises';import {constants} from 'node:fs';import {randomUUID} from 'node:crypto';import {inspectDocument} from '../runtime/documents.mjs';import {imageFromBase64} from '../src/shared/image-bytes.js';import {startOfficeKit} from '../runtime/office-kit.mjs';
 const allowed=new Set(['.uno:Bold','.uno:Italic','.uno:Underline','.uno:Undo','.uno:Redo','.uno:SelectAll']);
 const profile='<?xml version="1.0"?><oor:items xmlns:oor="http://openoffice.org/2001/registry"><item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item><item oor:path="/org.openoffice.Office.Common/Load"><prop oor:name="UpdateDocMode" oor:op="fuse"><value>0</value></prop></item></oor:items>';
-export function createOfficeWorkspace({documents,directory,runtime,approve=async()=>false,driver=startOfficeKit,notify=()=>{},audit=async()=>{},removeOfficeTemp=rm,closeWaitMs=5000,waitForEngine=async()=>{},allowStandby=()=>true,standbyIdleMs=30*60*1000,onStandbyTiming=()=>{}}){
+export function createOfficeWorkspace({documents,directory,runtime,approve=async()=>false,requireOpenApproval=true,driver=startOfficeKit,notify=()=>{},audit=async()=>{},removeOfficeTemp=rm,closeWaitMs=5000,waitForEngine=async()=>{},allowStandby=()=>true,standbyIdleMs=30*60*1000,onStandbyTiming=()=>{}}){
  const sessions=new Map(),opening=new Set(),lifecycle=new AbortController();let closed=false,replacing=false;
  let spare, warming, spareTimer;
  const takeSpare=()=>{clearTimeout(spareTimer);const ready=spare;spare=null;return ready;};
@@ -79,7 +79,7 @@ export function createOfficeWorkspace({documents,directory,runtime,approve=async
    const file = documents.bytes(documentId, revision);
    if (!['docx', 'xlsx', 'pptx'].includes(file.format)) throw Error('仅支持Office文档');
    inspectDocument(file.format, file.bytes);
-   const approved = await approve('打开QuanK Office编辑', document.name + '.' + file.format +
+   const approved = !requireOpenApproval || await approve('打开QuanK Office编辑', document.name + '.' + file.format +
     '\n使用QuanK内置文档引擎，手动编辑直接保存本机文档新版本，无需退出或收回。宏禁用，仍有当前账号权限，非OS沙箱。AI发送资料和修改选区另行批准。');
    if (approved !== true) return {status:'denied'};
    lifecycle.signal.throwIfAborted();
