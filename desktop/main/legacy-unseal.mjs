@@ -8,8 +8,13 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync, chmodSync } from 'nod
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+/** [v1.0.2] The child may open any of these keychain identities (QUANK_LEGACY_NAME); anything else falls back to `name`. */
+export const LEGACY_NAMES = ['QuanK', 'Actwill AI'];
+export function legacyChildName(requested, fallback) {
+  return LEGACY_NAMES.includes(String(requested || '')) ? String(requested) : fallback;
+}
 export function legacyUnsealChild({app, safeStorage, name, timeoutMs = 100e3, out = process.stdout, err = process.stderr, input = process.env.QUANK_LEGACY_IN}) {
-  app.setName(name);
+  app.setName(legacyChildName(process.env.QUANK_LEGACY_NAME, name));
   app.dock?.hide?.();
   const bail = setTimeout(() => { err.write('legacy unseal: timed out\n'); app.exit(3); }, timeoutMs);
   let list = [];
@@ -23,7 +28,7 @@ export function legacyUnsealChild({app, safeStorage, name, timeoutMs = 100e3, ou
 
 /** Parent side: spawn ourselves once with the legacy identity. Resolves to an array of plaintexts / nulls.
  *  120 s leaves time to answer a macOS keychain prompt; the window is not blocked meanwhile. */
-export function runLegacyUnseal(ciphers, {execPath = process.execPath, argv = process.argv, timeoutMs = 120e3, spawnFn = spawn} = {}) {
+export function runLegacyUnseal(ciphers, {execPath = process.execPath, argv = process.argv, timeoutMs = 120e3, spawnFn = spawn, name = ''} = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'quank-rekey-')), profile = path.join(dir, 'profile'), input = path.join(dir, 'in.json');
   chmodSync(dir, 0o700);
   writeFileSync(input, JSON.stringify(ciphers), {mode: 0o600});
@@ -32,6 +37,7 @@ export function runLegacyUnseal(ciphers, {execPath = process.execPath, argv = pr
     let out = '', err = '', done = false;
     const fin = (e, v) => { if (done) return; done = true; clearTimeout(timer); try { rmSync(dir, {recursive: true, force: true}); } catch {} e ? reject(e) : resolve(v); };
     const env = {...process.env, QUANK_LEGACY_UNSEAL: '1', QUANK_LEGACY_IN: input}; delete env.ELECTRON_RUN_AS_NODE;
+    if (name) env.QUANK_LEGACY_NAME = name; else delete env.QUANK_LEGACY_NAME;
     let c;
     try { c = spawnFn(execPath, args, {env, stdio: ['ignore', 'pipe', 'pipe']}); } catch (e) { fin(e); return; }
     const why = m => new Error(m + (err.trim() ? '：' + err.trim().split('\n').slice(-2).join(' / ').slice(0, 200) : ''));

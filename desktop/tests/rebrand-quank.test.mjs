@@ -59,14 +59,14 @@ test('collectSealed + rekeySecrets', async () => {
   assert.deepEqual(list.map(x => [x.key, x.prefix]).sort(), [['adminSealed', 'v1:'], ['encryptedKey', ''], ['encryptedKey', ''], ['encryptedToken', ''], ['password', ''], ['token', '']]);
   const seen = [];
   const r = await rekeySecrets(data, {now: () => 7, unsealLegacy: async c => { seen.push(...c); return c.map(x => { const p = Buffer.from(x, 'base64').toString(); return p === 'old:bad' ? null : p.replace('old:', ''); }); }, seal: p => b('new:' + p)});
-  assert.deepEqual(r, {at: 7, total: 6, ok: 5, failed: 1, attempts: 1}); assert.equal(seen.length, 6);
+  assert.deepEqual([r.at, r.total, r.ok, r.failed, r.attempts, r.target], [7, 6, 5, 1, 1, 'QuankSight']); assert.equal(seen.length, 6);
   assert.equal(data.settings.encryptedKey, b('new:main')); assert.equal(data.models[0].encryptedKey, b('new:model')); assert.equal(data.models[1].encryptedKey, '');
   assert.equal(data.mcp[0].encryptedToken, b('new:mcp')); assert.equal(data.connectors[0].sealed.password, b('new:mail')); assert.equal(data.connectors[0].sealed.token, b('old:bad'), 'undecryptable left as is');
   assert.equal(data.quant.adminSealed, 'v1:' + b('new:admin')); assert.equal(data.note.text, b('not a secret'));
-  assert.equal(data.cryptoIdentity, 'QuanK');
+  assert.equal(data.cryptoIdentity, 'QuankSight');
   const empty = {chats: []}, calls = [];
-  assert.deepEqual(await rekeySecrets(empty, {unsealLegacy: async c => { calls.push(c); return []; }, seal: x => x, now: () => 1}), {at: 1, total: 0, ok: 0, failed: 0, attempts: 1});
-  assert.equal(calls.length, 0, 'no child process when nothing is sealed'); assert.equal(empty.cryptoIdentity, 'QuanK');
+  { const e = await rekeySecrets(empty, {unsealLegacy: async c => { calls.push(c); return []; }, seal: x => x, now: () => 1}); assert.deepEqual([e.at, e.total, e.ok, e.failed, e.attempts], [1, 0, 0, 0, 1]); }
+  assert.equal(calls.length, 0, 'no child process when nothing is sealed'); assert.equal(empty.cryptoIdentity, 'QuankSight');
   const down = {settings: {encryptedKey: b('old:down-key')}};
   const d = await rekeySecrets(down, {unsealLegacy: async () => { throw new Error('keychain denied'); }, seal: x => x});
   assert.equal(d.failed, 1); assert.equal(d.attempts, 1); assert.match(d.error, /keychain denied/);
@@ -104,7 +104,7 @@ test('wiring and visible brand', async () => {
   assert.match(main, /QUANK_LEGACY_UNSEAL === '1'/); assert.doesNotMatch(main, /await legacyUnsealChild/, 'must not be awaited (ESM ready deadlock)');
   assert.match(main, /if \(legacyChild\) \{ \/\* legacy unseal child: nothing else runs \*\/ \}\nelse if \(!app\.requestSingleInstanceLock\(\)\)/); assert.match(main, /prepareUserData\(app\.getPath\('appData'\), \{ migrate: app\.isPackaged \}\)/);
   assert.match(main, /app\.setName\(DISPLAY_NAME\)/); assert.doesNotMatch(main, /app\.setName\('Actwill AI'\)/);
-  assert.match(main, /store\.data\.cryptoIdentity !== APP_NAME/);
+  assert.match(main, /needsRekey\(store\.data, CRYPTO_NAME\)/);
   assert.match(main, /title: 'QuankSight'/);
   const pkg = JSON.parse(await read(new URL('../package.json', import.meta.url)));
   assert.equal(pkg.productName, 'QuankSight'); assert.equal(pkg.build.appId, 'com.quank.desktop'); assert.equal(pkg.name, 'quank-desktop');

@@ -17,7 +17,20 @@ html,body{height:100%;margin:0;overflow:hidden;background:#eef1f6;font:13px -app
 .qk-win-loading small{color:#8a9099}
 .qk-win-loading button{border:1px solid #2f62f5;border-radius:7px;background:#fff;color:#2f62f5;padding:7px 14px;font-size:12px}
 .qk-win-loading button[hidden]{display:none}
-.qk-win-card{position:absolute;top:56px;left:50%;transform:translateX(-50%);z-index:10;max-width:560px}
+.qk-win-toolbar{flex:none;width:100%}
+.qk-win-status{flex:none;display:flex;align-items:center;gap:12px;height:34px;padding:0 14px;background:#fff;border-top:1px solid #e6ecf6;font-size:12px;color:#4b5563;user-select:none}
+.qk-win-status .grow{flex:1}
+.qk-win-status .qk-win-page{white-space:nowrap}
+.qk-win-status .qk-win-fit{border:0;background:transparent;color:#4b5563;padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer}
+.qk-win-status .qk-win-fit:hover,.qk-win-status .qk-office-zoom button:hover:not(:disabled){background:#eef2f8}
+.qk-win-status .qk-office-zoom{gap:4px;font-size:12px}
+.qk-win-status .qk-office-zoom button{min-width:26px;max-width:none;height:24px;border-radius:6px;font-size:16px;line-height:1;cursor:pointer}
+.qk-win-status .qk-office-zoom button:disabled{opacity:.35;cursor:default}
+.qk-win-status .qk-office-zoom output{min-width:42px;text-align:center;font-variant-numeric:tabular-nums}
+.qk-win-status .qk-office-zoom select{width:22px;max-width:none;height:24px}
+@media (prefers-color-scheme:dark){.qk-win-status{background:#1d2230;border-color:#2f3647;color:#c7d0de}.qk-win-status .qk-win-fit{color:#c7d0de}}
+.qk-win-card{position:absolute;top:56px;left:50%;transform:translateX(-50%);z-index:10;width:min(560px,calc(100vw - 32px))}
+.qk-win-card .qk-office-decision{position:static;inset:auto;display:flex;flex-direction:column;gap:10px}
 @keyframes qkspin{to{transform:rotate(360deg)}}
 </style></head>
 <body>

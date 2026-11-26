@@ -99,7 +99,7 @@ import path from 'node:path';
 import { realpath, readFile, writeFile, stat, mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { ToolRuntime } from './runtime/tools.mjs';
-import { prepareUserData, rekeySecrets, APP_NAME, DISPLAY_NAME, LEGACY_CRYPTO_NAME } from './runtime/identity.mjs';
+import { prepareUserData, rekeySecrets, needsRekey, APP_NAME, DISPLAY_NAME, LEGACY_CRYPTO_NAME, CRYPTO_NAME, LEGACY_CRYPTO_NAMES } from './runtime/identity.mjs';
 import { legacyUnsealChild, runLegacyUnseal } from './main/legacy-unseal.mjs'; // [rebrand]
 import { BrowserService } from './runtime/browser.mjs';
 import { Store, uid, listGranted, readGranted, complete } from './core.mjs';
@@ -254,9 +254,10 @@ else {
         await store.load();
         auditLog = createAuditLog({ dir: path.join(app.getPath('userData'), 'audit') });
         await auditLog.load().catch(() => {});
-        if (store.data.cryptoIdentity !== APP_NAME && (store.data.cryptoMigration?.attempts || 0) < 3) { // [rebrand] re-seal secrets saved under the old name, in the background (never blocks the window)
+        if (needsRekey(store.data, CRYPTO_NAME)) { // [rebrand][v1.0.2] re-seal secrets saved under QuanK / Actwill AI as QuankSight, in the background (never blocks the window)
             const openCurrent = c => { try { return safeStorage.decryptString(Buffer.from(c, 'base64')); } catch { return null; } };
-            void rekeySecrets(store.data, { unsealLegacy: list => runLegacyUnseal(list), openCurrent, seal: s => safeStorage.encryptString(s).toString('base64') })
+            const sources = LEGACY_CRYPTO_NAMES.map(name => ({ name, unseal: list => runLegacyUnseal(list, { name }) }));
+            void rekeySecrets(store.data, { unsealLegacy: sources, target: CRYPTO_NAME, openCurrent, seal: s => safeStorage.encryptString(s).toString('base64') })
                 .then(async r => { await store.save(); notifyRuntime(); if (r.total) console.log(`[quank] 密钥迁移（第 ${r.attempts} 次）：${r.ok}/${r.total} 可用${r.failed ? `，${r.failed} 项未迁移${r.error ? '（' + r.error + '）' : ''}` : ''}${dataDir.migratedFrom ? `；数据已从 ${dataDir.migratedFrom} 复制` : ''}`); })
                 .catch(e => console.warn('[quank] 密钥迁移失败', e?.message));
         }
@@ -609,7 +610,8 @@ else {
         dataset = createDatasetService({ dir: path.join(app.getPath('userData'), 'quant'), market: { handle: p => market ? market.handle(p) : Promise.reject(new Error('行情未就绪')) }, quantSource: () => store.data.quant?.source || '', notify: notifyRuntime, log: (t, d) => store.log?.(t, d), // [v0.53]
             saveDialog: async ({ name, ext }) => { const r = await dialog.showSaveDialog(win, { title: '导出训练数据', defaultPath: path.join(app.getPath('downloads'), name), filters: [{ name: ext.toUpperCase(), extensions: [ext] }] }); return r.canceled ? '' : r.filePath; } });
         const seal = s => 'v1:' + safeStorage.encryptString(s).toString('base64');
-        const unseal = s => String(s || '').startsWith('v1:') ? safeStorage.decryptString(Buffer.from(String(s).slice(3), 'base64')) : s;
+        // [v1.0.2] A value that cannot be opened becomes a readable error instead of Chromium's raw safeStorage message.
+        const unseal = s => { if (!String(s || '').startsWith('v1:')) return s; try { return safeStorage.decryptString(Buffer.from(String(s).slice(3), 'base64')); } catch { const e = new Error('已保存的引擎凭据无法读取（应用改名后钥匙串未迁移），请在量化设置里重新填写'); e.code = 'QK_UNSEAL'; throw e; } };
         quant = createQuantEngine({ onSignal: (code, summary) => { void dataset?.record(code, summary).catch(() => {}); }, // [v0.53] training data
             onReport: async (r, md) => { const pool = store.data.quant?.pool || []; await research?.handle({ action: 'archive', kind: 'quant', reportId: r.id, date: r.date, title: `${r.title} · ${r.date}`, summary: r.summary, metrics: r.metrics, text: md || [r.summary, ...(r.items || []).map(x => `- ${x.title}${x.detail ? '：' + x.detail : ''}`)].filter(Boolean).join('\n'), tags: ['量化日报', ...pool.slice(0, 3).map(p => p.name).filter(Boolean)] }); }, // [v0.53] 日报复盘 → 资料库
             dir: path.join(app.getPath('userData'), 'quant'), store, lookup: createStockLookup(), notify: notifyRuntime, onAlert: a => { try { if (!normalizeWatch(store.data.quant?.watch).notify || !Notification.isSupported()) return; // [q3]

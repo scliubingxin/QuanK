@@ -152,13 +152,45 @@ export function resizeDecision({size, lastSize, fit, zoom, mode, clientWidth, os
   return 'schedule';
 }
 
-export function mountOfficeCanvas(host, {session, metadata, request, preview, initialScroll = {}, initialZoom = 1, maxTiles = 128, onError = () => {}}) {
-    let doc = {...metadata}, cursor = null, pointerAnchor = null, zoom = Math.min(2,Math.max(.25,initialZoom)), dpr = devicePixelRatio, generation = 0;
+/** [v1.0.3] Opening zoom: slides fit the page but never exceed 90%; text documents fit the
+ * width but never exceed 100%; spreadsheets open at 100%.  Never below 25%. */
+export const OFFICE_ZOOM_MIN = .25, OFFICE_ZOOM_MAX = 2;
+export function clampOfficeZoom(value) {
+    const n = Number(value);
+    return Math.min(OFFICE_ZOOM_MAX, Math.max(OFFICE_ZOOM_MIN, Number.isFinite(n) && n > 0 ? n : 1));
+}
+export function defaultOfficeZoom({kind, fitPage, fitWidth}) {
+    if (kind === 'impress') return clampOfficeZoom(Math.min(.9, fitPage || .9));
+    if (kind === 'writer') return clampOfficeZoom(Math.min(1, fitWidth || 1));
+    return 1;
+}
+/** [v1.0.3] Zoom buttons move in 10% steps on a 10% grid, so 200% → 190% → … always works. */
+export function stepZoom(zoom, direction) {
+    const grid = Math.round(clampOfficeZoom(zoom) * 10) / 10;
+    const next = direction > 0 ? (grid > zoom + 1e-6 ? grid : grid + .1) : (grid < zoom - 1e-6 ? grid : grid - .1);
+    return clampOfficeZoom(Math.round(next * 10) / 10);
+}
+/** [v1.0.3] Status-bar text: 第 X 张 / 共 N 张 (slides), 第 X 页 / 共 N 页 (text), 工作表 X / N (sheets). */
+export function officePageStatus({kind, part = 0, parts = 0, height = 0, pageHeight = 0, scrollTop = 0, clientHeight = 0, scale = 1}) {
+    if (kind === 'impress') return {current:part + 1, total:Math.max(1, parts || 1), text:`第 ${part + 1} 张 / 共 ${Math.max(1, parts || 1)} 张`};
+    if (kind === 'calc') return {current:part + 1, total:Math.max(1, parts || 1), text:`工作表 ${part + 1} / ${Math.max(1, parts || 1)}`};
+    const page = pageHeight > 0 ? pageHeight : 16838; // A4 portrait in twips
+    const total = Math.max(1, Math.round(height / page));
+    const pagePx = page / scale;
+    const current = Math.min(total, Math.max(1, Math.floor((scrollTop + clientHeight / 3) / Math.max(1, pagePx)) + 1));
+    return {current, total, text:`第 ${current} 页 / 共 ${total} 页`};
+}
+
+export function mountOfficeCanvas(host, {session, metadata, request, preview, initialScroll = {}, initialZoom = 1, maxTiles = 128, onError = () => {}, onStatus = () => {}, zoomMode: startMode}) {
+    let doc = {...metadata}, cursor = null, pointerAnchor = null, zoom = clampOfficeZoom(initialZoom), dpr = devicePixelRatio, generation = 0;
     let stopped = false, painting = false, needsPaint = false, frame = 0, inputPending = 0, viewportKey = '';
     let focused = false, hasFirstPaint = false;
-    let zoomMode = session.kind === 'impress' ? 'page' : session.kind === 'writer' ? 'width' : 'manual';
+    // [v1.0.3] 'auto' = the opening zoom (defaultOfficeZoom); any +/−/menu choice switches to manual or a fit mode.
+    let zoomMode = startMode || (session.kind === 'calc' ? 'manual' : 'auto');
     const cache = new Map();
-    const root = element('div', {className:'quank-office-canvas'}, {display:'flex', flexDirection:'column', height:'100%', minHeight:'0', background:'var(--panel, #dfe4ed)'});
+    // [v1.0.3] flex:1 + minWidth:0: in a row-flex host the canvas used to shrink to its content, so the viewport
+    // width followed the page width, the fit zoom collapsed to 5% and the toolbar/zoom control slid off-screen.
+    const root = element('div', {className:'quank-office-canvas'}, {display:'flex', flexDirection:'column', flex:'1 1 auto', width:'100%', minWidth:'0', height:'100%', minHeight:'0', background:'var(--panel, #dfe4ed)'});
     const shell = element('div', {}, {display:'flex', flex:'1', minHeight:'0'});
     const bar = element('div', {}, {display:'flex', gap:'8px', alignItems:'center'});
     const slides = element('nav', {}, {width:'160px', flexShrink:'0', overflow:'auto', position:'relative'});
@@ -169,16 +201,16 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
     const zoomPicker = element('select');
     zoomPicker.setAttribute('aria-label','选择缩放');
     for (const [value,label] of [['','⌄'],['width','适合宽度'],['page','适合页面'],
-        ...[50,75,100,125,150,175,200].map(n => [String(n),n+'%'])]) {
+        ...[50,75,90,100,125,150,200].map(n => [String(n),n+'%'])]) {
         zoomPicker.append(element('option',{value,textContent:label,hidden:!value}));
     }
     function zoomButton(text, label, step) {
         const button = element('button',{type:'button',textContent:text,title:label});
         button.setAttribute('aria-label',label);
-        button.addEventListener('click',() => setZoom('manual',Math.min(2,Math.max(.5,zoom+step))));
+        button.addEventListener('click',() => setZoom('manual',stepZoom(zoom,step)));
         return button;
     }
-    const zoomOut = zoomButton('−','缩小',-.1), zoomIn = zoomButton('+','放大',.1);
+    const zoomOut = zoomButton('−','缩小（⌘−）',-1), zoomIn = zoomButton('+','放大（⌘+）',1);
     zoomControl.append(zoomOut,zoomLabel,zoomIn,zoomPicker);
     zoomPicker.addEventListener('change',() => {
         const value = zoomPicker.value;
@@ -224,7 +256,8 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         const width = Math.max(1,port.clientWidth-40)*15/doc.width;
         const pageHeight = session.kind === 'impress' ? doc.height : doc.pageHeight || doc.height;
         const height = Math.max(1,port.clientHeight-40)*15/pageHeight;
-        return Math.min(2,Math.max(.05,zoomMode === 'page' ? Math.min(width,height) : width));
+        if (zoomMode === 'auto') return defaultOfficeZoom({kind:session.kind, fitPage:Math.min(width,height), fitWidth:width});
+        return clampOfficeZoom(zoomMode === 'page' ? Math.min(width,height) : width);
     }
     // [v1.0.0] 白屏修复：原实现每次尺寸回调都同步 fitZoom()→reset()，reset 改 sheet 尺寸会让 port 滚动条
     // 出现/消失，clientWidth 随之变化又触发回调，形成同步反馈环，瓦片缓存每帧被清空，画布永远是白的。
@@ -252,7 +285,7 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
     function setZoom(mode,value) {
         const previous = zoom;
         zoomMode = mode;
-        zoom = mode === 'manual' ? value : fitZoom();
+        zoom = mode === 'manual' ? clampOfficeZoom(value) : fitZoom();
         const top = port.scrollTop*zoom/previous, left = port.scrollLeft*zoom/previous;
         reset();
         port.scrollTo(left,top);
@@ -262,13 +295,24 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         if (zoomMode !== 'manual' && port.clientWidth) zoom = fitZoom();
         zoomLabel.textContent = Math.round(zoom*100)+'%';
         zoomLabel.title = zoomMode === 'width' ? '适合宽度' : zoomMode === 'page' ? '适合页面' : '';
-        zoomOut.disabled = zoom <= .5;
-        zoomIn.disabled = zoom >= 2;
+        zoomOut.disabled = zoom <= OFFICE_ZOOM_MIN + 1e-6;
+        zoomIn.disabled = zoom >= OFFICE_ZOOM_MAX - 1e-6;
         desk.classList.toggle('qk-office-center-page',zoomMode === 'page' || session.kind === 'impress');
         sheet.style.width = doc.width/scale()+'px';
         sheet.style.height = doc.height/scale()+'px';
         const placeholder = preview?.(doc.part, zoom);
         if (placeholder && backing.firstChild !== placeholder) backing.replaceChildren(placeholder);
+        emitStatus();
+    }
+    let statusFrame = 0;
+    function pageStatus() {
+        return {...officePageStatus({kind:session.kind, part:doc.part || 0, parts:doc.parts?.length || 0, height:doc.height,
+            pageHeight:doc.pageHeight, scrollTop:port.scrollTop, clientHeight:port.clientHeight, scale:scale()}),
+            zoom, mode:zoomMode};
+    }
+    function emitStatus() {
+        if (statusFrame || stopped) return;
+        statusFrame = requestAnimationFrame(() => { statusFrame = 0; if (!stopped) try { onStatus(pageStatus()); } catch { /* status is cosmetic */ } });
     }
     function renderOverlay() {
         overlay.replaceChildren();
@@ -561,7 +605,14 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
     window.addEventListener('blur', () => { setDrag(false); setIme(false); }, {signal:pointerLifetime.signal});
     document.addEventListener('visibilitychange', () => { if (document.hidden) { setDrag(false); setIme(false); } }, {signal:pointerLifetime.signal});
     sheet.addEventListener('pointerup', end);
-    port.addEventListener('scroll',() => {renderOverlay(); schedule();}, {passive:true});
+    port.addEventListener('scroll',() => {renderOverlay(); schedule(); emitStatus();}, {passive:true});
+    // [v1.0.3] ⌘/Ctrl + wheel and trackpad pinch zoom around the current position.
+    port.addEventListener('wheel',event => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        const factor = Math.exp(-Math.max(-50,Math.min(50,event.deltaY))/300);
+        setZoom('manual',clampOfficeZoom(Math.round(zoom*factor*100)/100));
+    },{passive:false});
     let thumbObserver, thumbQueued = false;
     const thumbnails = new Map();
     const visibleThumbnails = new Set();
@@ -665,7 +716,10 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
     if (session.kind === 'impress') void firstPaint.then(ok => {if (ok && !stopped) parts();});
     port.scrollTo(initialScroll.left ?? 0,initialScroll.top ?? 0);
     schedule();
-    return {element:root, input, viewport:port, zoomControl, firstPaint, async locate(target) {
+    return {element:root, input, viewport:port, zoomControl, firstPaint, pageStatus,
+        zoomBy(direction) { setZoom('manual',stepZoom(zoom,direction)); },
+        zoomTo(mode) { if (mode === 'width' || mode === 'page') setZoom(mode); else setZoom('manual',clampOfficeZoom(mode)); },
+        async locate(target) {
         const result = await action(() => request('locate',{target}));
         if (!result) return;
         const changed = result.part !== doc.part || result.width !== doc.width || result.height !== doc.height;
@@ -680,6 +734,7 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         stopped = true;
         ready(false);
         cancelAnimationFrame(frame);
+        if (statusFrame) cancelAnimationFrame(statusFrame);
         observer.disconnect();
         if (resizeFrame) cancelAnimationFrame(resizeFrame);
         pointerLifetime.abort();

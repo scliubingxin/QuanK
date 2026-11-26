@@ -126,7 +126,7 @@ export function createOfficeEditWindows({
     safe(w.webContents, 'on', 'will-navigate', (event, next) => {
       if (next.split(/[?#]/)[0] !== url) event.preventDefault();
     });
-    const query = new URLSearchParams({doc:id, rev:String(revision ?? ''), timeout:String(dynamicTimeout(id, revision))});
+    const query = new URLSearchParams({doc:id, rev:String(revision ?? ''), timeout:String(dynamicTimeout(id, revision)), name:documentName});
     if (target) query.set('target', JSON.stringify(target).slice(0, 20000));
     const loadUrl = url + '?' + query.toString();
     const binding = {window:w, docId:id, revision, loadUrl, dirty:false, saving:false};

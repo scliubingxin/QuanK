@@ -54,9 +54,10 @@ import { researchPage, noteEditForm } from './ui/research-page.js'; // [v0.53]
 import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView, patchLive, liveTargets, setKlinePeriod } from './ui/market.js';
 import { session as marketSession } from './shared/market.js'; // [v0.52.1]
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
-import { feedUnread } from './shared/feed.js';
+import { feedUnread, visibleFeed } from './shared/feed.js';
+const visibleFeedCount = (s, filter) => { try { return visibleFeed(s, filter).length; } catch { return 0; } };
 function viewContext() {
-    return { state, approvalCards: approvalRequests().filter(item => item.chatId === chatId).map(item => officeApprovalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
+    return { state, approvalCards: approvalRequests().filter(item => chatId ? item.chatId === chatId : (!item.chatId && !item.decision)).map(item => officeApprovalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
 // [p1-m4] away recap: remember what finished while the user was elsewhere, then clear the unread flag
 let recap = null;
 function markSeen(id) {
@@ -146,6 +147,9 @@ function inlineConfirm(title, html, handler) {
     localApprovals.set(requestId, { card, handler });
     if ($('#modal')?.open) $('#modal').close();
     render();
+    // [v1.0.3] Outside the chat the card is rendered at the bottom of the page, often below the fold, so a
+    // click on 「下单」/「撤销」 looked like it did nothing. Bring the card into view and highlight it.
+    requestAnimationFrame(() => { const target = document.getElementById('app'); if (target) revealApproval(target, requestId); });
 }
 function paintApprovalSummaries(root = document) {
     for (const card of root.querySelectorAll('.inline-approval-card')) {
@@ -398,6 +402,7 @@ window.addEventListener('pagehide', () => officeWorkspace.dispose());
 const seenRequests = new Set();
 function autoSeen() { const c = page === 'chat' && state.chats.find(c => c.id === chatId); if (!c?.unread || seenRequests.has(c.id) || (typeof document.hasFocus === 'function' && !document.hasFocus())) return; seenRequests.add(c.id); c.unread = false; invoke('chatSeen', { id: c.id }).then(s => { seenRequests.delete(c.id); applyState(s); }).catch(() => seenRequests.delete(c.id)); }
 // [v0.58.1 D2] 渲染异常兜底：异常中断时清掉展开态，确保主区域始终可见。
+let lastRenderedPage = '';
 function render() { try { renderInner(); } catch (error) { recoverMain(); throw error; } }
 function renderInner() {
     clearOfficeNotice();
@@ -412,6 +417,9 @@ function renderInner() {
     pending=pendingChats.has(chatId);
     const previousComposer=$('#prompt');
     const oldScroll = $('.messages-scroll'), scrollTop = oldScroll?.scrollTop || 0, stick = !oldScroll || oldScroll.scrollHeight - oldScroll.scrollTop - oldScroll.clientHeight < 90;
+    // [v1.0.2] Non-chat pages (quant, automation, feed …) were rebuilt every quote tick and jumped to the top.
+    const pageScrollers = ['.workspace', '.main', '.page'].map(sel => { const el = $(sel); return el && el.scrollTop ? [sel, el.scrollTop] : null; }).filter(Boolean);
+    const samePage = lastRenderedPage === page + ':' + (chatId || '');
     const focused = document.activeElement?.id, selection = focused === 'prompt' ? [$('#prompt').selectionStart, $('#prompt').selectionEnd] : null;
     const active = nav.find(n => n[0] === page);
     const name = state.settings.name || '我的工作空间';
@@ -518,6 +526,8 @@ function renderInner() {
     const scroller = $('.messages-scroll');
     if (scroller)
         scroller.scrollTop = stick ? scroller.scrollHeight : scrollTop;
+    if (samePage) for (const [sel, top] of pageScrollers) { const el = $(sel); if (el && el.scrollHeight > el.clientHeight) el.scrollTop = top; }
+    lastRenderedPage = page + ':' + (chatId || '');
     if (focused && document.getElementById(focused)) {
         document.getElementById(focused).focus({ preventScroll: true });
         if (selection)
@@ -2037,7 +2047,14 @@ async function handle(actionId, id, stockTarget) {
     if (actionId === 'datasetLabel') { toast('正在用日 K 线标注之后的涨跌…'); const out = await invoke('dataset', { action: 'label' }); if (out?.state) applyState(out.state); render(); toast(`已标注 ${out?.result?.labelled || 0} 条`); return; }
     if (actionId === 'datasetExport') { const out = await invoke('dataset', { action: 'export', format: id === 'jsonl' ? 'jsonl' : 'csv', target: id === 'project' ? 'project' : '' }); if (out?.state) applyState(out.state); const r = out?.result || {}; if (!r.cancelled) toast(`已导出 ${r.count} 条 → ${r.file}`); return; }
     if (actionId === 'feedFilter') { feedFilter = id || 'important'; render(); return; }
-    if (actionId === 'feedSeen') { await update('feed', { action: 'seen' }); toast('已全部标为已读'); return; }
+    if (actionId === 'feedSeen') {
+        await update('feed', { action: 'seen' });
+        // [v1.0.2] Read ≠ handled: approvals and orders stay until they are answered, so say so and show them.
+        const left = visibleFeedCount(state, 'action');
+        if (left) { feedFilter = 'action'; render(); toast(`已全部标为已读；还有 ${left} 项需要你处理（待确认的授权或委托单），已为你筛选出来`); }
+        else toast('已全部标为已读');
+        return;
+    }
     if (actionId === 'feedDismiss') { await update('feed', { action: 'dismiss', id }); return; }
     if (actionId === 'feedRestore') { await update('feed', { action: 'restore' }); return; }
     if (actionId === 'gotoPending') {

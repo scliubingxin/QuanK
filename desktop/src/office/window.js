@@ -63,8 +63,10 @@ function makeAI(state) {
 
 async function start() {
   const state = await stateInfo();
-  const name = state?.documents?.find(item => item.id === id)?.name || '文档';
-  const documentName = name + '.' + (state?.documents?.find(item => item.id === id)?.format || '');
+  // [v1.0.3] The main process passes the real file name; the old lookup fell back to "文档." when the
+  // document list was not in this window's state.
+  const entry = [...(state?.documents || []), ...(state?.artifacts || [])].find(item => item.id === id);
+  const documentName = params.get('name') || (entry?.name ? entry.name + (entry.format ? '.' + entry.format : '') : '文档');
   const head = document.createElement('header');
   head.className = 'qk-win-head';
   const title = document.createElement('b');
@@ -92,9 +94,25 @@ async function start() {
   const view = await connectOfficeViewPort(port);
   if (disposed) return;
   const host = document.createElement('div');
-  host.style.cssText = 'flex:1;min-height:0;position:relative;display:flex';
+  host.style.cssText = 'flex:1;min-height:0;min-width:0;position:relative;display:flex';
   editor.append(host);
-  canvas = mountOfficeCanvas(host, {...view, onError:fail});
+  // [v1.0.3] WPS-style status bar: page position on the left, zoom on the right.
+  const statusBar = document.createElement('footer');
+  statusBar.className = 'qk-win-status';
+  const pageText = document.createElement('output');
+  pageText.className = 'qk-win-page';
+  const grow = document.createElement('span');
+  grow.className = 'grow';
+  const fitButton = document.createElement('button');
+  fitButton.type = 'button';
+  fitButton.className = 'qk-win-fit';
+  fitButton.textContent = '适合页面';
+  fitButton.title = '适合页面（⌘0）';
+  statusBar.append(pageText, grow, fitButton);
+  editor.append(statusBar);
+  canvas = mountOfficeCanvas(host, {...view, onError:fail, onStatus:info => { pageText.textContent = info.text; }});
+  fitButton.addEventListener('click', () => canvas.zoomTo(view.session.kind === 'writer' ? 'width' : 'page'));
+  statusBar.append(canvas.zoomControl);
   const ok = await Promise.race([canvas.firstPaint,
     new Promise(resolve => setTimeout(() => resolve(false), timeout))]);
   if (disposed) return;
@@ -102,15 +120,19 @@ async function start() {
 
   toolbar = createOfficeToolbar(view.session, view.session.kind, {native:true});
   float = createFloatToolbar(view.session, {viewport:canvas.viewport});
-  toolbar.element.querySelector('.qk-office-toolbar-header')?.append(canvas.zoomControl);
-  canvas.element.prepend(toolbar.element);
+  // [v1.0.3] Toolbar is fixed under the title bar, outside the scrolling canvas; zoom lives in the status bar.
+  toolbar.element.classList.add('qk-win-toolbar');
+  editor.insertBefore(toolbar.element, host);
   canvas.element.append(float.element);
   aiMenu = mountOfficeAIMenu({
     session:view.session, floatToolbar:float, ai:makeAI(state), root:cards, input:canvas.input,
     allowChart:true,
     confirmApply:panel => new Promise(resolve => {
       const finish = allowed => { cancelApply = undefined; resolve(allowed); };
-      const card = decision(panel, '允许 AI 将这项修改写入文档？', [
+      // [v1.0.3] decision() takes (title, options, choose): passing the AI panel as the first argument printed
+      // "[object HTMLDivElement]" as the title and turned every character of the real title into an empty button.
+      const host = panel && panel.nodeType === 1 ? panel : cards;
+      const card = showOfficeDecision(host, '允许 AI 将这项修改写入文档？', [
         ['allow','允许写入',true], ['deny','拒绝'],
       ], choice => finish(choice === 'allow'));
       cancelApply = () => { card.remove(); finish(false); };
@@ -166,6 +188,14 @@ api.onOfficeWindowPrompt?.(payload => {
     return true;
   });
 });
+
+// [v1.0.3] ⌘+ / ⌘− / ⌘0 zoom in the edit window.
+addEventListener('keydown', event => {
+  if (!canvas || !(event.metaKey || event.ctrlKey) || event.altKey) return;
+  if (event.key === '=' || event.key === '+') { event.preventDefault(); canvas.zoomBy(1); }
+  else if (event.key === '-' || event.key === '_') { event.preventDefault(); canvas.zoomBy(-1); }
+  else if (event.key === '0') { event.preventDefault(); canvas.zoomTo(canvas.pageStatus().mode === 'width' ? 'width' : 'page'); }
+}, true);
 
 retryButton.addEventListener('click', () => {
   retryButton.disabled = true;
