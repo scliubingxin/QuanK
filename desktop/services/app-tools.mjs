@@ -43,9 +43,30 @@ function deckCollectRefs(v, out = new Set()) {
 /** Quant signals are cached per trading day (Asia/Shanghai), invalidated automatically next trading day. */
 const DECK_QUANT_CACHE = new Map();
 const DECK_SOURCE_CACHE = new Map(); // short-lived per-ref cache for repeated generation in one session
+const DECK_LAYOUT_LABEL = {cover: '封面', summary: '核心观点', company: '公司概况', financials: '财务摘要', valuation: '估值分析', chart: '股价走势', signals: '量化信号与回测', catalysts_risks: '催化剂与风险', event: '事件分析', disclaimer: '免责声明'};
+const DECK_ACTION_TEXT = {STRONG_BUY: '强烈买入', BUY: '买入', HOLD: '持有', SELL: '卖出', STRONG_SELL: '强烈卖出', REDUCE: '减仓', ADD: '加仓'};
+/** [v1.0.2] Percent cell: 2 decimals, explicit sign; {loss:true} forces a negative value (drawdowns are stored as magnitudes). */
+export function deckPct(v, {loss = false, sign = true} = {}) {
+  const n = Number(v);
+  if (v === undefined || v === null || v === '' || !Number.isFinite(n)) return '—';
+  let x = Math.round(n * 100) / 100;
+  if (loss) x = -Math.abs(x);
+  return (sign && x > 0 ? '+' : '') + x.toFixed(2) + '%';
+}
+/** [v1.0.2] Plain one-line text for cards: no emoji / pictographs, collapsed spaces. */
+const deckPlain = v => String(v || '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '').replace(/\s+/g, ' ').trim();
+/** [v1.0.2] "YYYY-MM-DD HH:mm" in Asia/Shanghai (was UTC via toISOString). */
+export const deckShanghai = t => new Date(Number(new Date(t)) + 8 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
+/** [v1.0.2] Turnover in 亿元/万元 for KPI text (raw yuan was printed as a 9-digit number). */
+export function deckAmount(v) {
+  const n = Number(String(v ?? '').replace(/,/g, ''));
+  if (v === undefined || v === null || v === '' || !Number.isFinite(n)) return v ?? null;
+  if (/[亿万]/.test(String(v))) return v;
+  return Math.abs(n) >= 1e8 ? (Math.round(n / 1e8 * 100) / 100) + '亿元' : Math.abs(n) >= 1e4 ? (Math.round(n / 1e4 * 100) / 100) + '万元' : String(n);
+}
 const deckTradingDay = now => new Date(Number(now) + 8 * 3600e3).toISOString().slice(0, 10);
 /** Read-only fetch for $data refs. Failures stay null so the engine shows "—" + warnings. */
-async function collectDeckData(source, deps, now = Date.now()) {
+export async function collectDeckData(source, deps, now = Date.now()) {
   let quantMs = 0;
   const map = {};
   const cacheKey = ref => ref + ':' + deckTradingDay(now);
@@ -59,7 +80,7 @@ async function collectDeckData(source, deps, now = Date.now()) {
       if (kind === 'quote' && deps.market) {
         const r = await deps.market.handle({action: 'quotes', codes: [code]});
         const q = Array.isArray(r?.quotes) ? r.quotes[0] : r?.quotes?.[code];
-        if (q) data = {name: q.name, price: q.price, changePct: q.changePct ?? q.pct, turnover: q.amount ?? q.turnover,
+        if (q) data = {name: q.name, price: q.price, changePct: q.changePct ?? q.pct, turnover: deckAmount(q.amount ?? q.turnover),
                        asOf: (() => { const t = String(q.time || q.date || ''); if (/^\d{14}$/.test(t)) return t.slice(0,4)+'-'+t.slice(4,6)+'-'+t.slice(6,8)+' '+t.slice(8,10)+':'+t.slice(10,12); return t || null; })(), source: '腾讯行情'};
       } else if (kind === 'kline' && deps.market) {
         const period = rest[1] === '1w' || rest[1] === 'week' ? 'week' : (rest[1] === '1m' || rest[1] === 'month' ? 'month' : 'day');
@@ -80,28 +101,35 @@ async function collectDeckData(source, deps, now = Date.now()) {
       } else if ((kind === 'backtest' || kind === 'signals') && deps.quant) {
         const pool = rest[0] && rest[0] !== 'pool' ? [rest[0]] : [];
         if (!pool.length) { const p = await deps.quant.handle({action: 'pool'}); for (const x of p?.pool || []) pool.push(x.code); }
-        const rows = [['指标', '本机量化引擎', '对照']];
+        // [v1.0.2] One stock per deck: columns are the strategy vs plain DCA; with several pool stocks
+        // each row label carries the stock name.  Drawdown is a loss and is shown negative.
+        const rows = [['指标', '智能定投（本机策略）', '普通定投（对照）']];
         const signals = [];
         let asOf = null;
+        const multi = pool.length > 1;
         for (const c of pool.slice(0, 5)) {
           try {
             const ck = c + ':' + deckTradingDay(now);
             let s = DECK_QUANT_CACHE.get(ck);
             if (!s) { const t = Date.now(); s = await deps.quant.handle({action: 'signal', code: c}); quantMs += Date.now() - t; DECK_QUANT_CACHE.set(ck, s); }
             const sum = s?.summary || {};
-            signals.push({value: sum.actionText || sum.action || '—', label: sum.name || c,
-                          note: String(sum.detail || sum.reason || '').slice(0, 60)});
-            asOf = s?.at ? new Date(s.at).toISOString().slice(0, 16).replace('T', ' ') : null;
+            const name = sum.name || c;
+            const score = Number.isFinite(Number(sum.score)) && sum.score !== null ? `综合分 ${sum.score}` : '';
+            signals.push({value: sum.actionText || DECK_ACTION_TEXT[String(sum.action || '').toUpperCase()] || sum.action || '—',
+                          label: name, note: [score, deckPlain(sum.detail || sum.reason || '')].filter(Boolean).join(' · ').slice(0, 34)});
+            asOf = s?.at ? deckShanghai(s.at) : null;
             const bt = sum.backtest || {};
-            if (bt.smartPct !== undefined) {
-              const pct = v => v === undefined || v === null ? '—' : String(Math.round(v * 100) / 100) + '%';
-              rows.push(['策略收益', pct(bt.smartPct), pct(bt.blindPct)]);
-              rows.push(['超额收益', pct(bt.excess), '—']);
-              rows.push(['最大回撤', pct(bt.maxDrawdown), '—']);
-              rows.push(['交易次数', String(bt.trades ?? '—'), '—']);
-              rows.push(['综合分', String(sum.score ?? '—'), String(sum.scoreRaw ?? '—')]);
+            const L = t => multi ? `${name} · ${t}` : t;
+            if (bt.smartPct !== undefined && bt.smartPct !== null) {
+              rows.push([L('累计收益'), deckPct(bt.smartPct), deckPct(bt.blindPct)]);
+              rows.push([L('超额收益'), deckPct(bt.excess), '—']);
+              rows.push([L('最大回撤'), deckPct(bt.maxDrawdown, {loss: true}), '—']);
+              const trades = Number(bt.trades);
+              rows.push([L('完成交易（卖出）'), !Number.isFinite(trades) ? '—' : trades === 0 ? '0（期内无卖出）' : `${trades} 次`, '—']);
+              if (Number.isFinite(trades) && trades > 0 && bt.winRate !== undefined && bt.winRate !== null) rows.push([L('胜率'), deckPct(bt.winRate, {sign: false}), '—']);
+              rows.push([L('综合分'), String(sum.score ?? '—'), '—']);
             }
-          } catch { rows.push([c, '—', '—']); }
+          } catch { rows.push([multi ? c : '回测', '—', '—']); }
         }
         data = {rows, signals, asOf, source: 'QuankSight 本机量化引擎'};
       }
@@ -112,7 +140,7 @@ async function collectDeckData(source, deps, now = Date.now()) {
   return {map, quantMs};
 }
 /** After outline confirmation, attach read-only $data bindings to empty research slots. */
-function enrichDeckSpec(spec) {
+export function enrichDeckSpec(spec) {
   const slides = Array.isArray(spec?.slides) ? spec.slides : [];
   const cover = slides.find(s => s.layout === 'cover') || {};
   const code = String(cover.code || '').match(/\d{6}/)?.[0]
@@ -126,7 +154,11 @@ function enrichDeckSpec(spec) {
       s.dates = {$data: `kline:${code}:1d:120:dates`};
     }
     if (s.layout === 'valuation' && !s.percentiles) s.percentiles = {$data: `valuation:${code}`};
-    if (s.layout === 'signals' && !s.backtest) s.backtest = {$data: 'backtest:pool'};
+    // [v1.0.2] Signals/backtest for the deck's own stock (was the whole pool, and the signal cards were never bound).
+    if (s.layout === 'signals') {
+      if (!s.backtest) s.backtest = {$data: `backtest:${code}`};
+      if (!s.signals) s.signals = {$data: `signals:${code}`};
+    }
     if (s.layout === 'summary' && Array.isArray(s.kpis)) {
       for (const k of s.kpis) if (k && typeof k === 'object' && k.value === '—') {
         const label = String(k.label || '');
@@ -995,7 +1027,7 @@ async function runAppTool(name, args = {}, {store, deps = {}, ask, signal, chatI
       const title = clip(args.title || spec?.title || (Array.isArray(outline) ? outline[0]?.title : '') || '投研报告', 100);
       if (outline) {
         const list = (Array.isArray(outline) ? outline : []).slice(0, 40);
-        const detail = list.map((it, i) => `${i + 1}. ${typeof it === 'string' ? it : (it.title || it.layout || '内容页')}`).join('\n');
+        const detail = list.map((it, i) => `${i + 1}. ${typeof it === 'string' ? it : (it.title || DECK_LAYOUT_LABEL[it.layout] || '内容页')}`).join('\n');
         if (!await confirm('确认幻灯片大纲？', `${title}\n主题：${theme}\n\n${detail}\n\n确认后生成 PPT；如需修改，请直接告诉我调整要点。`)) return denied;
       }
       if (outline && !spec) spec = enrichDeckSpec(await engine.toSpec({outline, theme, title}));

@@ -58,6 +58,33 @@ def _num(v):
         return None
 
 
+# [v1.0.2] Cells that carry no information.  A table made only of these is shown as a short note
+# instead of a large empty grid ("待披露" / "—" rows).
+PLACEHOLDER_CELLS = {"", "—", "–", "-", "--", "待披露", "未披露", "暂无", "待定", "n/a", "N/A", "NA", "None", "null"}
+
+
+def _is_placeholder_table(v):
+    rows = _rows(v)
+    if not rows:
+        return True
+    body = rows[1:] if len(rows) > 1 else rows
+    cells = []
+    for r in body:
+        vals = list(r)[1:] if len(r) > 1 else list(r)
+        cells.extend(str("" if c is None else c).strip() for c in vals)
+    return all(c in PLACEHOLDER_CELLS for c in cells)
+
+
+def _table_h(v):
+    """Height research.table() will use for these rows (header 0.48 + 0.40 per data row)."""
+    n = len(_rows(v))
+    return 0.48 + 0.40 * max(n - 1, 0) if n else 0.0
+
+
+def _real_items(v):
+    return [x for x in _pts(v) if str(x.get("text", "")).strip() not in PLACEHOLDER_CELLS]
+
+
 class ResearchTheme(object):
     name = "research"
 
@@ -179,24 +206,35 @@ class ResearchTheme(object):
                 C._apply_run(r, self.F(size=font_size), font_size, color, bold)
         return shp
 
-    def bullets(self, s, x, y, w, h, items, size=10, marker=BLUE, numbered=False):
-        items = _pts(items)
+    def bullets(self, s, x, y, w, h, items, size=10, marker=BLUE, numbered=False, card=True, max_row=1.05):
+        """[v1.0.2] Each item is a row whose marker sits on the text's vertical centre.
+
+        Rows are capped at ``max_row`` inches and the list starts at the top of the box, so a short list no
+        longer spreads its markers far from the text and leaves the text floating mid-way.
+        """
+        items = _pts(items)[:8]
         if not items:
             C.text(s, x, y, w, h, "—", font=self.F(size=10, color=MUTED), anchor="middle")
             return
-        step = h / max(len(items), 1)
-        for i, it in enumerate(items[:8]):
-            yy = y + i * step
+        n = len(items)
+        gap = 0.12 if card else 0.04
+        row_h = max(0.36, min((h - gap * (n - 1)) / n, max_row))
+        yy = y  # top-aligned: the list starts right under the panel header
+        for i, it in enumerate(items):
+            cy = yy + row_h / 2.0
+            if card:
+                C.shape(s, "round", x - 0.08, yy, w + 0.08, row_h, fill=PALE, line=LINE, line_w=0.5, adj=[9000])
             if numbered:
-                C.shape(s, "ellipse", x, yy + 0.03, 0.26, 0.26, fill=marker)
-                C.text(s, x, yy + 0.03, 0.26, 0.26, str(i + 1), font=self.F(size=8, color="FFFFFF", bold=True),
+                C.shape(s, "ellipse", x + 0.06, cy - 0.14, 0.28, 0.28, fill=marker)
+                C.text(s, x + 0.06, cy - 0.14, 0.28, 0.28, str(i + 1), font=self.F(size=8.5, color="FFFFFF", bold=True),
                        align="center", anchor="middle", autofit=False, ins=(0, 0, 0, 0))
             else:
-                C.shape(s, "rect", x, yy + 0.09, 0.07, 0.07, fill=marker)
-            C.text(s, x + 0.34, yy, w - 0.34, step - 0.03,
-                   [{"text": it.get("text", "") if isinstance(it, dict) else str(it)}],
+                C.shape(s, "rect", x + 0.12, cy - 0.045, 0.09, 0.09, fill=marker)
+            txt = it.get("text", "") if isinstance(it, dict) else str(it)
+            C.text(s, x + 0.46, yy + 0.04, w - 0.56, row_h - 0.08, [{"text": txt}],
                    font=self.F(size=size, color=TEXT, bold=bool(it.get("bold")) if isinstance(it, dict) else False),
                    autofit=True, min_size=7.5, anchor="middle")
+            yy += row_h + gap
 
     # ------------------------------------------------------------------ pages
     def render(self, prs, spec, total=1):
@@ -266,7 +304,18 @@ class ResearchTheme(object):
             kh = (6.95 - y0 - 0.12 * (len(kpis) - 1)) / len(kpis)
             for k in kpis:
                 if isinstance(k, dict):
-                    self.kpi(s, 8.72, ky, 4.25, kh, k.get("value", "—"), k.get("label", ""), k.get("note"))
+                    value, note = k.get("value", "—"), k.get("note")
+                    if isinstance(value, dict) and value.get("price") not in (None, ""):
+                        # [v1.0.2] A bound quote shows the price large; change and turnover go to the note line.
+                        bits = []
+                        if value.get("changePct") not in (None, ""):
+                            cp = _num(value.get("changePct"))
+                            bits.append("涨跌幅 %s%%" % (("%+.2f" % cp) if cp is not None else value.get("changePct")))
+                        if value.get("turnover") not in (None, "", "—"):
+                            bits.append("成交额 %s" % value.get("turnover"))
+                        note = " · ".join(bits + ([str(note)] if note else []))
+                        value = value.get("price")
+                    self.kpi(s, 8.72, ky, 4.25, kh, value, k.get("label", ""), note)
                 else:
                     self.kpi(s, 8.72, ky, 4.25, kh, k, "关键数据")
                 ky += kh + 0.12
@@ -439,6 +488,46 @@ class ResearchTheme(object):
         self.title(s, d.get("title", "估值与可比公司"))
         self.lead(s, d.get("lead"))
         y0 = 1.62 if d.get("lead") else 1.30
+        rows = _rows(d.get("peers") or d.get("table"))
+        if rows and not _is_placeholder_table(rows):
+            return self._valuation_with_peers(s, d, y0, rows)
+        # [v1.0.2] No comparable companies: show the valuation values as cards across the page and a
+        # short note panel instead of an empty right-hand table.
+        pcts = [it for it in (d.get("percentiles") or []) if it is not None][:4]
+        cards = []
+        for it in pcts:
+            if isinstance(it, dict):
+                name = it.get("name", "")
+                if it.get("current") is not None and _num(it.get("current")) is not None:
+                    value = "%.2f" % float(_num(it.get("current")))
+                elif _num(it.get("value", it.get("percentile"))) is not None:
+                    value = "%d%%" % int(max(0, min(100, _num(it.get("value", it.get("percentile"))))))
+                else:
+                    value = "—"
+                cards.append((value, name, it.get("note")))
+            else:
+                cards.append((str(it), "估值", None))
+        if cards:
+            n = len(cards)
+            ww = (12.6 - 0.14 * (n - 1)) / n
+            for i, (value, name, note) in enumerate(cards):
+                self.kpi(s, 0.36 + i * (ww + 0.14), y0, ww, 1.55, value, name, note, [BLUE, VIOLET, DEEP, "E4A854"][i % 4])
+        else:
+            self.panel(s, 0.36, y0, 12.6, 1.55)
+            C.text(s, 0.60, y0 + 0.4, 12.0, 0.8, "—（未取得估值数据）", font=self.F(size=13, color=MUTED), anchor="middle")
+        items = _real_items(d.get("points"))
+        if not items:
+            for it in pcts:
+                if isinstance(it, dict) and it.get("note") and str(it.get("note")) != "当前值":
+                    items.append({"text": "%s：%s" % (it.get("name", ""), it.get("note"))})
+            items.append({"text": "可比公司：本次未取得同行业可比公司数据，接入行业数据源后自动补充。"})
+        items = items[:5]
+        py = y0 + 1.75
+        ph = min(6.95 - py, 0.52 + 0.20 + len(items) * 0.62)
+        self.panel(s, 0.36, py, 12.6, ph, "估值说明")
+        self.bullets(s, 0.62, py + 0.56, 12.08, ph - 0.70, items, size=10.5, max_row=0.56)
+
+    def _valuation_with_peers(self, s, d, y0, rows):
         self.panel(s, 0.36, y0, 4.55, 6.95 - y0, "历史估值分位")
         pcts = d.get("percentiles") or []
         if pcts:
@@ -471,11 +560,7 @@ class ResearchTheme(object):
         else:
             C.text(s, 0.60, y0 + 0.8, 3.9, 0.8, "—", font=self.F(size=13, color=MUTED), anchor="middle")
         self.panel(s, 5.10, y0, 7.87, 6.95 - y0, "可比公司")
-        rows = _rows(d.get("peers") or d.get("table"))
-        if rows:
-            self.table(s, rows, 5.30, y0 + 0.50, 7.47, 6.20 - y0, font_size=8.8)
-        else:
-            C.text(s, 5.40, y0 + 0.8, 7.2, 0.8, "—", font=self.F(size=13, color=MUTED), anchor="middle")
+        self.table(s, rows, 5.30, y0 + 0.50, 7.47, _table_h(rows), font_size=8.8)
 
     def _kline_shapes(self, s, series, cats, y0, up_color, down_color):
         bars = [p for p in series if isinstance(p, dict)]
@@ -637,10 +722,13 @@ class ResearchTheme(object):
         self.title(s, d.get("title", "QuankSight 量化信号与回测"))
         self.lead(s, d.get("lead"))
         y0 = 1.62 if d.get("lead") else 1.30
-        sigs = d.get("signals") or []
+        sigs = [x for x in (d.get("signals") or [])
+                if x is not None and str(x.get("value", x.get("grade", "")) if isinstance(x, dict) else x).strip()
+                not in PLACEHOLDER_CELLS]
+        ty = y0
         if sigs:
             n = min(len(sigs), 4)
-            ww = (12.6 - 0.12 * (n - 1)) / n
+            ww = min(4.10, (12.6 - 0.12 * (n - 1)) / n)
             for i, sg in enumerate(sigs[:4]):
                 if isinstance(sg, dict):
                     self.kpi(s, 0.36 + i * (ww + 0.12), y0, ww, 1.28,
@@ -648,12 +736,23 @@ class ResearchTheme(object):
                              sg.get("note"), [BLUE, VIOLET, DEEP, "E4A854"][i % 4])
                 else:
                     self.kpi(s, 0.36 + i * (ww + 0.12), y0, ww, 1.28, str(sg), "信号")
+            ty = y0 + 1.42
         rows = _rows(d.get("backtest") or d.get("rows") or d.get("table"))
-        self.panel(s, 0.36, y0 + 1.42, 12.6, 6.95 - y0 - 1.42, "回测对比")
-        if rows and not (len(rows) == 1 and len(rows[0]) == 1 and str(rows[0][0]).strip() in ("", "—")):
-            self.table(s, rows, 0.56, y0 + 1.94, 12.2, 6.75 - y0 - 1.94, font_size=9.0)
+        avail = 6.95 - ty
+        if rows and not _is_placeholder_table(rows):
+            th = _table_h(rows)
+            ph = min(avail, 0.52 + th + 0.24)
+            self.panel(s, 0.36, ty, 12.6, ph, "回测对比")
+            ncol = max(len(r) for r in rows)
+            self.table(s, rows, 0.56, ty + 0.52, 12.2, th, widths=[3, 2, 2] if ncol == 3 else None, font_size=9.5)
+            note = d.get("note") or "回测为本机量化引擎对历史行情的模拟，不代表未来表现；最大回撤以负值表示。"
+            if ty + ph + 0.40 <= 7.02:
+                C.text(s, 0.40, ty + ph + 0.10, 12.5, 0.28, str(note), font=self.F(size=8.5, color=MUTED),
+                       autofit=True, min_size=7, ins=(0, 0, 0, 0))
         else:
-            C.text(s, 0.60, y0 + 2.0, 12.0, 0.8, "—（未取得回测数据）", font=self.F(size=13, color=MUTED), anchor="middle")
+            self.panel(s, 0.36, ty, 12.6, 1.30, "回测对比")
+            C.text(s, 0.60, ty + 0.46, 12.0, 0.70, "未取得回测数据：请确认本机量化引擎已启动，或在量化设置中连接引擎。",
+                   font=self.F(size=11, color=MUTED), anchor="middle")
 
     def page_catalysts_risks(self, s, d):
         self.chrome(s, d.get("section") or "催化剂与风险")
@@ -670,28 +769,59 @@ class ResearchTheme(object):
         self.title(s, d.get("title", "事件分析"))
         self.lead(s, d.get("lead"))
         y0 = 1.62 if d.get("lead") else 1.30
-        self.panel(s, 0.36, y0, 12.6, 2.30, "事件时间线")
-        evs = d.get("events") or []
+        rows = _rows(d.get("structure") or d.get("terms") or d.get("table"))
+        has_rows = bool(rows) and not _is_placeholder_table(rows)
+        # [v1.0.2] Without real deal terms the timeline takes the page and the terms become a one-line note.
+        strip_h = 1.10
+        evs0 = [e for e in (d.get("events") or []) if e]
+        has_desc = any(isinstance(e, dict) and (e.get("desc") or e.get("body")) for e in evs0)
+        card_h = 2.20 if has_desc else 1.00
+        tl_h = 2.30 if has_rows else min(6.95 - y0 - strip_h - 0.14, 1.30 + 0.30 + card_h + 0.30)
+        self.panel(s, 0.36, y0, 12.6, tl_h, "事件时间线")
+        evs = [e for e in (d.get("events") or []) if e]
         if evs:
             n = min(len(evs), 6)
             x0, x1 = 0.80, 12.45
-            C.line(s, x0, y0 + 1.42, x1, y0 + 1.42, color=LINE, width=2.0)
+            ly = y0 + 1.42 if has_rows else y0 + 1.30
+            C.line(s, x0, ly, x1, ly, color=LINE, width=2.0)
+            slot = (x1 - x0) / n
             for i, ev in enumerate(evs[:n]):
-                date, name = (ev.get("date", ""), ev.get("title", ev.get("name", ""))) if isinstance(ev, dict) else ("", str(ev))
-                cx = x0 + (x1 - x0) * (i + 0.5) / n
-                C.shape(s, "ellipse", cx - 0.10, y0 + 1.32, 0.20, 0.20, fill=BLUE if i % 2 == 0 else VIOLET)
-                C.text(s, cx - 1.0, y0 + 0.58, 2.0, 0.32, str(date), font=self.F(size=9, color=MUTED, bold=True),
+                if isinstance(ev, dict):
+                    date, name = ev.get("date", ""), ev.get("title", ev.get("name", ""))
+                    desc = ev.get("desc", ev.get("body", ""))
+                else:
+                    date, name, desc = "", str(ev), ""
+                cx = x0 + slot * (i + 0.5)
+                C.shape(s, "ellipse", cx - 0.10, ly - 0.10, 0.20, 0.20, fill=BLUE if i % 2 == 0 else VIOLET)
+                C.text(s, cx - 1.0, ly - 0.62, 2.0, 0.32, str(date), font=self.F(size=9.5, color=MUTED, bold=True),
                        align="center", autofit=False, ins=(0, 0, 0, 0))
-                C.text(s, cx - 1.0, y0 + 1.66, 2.0, 0.74, [{"text": str(name)}], font=self.F(size=9.5, color=NAVY),
-                       align="center", anchor="top", autofit=True, min_size=7.5)
+                if has_rows:
+                    C.text(s, cx - 1.0, ly + 0.24, 2.0, 0.74, [{"text": str(name)}], font=self.F(size=9.5, color=NAVY),
+                           align="center", anchor="top", autofit=True, min_size=7.5)
+                else:
+                    cw = min(slot - 0.18, 3.6)
+                    ch = min(card_h, tl_h - (ly - y0) - 0.50)
+                    C.shape(s, "round", cx - cw / 2, ly + 0.30, cw, ch, fill=PALE, line=LINE, line_w=0.5, adj=[8000])
+                    C.text(s, cx - cw / 2 + 0.12, ly + 0.38, cw - 0.24, 0.44 if desc else ch - 0.16, [{"text": str(name)}],
+                           font=self.F(size=12 if not desc else 11, color=NAVY, bold=True), align="center",
+                           anchor="middle", autofit=True, min_size=8)
+                    if desc:
+                        C.text(s, cx - cw / 2 + 0.14, ly + 0.86, cw - 0.28, ch - 0.66, [{"text": str(desc)}],
+                               font=self.F(size=9, color=MUTED), align="left", anchor="top", autofit=True, min_size=7)
         else:
             C.text(s, 0.60, y0 + 0.9, 12.0, 0.7, "—", font=self.F(size=13, color=MUTED), anchor="middle")
-        self.panel(s, 0.36, y0 + 2.48, 12.6, 6.95 - y0 - 2.48, "交易结构")
-        rows = _rows(d.get("structure") or d.get("terms") or d.get("table"))
-        if rows:
-            self.table(s, rows, 0.56, y0 + 3.00, 12.2, 6.75 - y0 - 3.00, font_size=9.0)
+        if has_rows:
+            th = _table_h(rows)
+            py = y0 + 2.48
+            ph = min(6.95 - py, 0.52 + th + 0.22)
+            self.panel(s, 0.36, py, 12.6, ph, "交易结构")
+            self.table(s, rows, 0.56, py + 0.52, 12.2, th, font_size=9.0)
         else:
-            C.text(s, 0.60, y0 + 3.0, 12.0, 0.8, "—", font=self.F(size=13, color=MUTED), anchor="middle")
+            py = y0 + tl_h + 0.14
+            self.panel(s, 0.36, py, 12.6, strip_h, "交易结构")
+            C.text(s, 0.62, py + 0.44, 12.1, 0.56,
+                   str(d.get("structureNote") or "交易方式、交易对价等条款尚未披露，待公司公告后更新。"),
+                   font=self.F(size=10.5, color=MUTED), anchor="middle", autofit=True, min_size=8)
 
     def page_disclaimer(self, s, d):
         C.bg_grad(s, [(0, "FFFFFF"), (60, PALE), (100, MIST)], path="circle")
