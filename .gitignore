@@ -66,5 +66,5 @@ __pycache__/
 /_review/
 
 # 官网已迁至本机私有仓库 quanksight-site 维护，不再进入公开仓库
+# （scripts/publish-download.sh 保留在公开仓库：v1.0.2 发版仍需使用）
 /site/
-/scripts/publish-download.sh
