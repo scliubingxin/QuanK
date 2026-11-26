@@ -418,6 +418,13 @@ function renderInner() {
     $('#app').className = sidebarCollapsed ? 'sidebar-collapsed' : '';
     const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"><span class="brand-mark"><img src="assets/logo.png" alt="QuankSight 标志"></span><div>QuankSight${appVersion ? `<span class="brand-ver" title="当前版本 v${escape(appVersion)}">v${escape(appVersion)}</span>` : ''}<small>量见 · 量化工作，一键搞定</small></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(approvalFeedState())})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div>${state.officeEngine?.phase==='starting' ? '<span class="office-engine-pill" role="status" title="Office 引擎启动中">Office 启动中</span>' : ''}<button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}${['home', 'chat'].includes(page) ? '' : approvalMarkup()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
     officeWorkspace.update(markup, `${page}:${chatId}`);
+    // [website-shot-fix] Last-resort guard: a page must never be open on both sides; keep the main copy.
+    const mirror = !state.locked && pageTabs.find(t => t.kind === 'page' && t.page === page);
+    if (mirror) {
+        pageTabs = pageTabs.filter(t => t.id !== mirror.id);
+        if (pageTabId === mirror.id) setPanelActive(pageTabs.at(-1)?.id || '');
+        savePanel();
+    }
     renderPanel(); // [v0.54]
     paintApprovalSummaries();
     for (const el of [document.scrollingElement, document.getElementById('app'), document.querySelector('.main'), document.querySelector('.workbench')]) if (el && el.scrollLeft) el.scrollLeft = 0; // [resp] never leave the shell scrolled sideways
@@ -677,8 +684,15 @@ function content() {
         return automationPage(state, {action, empty, codingTasks: codingTaskList, codingProject: codingProject(), date, tab: taskTab || (state.trade ? 'trade' : 'tasks'), filter: taskFilter, runStatus, runTask: runTaskFilter, runTrigger, banner: pendingBanner(state, action),
             extra: taskTab === 'runs' && (state.runJobs || []).some(j => ['queued', 'running', 'cancelling'].includes(j.status)) ? views.runQueue({state, action, date, statusNames}) : ''}); // [ux8] only while something is queued
     if (page === 'research') return researchPage(state, {action, date, stock: rpStock, kind: rpKind, query: rpQuery}); // [v0.53]
-    if (page === 'library')
-        return `<div class="page">${heading('', '成果中心', '对话与自动化生成的文档和成果都在这里，可预览、继续编辑和导出。', '', [[(state.documents || []).length, '份文档'], [state.artifacts.length, '份保存的成果']])}${documentLibrary({state,action,date,filter: libraryFilter})}${libraryFilter ? '' : state.artifacts.length ? `<div class="cards">${state.artifacts.map(a => `<div class="card"><span class="tile-icon amber">${icon('file')}</span><h3>${escape(a.name)}</h3><p>${escape(a.text.slice(0, 110))}…</p><div class="meta">${date(a.time)}</div><div class="actions">${action('查看', 'viewArtifact', a.id)}${action('导出', 'exportArtifact', a.id)}${action('删除', 'deleteArtifact', a.id)}</div></div>`).join('')}</div>` : empty('还没有保存的成果', '在助手回复下点击“保存到成果中心”，或完成一个自动化任务。')}</div>`;
+    if (page === 'library') {
+        // [website-shot-fix] artifacts/documents saved by automations can lack `text`; render an empty state instead of throwing on .slice.
+        const documents = state.documents || [], artifacts = state.artifacts || [];
+        const cards = artifacts.map(a => {
+            const text = String(a?.text ?? '');
+            return `<div class="card"><span class="tile-icon amber">${icon('file')}</span><h3>${escape(a?.name)}</h3><p>${text ? escape(text.slice(0, 110)) + (text.length > 110 ? '…' : '') : '（空成果）'}</p><div class="meta">${date(a?.time)}</div><div class="actions">${action('查看', 'viewArtifact', a?.id)}${action('导出', 'exportArtifact', a?.id)}${action('删除', 'deleteArtifact', a?.id)}</div></div>`;
+        }).join('');
+        return `<div class="page">${heading('', '成果中心', '对话与自动化生成的文档和成果都在这里，可预览、继续编辑和导出。', '', [[documents.length, '份文档'], [artifacts.length, '份保存的成果']])}${documentLibrary({state,action,date,filter: libraryFilter})}${libraryFilter ? '' : artifacts.length ? `<div class="cards">${cards}</div>` : empty('还没有保存的成果', '在助手回复下点击“保存到成果中心”，或完成一个自动化任务。')}</div>`;
+    }
     if (page === 'context') // [ux4] 我的上下文 · 记忆
         return memoryPage({state, action, icon, date, empty, filter: memoryFilter, query: memoryQuery,
             heading: (kicker, title, desc, buttons = '') => contextHeader(state, {tab: 'context', date}) + `<div class="ctx-sub"><p class="description">${desc}</p><div class="ctx-actions">${buttons}</div></div>`}).replace('<div class="page">', '<div class="page context-page">');
@@ -859,6 +873,9 @@ function signalPopups() {
 }
 async function navigate(next, main = false) {
     if (!main && !panelUI.MAIN_ONLY.has(next) && Date.now() - panelClickAt < 1500) return openPageTab(next); // [v0.54] links inside a panel tab open another tab
+    // [website-shot-fix] Already open in a right-hand tab: focus that tab instead of duplicating the page in the main area.
+    const shownTab = !main && !state.locked && pageTabs.find(t => t.kind === 'page' && t.page === next);
+    if (shownTab) { setPanelActive(shownTab.id); savePanel(); render(); return; }
     if (page === 'feed' && next !== 'feed') invoke('feed', { action: 'seen' }).then(s => { applyState(s); render(); }).catch(() => {}); // [p2-m3] leaving the feed marks it read
     page = next;
     if (next === 'files') {
@@ -2196,8 +2213,19 @@ function openMarketStockTab({code, period, name}) {
 }
 async function openPageTab(p) {
     if (panelUI.MAIN_ONLY.has(p)) return navigate(p, true);
+    // [website-shot-fix] Already shown in the main area: stay there and drop any mirror tab.
+    if (page === p) return focusMainPage(p);
     openPanelTab(panelUI.pageTab(p, nav.find(n => n[0] === p)?.[2] || PAGE_TITLES[p] || p));
     if (p === 'files') await loadFiles(); else render();
+}
+function focusMainPage(p) {
+    const mirrors = pageTabs.filter(t => t.kind === 'page' && t.page === p);
+    if (mirrors.length) {
+        pageTabs = pageTabs.filter(t => !mirrors.includes(t));
+        if (mirrors.some(t => t.id === pageTabId)) setPanelActive(pageTabs.at(-1)?.id || '');
+        savePanel();
+    }
+    render();
 }
 function bindPanelResize(host) {
     host.querySelector('.pp-resize').addEventListener('mousedown', e => {

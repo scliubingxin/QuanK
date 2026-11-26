@@ -89,14 +89,16 @@ test('chat-opened pages and stock details open as right-hand tabs; results are k
   } finally { w.close(); }
 });
 
-test('the sidebar still navigates the main area; the same page in a tab shows a note', async () => {
+test('the sidebar focuses an existing tab instead of duplicating the page in the main area', async () => {
   const {w, doc, hooks, settle} = await app();
   try {
   hooks.onOpenPage({page: 'feed'}); await settle();
+  const title = doc.querySelector('.topbar-title').textContent.trim();
   doc.querySelector('.sidebar [data-page="feed"]').click(); await settle();
-  assert.equal(doc.querySelector('.topbar-title').textContent.trim(), '动态');
-  assert.match(doc.querySelector('#pagePanel .pp-body').textContent, /正在左侧主区域显示/);
+  assert.equal(doc.querySelector('.topbar-title').textContent.trim(), title, 'the main area stays put');
+  assert.equal(doc.querySelector('#pagePanel .pp-tab.selected button').dataset.id, 'page:feed');
+  assert.doesNotMatch(doc.querySelector('#pagePanel .pp-body').textContent, /正在左侧主区域显示/);
   doc.querySelector('.sidebar [data-page="quant"], .sidebar [data-page="tasks"]').click(); await settle();
-  assert.ok(doc.querySelector('#pagePanel .pp-body .feed-page, #pagePanel .pp-body .page'), 'the tab shows the page again once the main area moves on');
+  assert.ok(doc.querySelector('#pagePanel .pp-body .feed-page, #pagePanel .pp-body .page'), 'the tab still shows its page');
   } finally { w.close(); }
 });

@@ -5,8 +5,15 @@ export const ADAPTER_FILE = 'wb-engine.json';
 export const ACTIONS = {
   STRONG_BUY: ['强烈买入', 'buy'], BUY: ['买入', 'buy'], HOLD: ['持有', 'hold'], SELL: ['卖出', 'sell'], STRONG_SELL: ['急跌风控', 'sell'],
 };
-export const actionLabel = (a, text = '') => text || ACTIONS[a]?.[0] || a || '—';
-export const actionTone = a => ACTIONS[a]?.[1] || 'hold';
+// [website-shot-fix] Engines may send lowercase / underscored codes (buy, strong_buy...).
+// Always show the Chinese label; only fall back to the raw value when it is already human text.
+const ACTION_KEYS = {buy: 'BUY', strongbuy: 'STRONG_BUY', hold: 'HOLD', sell: 'SELL', strongsell: 'STRONG_SELL'};
+const actionKey = a => {
+  const s = String(a ?? '').trim();
+  return ACTION_KEYS[s.toLowerCase().replace(/[\s_-]/g, '')] || s.toUpperCase();
+};
+export const actionLabel = (a, text = '') => text || ACTIONS[actionKey(a)]?.[0] || (a == null || a === '' ? '—' : String(a));
+export const actionTone = a => ACTIONS[actionKey(a)]?.[1] || 'hold';
 const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const num = v => typeof v === 'number' && Number.isFinite(v) ? v : null;
 const arr = v => Array.isArray(v) ? v : [];
