@@ -4,6 +4,7 @@ QuanK 每个正式版本的打包与发布过程记录（同步清单、asar 检
 
 | 版本 | 日期 | 内容 | 合并提交 | 发布记录提交 | DMG 字节 | DMG sha256 | ZIP sha256 | 记录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| [v1.0.2](https://github.com/scliubingxin/QuanK/releases/tag/v1.0.2) | 2026-11-26 | 钥匙串迁移修复（QuanK/Actwill AI → QuankSight，含 `*Sealed`）、引擎管理员密码自修复；Office 编辑窗口撑满与默认缩放、工具栏固定、底部状态栏、AI 确认卡修复；投研 PPT 信号页绑定本股、回撤负值、估值说明等；工作台授权堆叠、滚动保持、全部已读提示与信号标签中文化。 | 本次 | 本次 | 302,841,708 | `51c4d769473dec…` | `0efbf1151d9138…` | [v1.0.2.md](v1.0.2.md) |
 | [v1.0.1](https://github.com/scliubingxin/QuanK/releases/tag/v1.0.1) | 2026-11-25 | QuankSight 量见更名；修复独立编辑窗口、展开白屏与 Office 自动保存。 | 本次 | 本次 | 待发布 | 待发布 | 待发布 | [v1.0.1.md](v1.0.1.md) |
 | [v1.0.0](https://github.com/scliubingxin/QuanK/releases/tag/v1.0.0) | 2026-11-25 | 修复启动白屏；Office 页签只读预览、编辑进独立窗口；新增投研 PPT 引擎；运行时 realpath 与内置 Python 不再写 .pyc。 | 待合并 | 待发布 | 待发布 | 待发布 | 待发布 | [v1.0.0.md](v1.0.0.md) |
 | [v0.58.0](https://github.com/scliubingxin/QuanK/releases/tag/v0.58.0) | 2026-11-25 | 页签内 Word、PPT、Excel 编辑和 AI Office。 | `00031c9` | 本次 | 293,339,228 | `c2dc54fdbf0f74…` | `5f5ae8dfeae5c5…` | [v0.58.0.md](v0.58.0.md) |

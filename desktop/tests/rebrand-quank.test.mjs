@@ -109,7 +109,10 @@ test('wiring and visible brand', async () => {
   const pkg = JSON.parse(await read(new URL('../package.json', import.meta.url)));
   assert.equal(pkg.productName, 'QuankSight'); assert.equal(pkg.build.appId, 'com.quank.desktop'); assert.equal(pkg.name, 'quank-desktop');
   const app = await read(new URL('../src/app.js', import.meta.url));
-  assert.match(app, /alt="QuankSight 标志"/); assert.match(app, /QuankSight\$\{appVersion \? `<span class="brand-ver"[^`]*` : ''\}<small>量见 · 量化工作，一键搞定<\/small>/); // [v0.52] version badge between name and tagline
+  assert.match(app, /alt="QuankSight 标志"/);
+  assert.match(app, /<span class="brand-en">QuankSight<\/span><span class="brand-cn">量见\$\{appVersion \? `<span class="brand-ver"[^`]*` : ''\}<\/span>/);
+  assert.match(app, /<small>量化工作，一键搞定<\/small>/);
+  assert.doesNotMatch(app, /<small>量见 · 量化工作，一键搞定<\/small>/); // [v0.52] version badge between name and tagline
   const html = await read(new URL('../src/index.html', import.meta.url));
   assert.match(html, /<title>QuankSight 量见 · 金融量化工作台<\/title>/);
   for (const f of ['main.mjs', 'src/app.js', 'src/index.html', 'src/office/index.html', 'src/ui/quant.js', 'services/app-tools.mjs'])

@@ -164,11 +164,11 @@ export function defaultOfficeZoom({kind, fitPage, fitWidth}) {
     if (kind === 'writer') return clampOfficeZoom(Math.min(1, fitWidth || 1));
     return 1;
 }
-/** [v1.0.3] Zoom buttons move in 10% steps on a 10% grid, so 200% → 190% → … always works. */
+/** [v1.0.3] Zoom buttons move ±10% from the current value (no grid snapping), so − − + + always returns to
+ * where it started (87% → 77% → 67% → 77% → 87%) and 200% steps back down to 190%. */
 export function stepZoom(zoom, direction) {
-    const grid = Math.round(clampOfficeZoom(zoom) * 10) / 10;
-    const next = direction > 0 ? (grid > zoom + 1e-6 ? grid : grid + .1) : (grid < zoom - 1e-6 ? grid : grid - .1);
-    return clampOfficeZoom(Math.round(next * 10) / 10);
+    const next = clampOfficeZoom(zoom) + (direction > 0 ? .1 : -.1);
+    return clampOfficeZoom(Math.round(next * 100) / 100);
 }
 /** [v1.0.3] Status-bar text: 第 X 张 / 共 N 张 (slides), 第 X 页 / 共 N 页 (text), 工作表 X / N (sheets). */
 export function officePageStatus({kind, part = 0, parts = 0, height = 0, pageHeight = 0, scrollTop = 0, clientHeight = 0, scale = 1}) {

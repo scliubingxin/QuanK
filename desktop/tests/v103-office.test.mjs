@@ -19,14 +19,17 @@ test('v1.0.3 默认缩放：PPT 适合页面但不超过 90%，Word 适合宽度
   assert.equal(clampOfficeZoom(9), 2);
 });
 
-test('v1.0.3 缩放按钮：200% 能一路缩小，非整格先对齐到 10% 网格', () => {
+test('v1.0.3 缩放按钮：±10% 原路往返，200% 能一路缩小', () => {
   let z = 2;
   for (let i = 0; i < 5; i++) z = stepZoom(z, -1);
   assert.equal(z, 1.5);
   assert.equal(stepZoom(2, 1), 2);
   assert.equal(stepZoom(.25, -1), .25);
-  assert.equal(stepZoom(.62, 1), .7);
-  assert.equal(stepZoom(.62, -1), .6);
+  let p = .87;
+  p = stepZoom(stepZoom(p, -1), -1);
+  assert.equal(p, .67);
+  p = stepZoom(stepZoom(p, 1), 1);
+  assert.equal(p, .87, '两次 − 再两次 + 回到原缩放');
   assert.equal(stepZoom(.9, 1), 1);
 });
 
