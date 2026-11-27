@@ -1,5 +1,6 @@
 import {officeApprovalCard} from './ui/office-cards.js';
 import {homeApprovalCards, conversationApprovalCards} from './ui/approval-card.js';
+import {approvalRoute, barRequests} from './shared/approval-route.js';
 import { modalLayout } from './ui/modal.js';
 import {bindPresetFilters, plazaIcon} from './ui/preset-catalog.js'; // [ux11] plazaIcon
 import {agentAvatar} from './ui/avatars.js';
@@ -137,7 +138,10 @@ function approvalFeedState() {
     return { ...state, approvalFeed: approvalRequests().filter(request => !request.decision) };
 }
 function approvalMarkup() {
-    return approvalBar(approvalRequests(), page === 'chat' ? chatId : '', action);
+    // [v1.0.4] On 自动化 › 半自动委托 an order approval is already mounted under its row; repeating
+    // it in the bar above the input was the duplicate the user screenshot showed.
+    const orders = [...(state.trade?.orders || []), ...(state.trade?.history || [])];
+    return approvalBar(barRequests(approvalRequests(), {page, taskTab, orders}), page === 'chat' ? chatId : '', action);
 }
 let nextApprovalOrder = null; // set by the order buttons so the card can be mounted under its row
 function inlineConfirm(title, html, handler) {
@@ -174,20 +178,54 @@ function paintApprovalSummaries(root = document) {
         button.setAttribute('aria-expanded', String(expanded));
     }
 }
-async function jumpToApproval(id) {
-    const request = approvalRequests().find(item => item.requestId === id);
-    if (!request || state.locked) return;
+// [v1.0.4] The single entry point behind every 「前往授权」: the bar, feed items, briefing items.
+async function gotoApproval(request) {
+    if (!request || state.locked) return '';
     if ($('#modal')?.open) $('#modal').close();
-    if (request.codingTaskId) await handle('codingTaskOpen', request.codingTaskId);
-    else if (request.chatId && state.chats.some(chat => chat.id === request.chatId)) {
-        if (page !== 'chat' || chatId !== request.chatId) await handle('openChat', request.chatId);
-    } else {
-        switchChat('');
-        page = 'home';
+    const route = approvalRoute(request, {
+        chats: state.chats,
+        orders: [...(state.trade?.orders || []), ...(state.trade?.history || [])],
+    });
+    if (route.kind === 'order') {
+        taskTab = 'trade';
+        if (page !== 'tasks') await navigate('tasks');
         render();
+        await new Promise(resolve => requestAnimationFrame(() => resolve())); // the rows exist after the paint
+        const root = document.getElementById('app') || document;
+        const row = root.querySelector(`.td-row[data-order="${route.orderId}"]`);
+        // The approval may only exist as a stored request (not a local card), so mount it under the row.
+        mountOrderApprovals(root, [{requestId: route.requestId, orderId: route.orderId}],
+            card => officeApprovalCard({...request, orderId: card.orderId}, action));
+        if (row) {
+            row.scrollIntoView({block: 'center'});
+            row.classList.add('flash');
+            setTimeout(() => row.classList.remove('flash'), 4000);
+        }
+        return 'tasks/trade#' + route.orderId;
     }
-    const target = request.codingTaskId ? document.getElementById('pagePanel') : document.getElementById('app');
-    if (target) revealApproval(target, id);
+    if (route.kind === 'coding') {
+        await handle('codingTaskOpen', route.taskId);
+        revealApproval(document.getElementById('pagePanel') || document.getElementById('app'), route.requestId);
+        return 'coding/' + route.taskId;
+    }
+    if (route.kind === 'chat') {
+        if (page !== 'chat' || chatId !== route.chatId) await handle('openChat', route.chatId);
+        render();
+        revealApproval(document.getElementById('app'), route.requestId);
+        return 'chat/' + route.chatId;
+    }
+    // Everything else is answerable on the feed itself (approvals with no conversation, Office edits,
+    // approvals whose conversation was deleted): show 需要处理 and highlight that item's card.
+    switchChat('');
+    feedFilter = 'action';
+    if (page !== 'feed') await navigate('feed');
+    render();
+    const card = document.querySelector(`[data-approval-id="${route.requestId}"]`);
+    if (card) { card.scrollIntoView({block: 'center'}); card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 4000); }
+    return 'feed#' + route.requestId;
+}
+async function jumpToApproval(id) {
+    return gotoApproval(approvalRequests().find(item => item.requestId === id));
 }
 async function answerApproval(id, decision) {
     if (busyApprovals.has(id)) return;
@@ -723,7 +761,9 @@ function content() {
         return memoryPage({state, action, icon, date, empty, filter: memoryFilter, query: memoryQuery,
             heading: (kicker, title, desc, buttons = '') => contextHeader(state, {tab: 'context', date}) + `<div class="ctx-sub"><p class="description">${desc}</p><div class="ctx-actions">${buttons}</div></div>`}).replace('<div class="page">', '<div class="page context-page">');
     if (page === 'feed') // [p2-m3]
-        return feedPage(approvalFeedState(), {action, date, heading, empty, filter: feedFilter}).replace('<!--briefing-->', briefingCard(state, {action})); // [p2-m4] briefing on top
+        return feedPage(approvalFeedState(), {action, date, heading, empty, filter: feedFilter,
+            // [v1.0.4] pending approvals carry their card right in the feed item, so 前往授权 always lands on something answerable
+            inlineApproval: item => officeApprovalCard(approvalRequests().find(r => r.requestId === item.actions?.[0]?.id) || {}, action)}).replace('<!--briefing-->', briefingCard(state, {action})); // [p2-m4] briefing on top
     return '';
 }
 function modal(title, body, submit, handler) {
@@ -2079,11 +2119,8 @@ async function handle(actionId, id, stockTarget) {
     }
     if (actionId === 'feedDismiss') { await update('feed', { action: 'dismiss', id }); return; }
     if (actionId === 'feedRestore') { await update('feed', { action: 'restore' }); return; }
-    if (actionId === 'gotoPending') {
-        const first = approvalRequests().find(item => item.channel === 'scheduled' && !item.decision);
-        if (first) return jumpToApproval(first.requestId);
-        return;
-    }
+    if (actionId === 'gotoPending') return gotoApproval(approvalRequests().find(item => !item.decision));
+    if (actionId === 'approvalAll') { switchChat(''); feedFilter = 'action'; await navigate('feed'); render(); return; }
     if (actionId === 'editTask') { // [p2-m1]
         const t = state.tasks.find(t => t.id === id); if (!t) return;
         modal('编辑定时任务', taskEditor(state, t), '保存', async (f) => update('task', taskPayload(f, id))); // [ux6]

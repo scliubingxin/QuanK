@@ -1482,6 +1482,8 @@ svg.pf-svg text,svg.pf-svg tspan{stroke:none}
 .sec-acts button{padding:5px 12px;font-size:12px;border-radius:8px}
 .sec-pill{flex:none;display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap;background:#f1f4fb;color:#5b6787;cursor:default;user-select:none}
 .td-approval-row{display:block;padding:0 0 10px}
+.feed-approval{grid-column:1/-1;padding:8px 0 4px}
+.td-row.flash,.inline-approval-card.flash{outline:2px solid #2f62f5;outline-offset:2px;border-radius:10px}
 .td-approval-row .inline-approval-card{margin:8px 0 0}
 .sec-pill.ok{background:#e8f6ee;color:#0f8a4b}.sec-pill.warn{background:#fff4e5;color:#b26a00}.sec-pill.bad{background:#fde8e8;color:#c62828}
 .sec-notice{display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:10px 14px;border-radius:12px;background:#fffaf2;border:1px solid #fde7c4;color:#8a5a00;font-size:13px}

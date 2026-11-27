@@ -16,15 +16,18 @@ function dayLabel(day, now = Date.now()) {
   return day === today ? '今天' : day === today - 864e5 ? '昨天' : `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
-export function feedPage(state, {action, date, heading, empty, filter = 'important', now = Date.now()}) {
+export function feedPage(state, {action, date, heading, empty, filter = 'important', now = Date.now(), inlineApproval} = {}) {
   const all = visibleFeed(state, 'all'), items = filter === 'all' ? all : visibleFeed(state, filter);
   const count = f => f === 'all' ? all.length : visibleFeed(state, f).length;
   const counts = feedCounts(state);
   const unread = counts.unread, needs = counts.pending, today = all.filter(x => dayOf(x.time) === dayOf(now)).length;
   const tabs = `<div class="feed-filters" role="tablist">${FEED_FILTERS.map(([id, label]) => `<button type="button" role="tab" aria-selected="${id === filter}" class="${id === filter ? 'chosen' : ''}" data-action="feedFilter" data-id="${id}">${label}${['important', 'unread', 'action'].includes(id) && count(id) ? ` <small>${count(id)}</small>` : ''}</button>`).join('')}</div>`;
+  // [v1.0.4] An approval with no conversation and no order row can only be answered here, so the
+  // item carries a compact card instead of a link that lands on a page with no card at all.
+  const inline = x => (inlineApproval && x.kind === 'approval' && x.status === 'pending' ? `<div class="feed-approval">${inlineApproval(x)}</div>` : '');
   const row = x => {
     const [ch, a, b, label] = KIND[x.kind] || KIND.log;
-    return `<div class="feed-row fk-${escape(x.kind)} fs-${escape(x.status)}${x.unread ? ' unread' : ''}" data-feed="${escape(x.id)}">${feedAvatar(x.kind)}<div class="feed-body"><b>${escape(x.title)}</b>${x.detail ? `<small>${escape(plainDetail(x.detail))}</small>` : ''}<span class="meta"><em class="fd-kind">${label}</em>${escape(date(x.time))}</span></div><div class="actions">${x.actions.map(a => action(escape(a.label), a.action, a.id, a.kind || 'secondary')).join('')}${x.kind !== 'log' && x.kind !== 'approval' ? action('移除', 'feedDismiss', x.id) : ''}</div></div>`;
+    return `<div class="feed-row fk-${escape(x.kind)} fs-${escape(x.status)}${x.unread ? ' unread' : ''}" data-feed="${escape(x.id)}">${feedAvatar(x.kind)}<div class="feed-body"><b>${escape(x.title)}</b>${x.detail ? `<small>${escape(plainDetail(x.detail))}</small>` : ''}<span class="meta"><em class="fd-kind">${label}</em>${escape(date(x.time))}</span></div><div class="actions">${x.actions.map(a => action(escape(a.label), a.action, a.id, a.kind || 'secondary')).join('')}${x.kind !== 'log' && x.kind !== 'approval' ? action('移除', 'feedDismiss', x.id) : ''}</div>${inline(x)}</div>`;
   };
   let lastDay = null, rows = '';
   for (const x of items) {
