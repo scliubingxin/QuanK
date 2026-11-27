@@ -4,6 +4,7 @@ import {connectOfficeViewPort, mountOfficeCanvas} from './office-canvas.js';
 import {createOfficeToolbar} from '../ui/office-toolbar.js';
 import {createFloatToolbar} from '../ui/office-float-toolbar.js';
 import {mountOfficeAIMenu} from '../ui/office-ai-menu.js';
+import {mountOfficeAIPanel} from '../ui/office-ai-panel.js'; // [v1.0.7]
 import {showOfficeDecision} from '../ui/page-panel.js';
 
 const params = new URLSearchParams(location.search);
@@ -96,6 +97,7 @@ async function start() {
   if (disposed) return;
   const host = document.createElement('div');
   host.style.cssText = 'flex:1;min-height:0;min-width:0;position:relative;display:flex';
+  host.className = 'qk-win-host';
   editor.append(host);
   // [v1.0.3] WPS-style status bar: page position on the left, zoom on the right.
   const statusBar = document.createElement('footer');
@@ -141,6 +143,8 @@ async function start() {
       cancelApply = () => { card.remove(); finish(false); };
     }),
   });
+  mountOfficeAIPanel({doc:document, head, toolbar:toolbar.element, ai:makeAI(state), kind:view.session.kind, documentId:id,
+    session:view.session, polish:() => aiMenu.run('polish')}); // [v1.0.7] AI 对话 panel
   toolbar.refresh();
   float.refresh();
   let dirty = false;
