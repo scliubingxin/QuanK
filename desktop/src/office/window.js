@@ -161,15 +161,15 @@ async function start() {
     dirty = false; savedAt = detail?.at || Date.now(); updateStatus();
     void api.officeWindowEvent({id, type:'saved', value:detail}).catch(log);
   });
-  view.session.on('conflict', () => decision(cards, '文档已有新版本', [
+  view.session.on('conflict', () => decision('文档已有新版本', [
     ['copy','另存副本',true], ['reload','重新载入'], ['overwrite','覆盖'],
   ], async choice => (await view.session.resolveConflict(choice)).ok));
   if (view.saveState === 'conflict') {
-    decision(cards, '文档已有新版本', [['copy','另存副本',true],['reload','重新载入'],['overwrite','覆盖']],
+    decision('文档已有新版本', [['copy','另存副本',true],['reload','重新载入'],['overwrite','覆盖']],
       async choice => (await view.session.resolveConflict(choice)).ok);
   }
   if (view.recovery) {
-    decision(cards, '恢复未保存的修改', [['restore','恢复',true],['discard','放弃']],
+    decision('恢复未保存的修改', [['restore','恢复',true],['discard','放弃']],
       choice => view.session.resolveRecovery(choice));
   }
   view.session.on('closed', () => {
@@ -184,7 +184,7 @@ async function start() {
 }
 
 api.onOfficeWindowPrompt?.(payload => {
-  decision(cards, payload?.card?.message || '有未保存修改', [
+  decision(payload?.card?.message || '有未保存修改', [
     ['save','保存并关闭',true], ['discard','放弃修改'], ['cancel','取消'],
   ], async choice => {
     await api.officeWindowDecision({token:payload.token, choice});
