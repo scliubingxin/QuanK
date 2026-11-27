@@ -1,5 +1,5 @@
 import { UNO } from '../office/session-types.js';
-import { officeFontChoices } from '../shared/office-font-map.js';
+import { officeFontChoices, officeFontMenu } from '../shared/office-font-map.js';
 import { officeIcon } from './office-icons.js';
 
 const styles = ['Text Body', 'Heading 1', 'Heading 2', 'Heading 3'];
@@ -326,7 +326,7 @@ export function createOfficeToolbar(session, kind = session.kind, { native = fal
 
   group(0, controls.button(UNO.Undo, '撤销', 'undo'), controls.button(UNO.Redo, '重做', 'redo'));
   const calc = kind === 'calc';
-  const fontChoices = officeFontChoices(FONT_NAMES, fonts);
+  const fontChoices = officeFontMenu(fonts); // [v1.0.7] real Chinese faces under Chinese names
   group(1, ...(calc ? [] : [controls.style()]),
     controls.values(UNO.CharFontName, '字体', null, 'CharFontName.FamilyName',
       fontChoices.map(choice => choice.family), fontChoices.map(choice => choice.label)),
