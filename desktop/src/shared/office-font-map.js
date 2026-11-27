@@ -19,15 +19,22 @@ for (const row of FONT_SUBSTITUTIONS) for (const name of row.from) index.set(nor
 
 // The editors offer Chinese names; the private engine renders the macOS families behind them.
 export const CJK_FALLBACK = 'PingFang SC';
+// Serif CJK families that can stand in for 宋体. The slimmed engine's fontcache only indexes the
+// PingFang directory, so there is no serif CJK family on this machine and 宋体 must not be offered.
+export const SERIF_CJK = Object.freeze(['Noto Serif CJK SC', 'Noto Serif CJK', 'Noto Serif SC']);
+const SERIF_NAMES = new Set(['宋体', '新宋体', 'simsun', 'nsimsun', 'songti sc', 'stsong']);
 
 /** Family to send for a document font name, or null when the engine has no such font. */
 export function documentFontFamily(name, installed) {
   const label = String(name || '').trim();
   if (!label) return null;
   const candidates = index.get(norm(label)), have = new Set((installed || []).map(norm));
+  const serif = SERIF_NAMES.has(norm(label));
   const cjk = /[^\x00-\x7f]/.test(label);
-  if (!have.size) return cjk && candidates ? candidates[0] : label; // engine list unknown: send a family LOK can alias
+  if (!have.size) return serif ? null : cjk && candidates ? candidates[0] : label; // an unconfirmed serif is hidden
   if (have.has(norm(label))) return label;
+  // A serif request never falls back to a sans family: the text would change shape, not just face.
+  if (serif) return SERIF_CJK.find(family => have.has(norm(family))) || null;
   if (!cjk || !candidates) return null; // a font the engine does not have is not offered
   return candidates.find(family => have.has(norm(family))) || CJK_FALLBACK;
 }
