@@ -47,6 +47,6 @@ test('app.js sends home and conversation through these two functions only', asyn
   const app = await readFile(new URL('../src/app.js', import.meta.url), 'utf8');
   assert.match(app, /const cards = homeApprovalCards\(approvalRequests\(\)\);/);
   assert.ok(!/approvalRequests\(\)\.filter\(item => !item\.codingTaskId/.test(app), 'the old home filter is gone');
-  assert.match(app, /approvalCards: conversationApprovalCards\(approvalRequests\(\), chatId\)/);
+  assert.match(app, /conversationApprovalCards\(approvalRequests\(\), chatId\)/);
   assert.ok(!/approvalRequests\(\)\.filter\(item => chatId \? item\.chatId === chatId/.test(app), 'the old unscoped filter is gone');
 });

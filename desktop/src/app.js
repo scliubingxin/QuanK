@@ -60,7 +60,9 @@ import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, ma
 import { feedCounts, feedUnread, visibleFeed } from './shared/feed.js';
 const visibleFeedCount = (s, filter) => { try { return visibleFeed(s, filter).length; } catch { return 0; } };
 function viewContext() {
-    return { state, approvalCards: conversationApprovalCards(approvalRequests(), chatId).map(item => officeApprovalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
+    const own = conversationApprovalCards(approvalRequests(), chatId);
+    return { state, approvalCards: own.filter(item => item.decision).map(item => officeApprovalCard(item, action)).join(''),
+        pendingApprovalCards: own.filter(item => !item.decision).map(item => officeApprovalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
 // [p1-m4] away recap: remember what finished while the user was elsewhere, then clear the unread flag
 let recap = null;
 function markSeen(id) {
