@@ -123,7 +123,8 @@ async function start() {
 
   // [v1.0.4] The font list comes from the families the engine reports, so it can never offer a font
   // whose name the engine would reject.
-  toolbar = createOfficeToolbar(view.session, view.session.kind, {native:true, fonts:await view.session.fonts?.()});
+  toolbar = createOfficeToolbar(view.session, view.session.kind, {native:true, fonts:await view.session.fonts?.(),
+    view:{zoomBy:direction => canvas.zoomBy(direction), zoomTo:mode => canvas.zoomTo(mode)}}); // [v1.0.7] 视图 tab
   float = createFloatToolbar(view.session, {viewport:canvas.viewport});
   // [v1.0.3] Toolbar is fixed under the title bar, outside the scrolling canvas; zoom lives in the status bar.
   toolbar.element.classList.add('qk-win-toolbar');

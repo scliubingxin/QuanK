@@ -1,6 +1,7 @@
 import { UNO } from '../office/session-types.js';
 import { officeFontChoices, officeFontMenu } from '../shared/office-font-map.js';
 import { officeIcon } from './office-icons.js';
+import { nativeToolbarTabs, NATIVE_TAB_CSS } from '../shared/office-ribbon-native.js'; // [v1.0.7]
 
 const styles = ['Text Body', 'Heading 1', 'Heading 2', 'Heading 3'];
 const styleLabels = ['正文', '标题 1', '标题 2', '标题 3'];
@@ -309,7 +310,7 @@ function insertMenu(controls, native = false) {
   return insert.wrap;
 }
 
-export function createOfficeToolbar(session, kind = session.kind, { native = false, fonts } = {}) {
+export function createOfficeToolbar(session, kind = session.kind, { native = false, fonts, view } = {}) {
   const element = officeElement('div', 'toolbar');
   const row = officeElement('div', 'toolbar-row');
   row.setAttribute('role', 'toolbar');
@@ -318,14 +319,65 @@ export function createOfficeToolbar(session, kind = session.kind, { native = fal
   const controls = createOfficeControls(session, element);
   const groups = [];
 
+  let currentTab, activeTab, tabStrip = null;
   function group(priority, ...items) {
     const el = officeElement('div', 'group');
     el.append(...items);
-    groups.push({ el, priority });
+    groups.push({ el, priority, tab: currentTab });
   }
 
-  group(0, controls.button(UNO.Undo, '撤销', 'undo'), controls.button(UNO.Redo, '重做', 'redo'));
   const calc = kind === 'calc';
+  if (native) { // [v1.0.7] tabbed ribbon; every command is validated per format in tests
+    if (!document.getElementById('qk-office-tabs-css')) {
+      const css = document.createElement('style'); css.id = 'qk-office-tabs-css'; css.textContent = NATIVE_TAB_CSS; document.head.append(css);
+    }
+    const spec = nativeToolbarTabs(kind);
+    const fontChoices = officeFontMenu(fonts);
+    const styleOptions = [['Standard', '正文'], ['Title', '标题'], ['Subtitle', '副标题'], ['Heading 1', '标题 1'], ['Heading 2', '标题 2'], ['Heading 3', '标题 3']]
+      .map(([value, label]) => ({ value, label, args: { Style: value, FamilyName: 'ParagraphStyles' } }));
+    const build = item => {
+      switch (item.type) {
+        case 'button': return controls.button(item.cmd, item.label, item.icon, { text: item.text, args: item.args });
+        case 'toggle': return controls.button(item.cmd, item.label, item.icon, { text: item.text, args: item.args, toggle: true });
+        case 'view': return controls.button(null, item.label, item.icon, { text: item.text, action: () => view?.[item.fn]?.(item.arg) });
+        case 'menu': {
+          const entry = controls.menu(item.label, item.icon, { text: item.text, commands: item.items.map(i => i.cmd) });
+          for (const i of item.items) entry.panel.append(controls.button(i.cmd, i.label, null, { text: i.label, args: i.args }));
+          return entry.wrap;
+        }
+        case 'font': return controls.values(UNO.CharFontName, '字体', null, 'CharFontName.FamilyName',
+          fontChoices.map(choice => choice.family), fontChoices.map(choice => choice.label));
+        case 'size': return controls.values(UNO.FontHeight, '字号', null, 'FontHeight', [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 54, 60, 72]);
+        case 'style': return controls.select('段落样式', 'style', [UNO.StyleApply], styleOptions, () => session.state.get(UNO.StyleApply)?.value);
+        case 'emphasis': return controls.emphasis();
+        case 'colors': return controls.colors(item.cell);
+        case 'lists': return controls.lists();
+        case 'numberFormat': return controls.numberFormat();
+        case 'table': return insertMenu(controls, true);
+        default: return [];
+      }
+    };
+    let saved = null;
+    try { saved = localStorage.getItem('qk.office.tab.' + kind); } catch {}
+    activeTab = spec.some(tab => tab.id === saved) ? saved : spec[0].id;
+    tabStrip = officeElement('div', 'tabs');
+    tabStrip.setAttribute('role', 'tablist');
+    tabStrip.setAttribute('aria-label', 'Office 功能区');
+    for (const tab of spec) {
+      currentTab = tab.id;
+      for (const grp of tab.groups) group(grp.priority, ...grp.items.flatMap(item => [build(item)].flat()));
+      const button = officeElement('button', 'tab', tab.label);
+      button.type = 'button';
+      button.setAttribute('role', 'tab');
+      button.dataset.tab = tab.id;
+      button.addEventListener('mousedown', event => { if (event.button === 0) event.preventDefault(); });
+      button.addEventListener('click', () => selectTab(tab.id));
+      tabStrip.append(button);
+    }
+    currentTab = undefined;
+    element.classList.add('qk-office-toolbar-tabbed');
+  } else {
+  group(0, controls.button(UNO.Undo, '撤销', 'undo'), controls.button(UNO.Redo, '重做', 'redo'));
   const fontChoices = officeFontMenu(fonts); // [v1.0.7] real Chinese faces under Chinese names
   group(1, ...(calc ? [] : [controls.style()]),
     controls.values(UNO.CharFontName, '字体', null, 'CharFontName.FamilyName',
@@ -347,6 +399,7 @@ export function createOfficeToolbar(session, kind = session.kind, { native = fal
   if (kind === 'impress' && !native) {
     group(3, controls.button(UNO.InsertPage, '新建幻灯片', 'slide', { text: '新建幻灯片' }),
       controls.values(UNO.AssignLayout, '版式', 'layout', 'Layout', [0, 1, 3, 20], ['标题页', '标题和内容', '两栏内容', '空白']));
+  }
   }
   const more = controls.menu('更多', 'more', { text: '更多', keepOpen: true });
   more.wrap.classList.add('qk-office-more');
@@ -388,6 +441,7 @@ export function createOfficeToolbar(session, kind = session.kind, { native = fal
   row.append(...groups.map(({ el }) => el), more.wrap);
   const header = officeElement('div', 'toolbar-header');
   header.append(row, readOnly, saveStatus);
+  if (tabStrip) element.append(tabStrip);
   element.append(header);
   if (calc && !native) {
     const extras = officeElement('div', 'calc');
@@ -399,17 +453,25 @@ export function createOfficeToolbar(session, kind = session.kind, { native = fal
     element.append(extras);
   }
 
-  let visiblePriority;
-  function layout() {
+  let visiblePriority, shownTab;
+  function layout(force = false) {
     const limit = Number(getComputedStyle(row).getPropertyValue('--qk-office-visible-priority').trim() || 3);
-    if (limit === visiblePriority) return;
+    if (!force && limit === visiblePriority && shownTab === activeTab) return;
     visiblePriority = limit;
+    shownTab = activeTab;
     controls.closeMenus();
-    for (const { el, priority } of groups) {
+    for (const { el, priority, tab } of groups) {
+      if (tab !== activeTab) { el.remove(); continue; } // [v1.0.7] only the active tab's groups are shown
       if (priority <= limit) row.insertBefore(el, more.wrap);
       else more.panel.append(el);
     }
     more.wrap.hidden = !more.panel.childElementCount;
+  }
+  function selectTab(id) {
+    activeTab = id;
+    try { localStorage.setItem('qk.office.tab.' + kind, id); } catch {}
+    for (const button of tabStrip?.children || []) button.setAttribute('aria-selected', String(button.dataset.tab === id));
+    layout(true);
   }
   function refresh() {
     controls.refresh();
@@ -423,7 +485,7 @@ export function createOfficeToolbar(session, kind = session.kind, { native = fal
     session.on(event, detail => updateSaveStatus(event, detail)));
   const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(layout) : null;
   observer?.observe(element);
-  layout();
+  if (tabStrip) selectTab(activeTab); else layout();
   return {
     element, refresh,
     destroy() {
