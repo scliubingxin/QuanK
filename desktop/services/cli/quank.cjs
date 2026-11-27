@@ -9,7 +9,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const VERSION = '1.0.5';
+const VERSION = '1.0.6';
 const DEFAULT_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'QuankSight');
 
 // ---------- connection ----------
