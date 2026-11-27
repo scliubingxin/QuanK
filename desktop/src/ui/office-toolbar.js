@@ -1,4 +1,5 @@
 import { UNO } from '../office/session-types.js';
+import { officeFontChoices } from '../shared/office-font-map.js';
 import { officeIcon } from './office-icons.js';
 
 const styles = ['Text Body', 'Heading 1', 'Heading 2', 'Heading 3'];
@@ -9,6 +10,8 @@ const colors = [
   0xfecaca, 0xfde68a, 0xbbf7d0, 0xbfdbfe, 0xe9d5ff, 0xfbcfe8,
 ];
 const recentBySession = new WeakMap();
+// [v1.0.4] Chinese names map to the macOS families behind them; families the engine lacks are dropped.
+const FONT_NAMES = ['Arial', 'Calibri', 'Times New Roman', 'Noto Sans CJK SC', '宋体', '微软雅黑'];
 
 export function officeElement(tag, name, text) {
   const element = document.createElement(tag);
@@ -306,7 +309,7 @@ function insertMenu(controls, native = false) {
   return insert.wrap;
 }
 
-export function createOfficeToolbar(session, kind = session.kind, {native = false} = {}) {
+export function createOfficeToolbar(session, kind = session.kind, { native = false, fonts } = {}) {
   const element = officeElement('div', 'toolbar');
   const row = officeElement('div', 'toolbar-row');
   row.setAttribute('role', 'toolbar');
@@ -323,9 +326,10 @@ export function createOfficeToolbar(session, kind = session.kind, {native = fals
 
   group(0, controls.button(UNO.Undo, '撤销', 'undo'), controls.button(UNO.Redo, '重做', 'redo'));
   const calc = kind === 'calc';
+  const fontChoices = officeFontChoices(FONT_NAMES, fonts);
   group(1, ...(calc ? [] : [controls.style()]),
-    controls.values(UNO.CharFontName, '字体', null, 'CharFontName',
-      ['Arial', 'Calibri', 'Times New Roman', 'Noto Sans CJK SC', '宋体', '微软雅黑']),
+    controls.values(UNO.CharFontName, '字体', null, 'CharFontName.FamilyName',
+      fontChoices.map(choice => choice.family), fontChoices.map(choice => choice.label)),
     controls.values(UNO.FontHeight, '字号', null, 'FontHeight', [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72]));
   group(0, ...controls.emphasis(), controls.toggle(UNO.Strikeout, '删除线', 'strike'), ...controls.colors(calc));
   group(1, controls.toggle(UNO.LeftPara, '左对齐', 'left'), controls.toggle(UNO.CenterPara, '居中', 'center'),

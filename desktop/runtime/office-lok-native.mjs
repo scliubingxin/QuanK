@@ -477,6 +477,12 @@ def load(source, data):
     with source.open('xb') as stream:
         stream.write(base64.b64decode(data, validate=True))
 
+# Property names accepted by the commands whose arguments come from the UI; anything else is
+# rejected before it is handed to LibreOfficeKit.
+UNO_ARGS = {'.uno:CharFontName': {'CharFontName.FamilyName'}, '.uno:FontHeight': {'FontHeight.Height'},
+            '.uno:Color': {'Color'}, '.uno:CharBackColor': {'CharBackColor'},
+            '.uno:BackgroundColor': {'BackgroundColor'}, '.uno:TrackChanges': {'TrackChanges'}}
+
 def run(p):
     op, key = p['op'], p['sessionId']
     if op == 'open':
@@ -552,6 +558,10 @@ def run(p):
     elif op == 'part':
         d.numbers('setPart', int(p['part']))
         result = d.metadata()
+    elif op == 'fonts':
+        # Families the engine can actually render, straight from the family-list command.
+        families = d.values('.uno:CharFontName').get('commandValues') or {}
+        result = dict(fonts=sorted(str(name) for name in families)[:4000])
     elif op == 'locate':
         target = p['target']
         model = d.model()
@@ -757,6 +767,11 @@ def run(p):
                    'NumberFormatCurrency','NumberFormatDate','NumberFormatDecDecimals','NumberFormatIncDecimals'}
         if not name.startswith('.uno:') or name[5:] not in allowed:
             raise ValueError('Office command is unavailable')
+        # LOK aborts the whole process on an unknown property name, so the shape of every
+        # argument bag is checked here before it reaches postUnoCommand.
+        properties = UNO_ARGS.get(name)
+        if properties is not None and any(key not in properties for key in (p.get('args') or {})):
+            return dict(events=v.drain(), ok=False, reason='invalid_input')
         if name in ('.uno:AcceptAllTrackedChanges','.uno:RejectAllTrackedChanges'):
             d.dispatch(v,name,p['args'])
             after = d.redlines()
