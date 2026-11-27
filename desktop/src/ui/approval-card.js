@@ -43,11 +43,13 @@ export function conversationApprovalCards(requests, chatId) {
 }
 
 export function approvalBar(requests, chatId, action) {
-  const pending = pendingApprovalRequests(requests);
+  // [v1.0.6] In a conversation its own pending cards are already on screen under the steps, so the bar
+  // only lists approvals that live elsewhere (other chats, Coding tasks, orders, Office).
+  const pending = pendingApprovalRequests(requests).filter(request => !chatId || request.chatId !== chatId || request.codingTaskId);
   const first = pending[0];
   if (!first) return '';
   const label = pending.length === 1 ? first.agent + ' 需要你的授权：' + first.action : pending.length + ' 项待授权';
-  const sources = [...new Set(pending.filter(request => !chatId || request.chatId !== chatId || request.codingTaskId).map(request => request.source).filter(Boolean))];
+  const sources = [...new Set(pending.map(request => request.source).filter(Boolean))];
   // [v1.0.4] 前往授权 goes to the first pending item; with two or more the bar also offers 查看全部.
   const all = pending.length > 1 ? action('查看全部', 'approvalAll', '') : '';
   return `<div class="inline-approval-bar"><span role="status" title="${escape([label, ...sources].join(' · '))}">${escape(label)}${sources.length ? `<small title="${escape(sources.join('、'))}"> · ${escape(sources.join('、'))}</small>` : ''}</span>${action('前往授权', 'approvalJump', first.requestId)}${all}</div>`;

@@ -18,7 +18,7 @@ export function documentLibrary({ state, action, date, filter }) {
 <p class="lib-excerpt">${escape(excerpt(d)) || "（空文档）"}</p><div class="lib-main">${b("预览", "documentView", d.id)}${edit}</div><div class="lib-more">${more}</div></article>`;
   };
   const docs = (state.documents || []).filter(d => !filter || filter.ids.includes(d.id));
-  return `<section aria-label="可编辑文档"><div class="lib-head"><h2>文档</h2><small>${docs.length} 份${filter ? " · " + escape(filter.label) : ""}</small><div class="lib-tools">${filter ? action("清除筛选", "libraryClearFilter") : ""}${action("写 Word 文档", "documentCanvas", "", "primary")}${action("新建文档", "documentNew")}${action("导入文档", "documentImport")}</div></div>${docs.length ? `<div class="lib-grid">${docs.map(card).join("")}</div>` : '<p class="empty-note">还没有文档。在对话里说「写一份……」或导入已有文件。</p>'}</section>`;
+  return `<section aria-label="可编辑文档"><div class="lib-head"><h2>文档</h2><small>${docs.length} 份${filter ? " · " + escape(filter.label) : ""}${state.documentUsage ? ` · 已用 ${(state.documentUsage.bytes / 1048576).toFixed(1)} / ${Math.round(state.documentUsage.maxBytes / 1048576)} MiB` : ""}</small><div class="lib-tools">${filter ? action("清除筛选", "libraryClearFilter") : ""}${action("写 Word 文档", "documentCanvas", "", "primary")}${action("新建文档", "documentNew")}${action("导入文档", "documentImport")}</div></div>${docs.length ? `<div class="lib-grid">${docs.map(card).join("")}</div>` : '<p class="empty-note">还没有文档。在对话里说「写一份……」或导入已有文件。</p>'}</section>`;
 }
 export const documentExamples = {
   docx: JSON.stringify(

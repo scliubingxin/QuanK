@@ -1,5 +1,10 @@
 > v0.46.0 之前（WillBuddy 时期 0.1 – 0.37.x）的迭代记录已归档到 [docs/releases/ITERATION_LOG_v0.1-v0.37.md](docs/releases/ITERATION_LOG_v0.1-v0.37.md)；每个版本的发布记录见 [docs/releases/](docs/releases/README.md)。
 
+## v1.0.6 · 2026-11-27 · 授权卡片位置与文档空间放宽
+
+- v1.0.6：授权卡片显示在执行步骤下方、输入框上方不重复；文档空间放宽到 200 个 / 64 MiB 并自动清理旧版本；资料库显示空间用量
+- 详见 [v1.0.6 发布记录](docs/releases/v1.0.6.md)。
+
 ## v1.0.5 · 2026-11-27 · Office 字体崩溃修复与侧栏版本标签
 
 - v1.0.5：Office 字体崩溃、半自动委托按钮、动态计数、工作台授权堆叠、前往授权跳转修复；侧栏 logo 与版本标签
