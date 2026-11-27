@@ -350,7 +350,7 @@ else {
             officeAIRequests.set(token, controller);
             try {
                 const {action, kind, selection, language, tone, instruction} = input ?? {};
-                return await officeAI.run({action, kind, selection, language, tone, instruction}, {
+                return await officeAI.run({action, kind, selection, language, tone, instruction, document: ['summarize','speech','logic','doc_ask'].includes(action) ? String((typeof toolRuntime !== 'undefined' ? toolRuntime : null)?.documents?.read?.(String(input?.documentId || ''))?.text || '') : undefined}, {
                     signal:controller.signal,
                     onDelta:delta => win?.webContents.send('actwill:officeAIDelta', {token, delta}),
                 });

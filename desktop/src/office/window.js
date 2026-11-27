@@ -4,6 +4,7 @@ import {connectOfficeViewPort, mountOfficeCanvas} from './office-canvas.js';
 import {createOfficeToolbar} from '../ui/office-toolbar.js';
 import {createFloatToolbar} from '../ui/office-float-toolbar.js';
 import {mountOfficeAIMenu} from '../ui/office-ai-menu.js';
+import {mountOfficeAIPanel} from '../ui/office-ai-panel.js'; // [v1.0.7]
 import {showOfficeDecision} from '../ui/page-panel.js';
 
 const params = new URLSearchParams(location.search);
@@ -96,6 +97,7 @@ async function start() {
   if (disposed) return;
   const host = document.createElement('div');
   host.style.cssText = 'flex:1;min-height:0;min-width:0;position:relative;display:flex';
+  host.className = 'qk-win-host';
   editor.append(host);
   // [v1.0.3] WPS-style status bar: page position on the left, zoom on the right.
   const statusBar = document.createElement('footer');
@@ -121,14 +123,15 @@ async function start() {
 
   // [v1.0.4] The font list comes from the families the engine reports, so it can never offer a font
   // whose name the engine would reject.
-  toolbar = createOfficeToolbar(view.session, view.session.kind, {native:true, fonts:await view.session.fonts?.()});
+  toolbar = createOfficeToolbar(view.session, view.session.kind, {native:true, fonts:await view.session.fonts?.(),
+    view:{zoomBy:direction => canvas.zoomBy(direction), zoomTo:mode => canvas.zoomTo(mode)}}); // [v1.0.7] 视图 tab
   float = createFloatToolbar(view.session, {viewport:canvas.viewport});
   // [v1.0.3] Toolbar is fixed under the title bar, outside the scrolling canvas; zoom lives in the status bar.
   toolbar.element.classList.add('qk-win-toolbar');
   editor.insertBefore(toolbar.element, host);
   canvas.element.append(float.element);
   aiMenu = mountOfficeAIMenu({
-    session:view.session, floatToolbar:float, ai:makeAI(state), root:cards, input:canvas.input,
+    session:view.session, floatToolbar:float, ai:makeAI(state), root:canvas.viewport, input:canvas.input, // [v1.0.7] was #qk-cards (0×0)
     allowChart:true,
     confirmApply:panel => new Promise(resolve => {
       const finish = allowed => { cancelApply = undefined; resolve(allowed); };
@@ -141,6 +144,8 @@ async function start() {
       cancelApply = () => { card.remove(); finish(false); };
     }),
   });
+  mountOfficeAIPanel({doc:document, head, toolbar:toolbar.element, ai:makeAI(state), kind:view.session.kind, documentId:id,
+    session:view.session, polish:() => aiMenu.run('polish')}); // [v1.0.7] AI 对话 panel
   toolbar.refresh();
   float.refresh();
   let dirty = false;
@@ -161,15 +166,15 @@ async function start() {
     dirty = false; savedAt = detail?.at || Date.now(); updateStatus();
     void api.officeWindowEvent({id, type:'saved', value:detail}).catch(log);
   });
-  view.session.on('conflict', () => decision(cards, '文档已有新版本', [
+  view.session.on('conflict', () => decision('文档已有新版本', [
     ['copy','另存副本',true], ['reload','重新载入'], ['overwrite','覆盖'],
   ], async choice => (await view.session.resolveConflict(choice)).ok));
   if (view.saveState === 'conflict') {
-    decision(cards, '文档已有新版本', [['copy','另存副本',true],['reload','重新载入'],['overwrite','覆盖']],
+    decision('文档已有新版本', [['copy','另存副本',true],['reload','重新载入'],['overwrite','覆盖']],
       async choice => (await view.session.resolveConflict(choice)).ok);
   }
   if (view.recovery) {
-    decision(cards, '恢复未保存的修改', [['restore','恢复',true],['discard','放弃']],
+    decision('恢复未保存的修改', [['restore','恢复',true],['discard','放弃']],
       choice => view.session.resolveRecovery(choice));
   }
   view.session.on('closed', () => {
@@ -184,7 +189,7 @@ async function start() {
 }
 
 api.onOfficeWindowPrompt?.(payload => {
-  decision(cards, payload?.card?.message || '有未保存修改', [
+  decision(payload?.card?.message || '有未保存修改', [
     ['save','保存并关闭',true], ['discard','放弃修改'], ['cancel','取消'],
   ], async choice => {
     await api.officeWindowDecision({token:payload.token, choice});

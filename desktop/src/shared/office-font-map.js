@@ -60,3 +60,22 @@ export function detectFontSubstitutions(used, installed) {
   }
   return out;
 }
+
+// [v1.0.7] Toolbar font menu: [label, families to try]. Chinese faces first (they change Chinese text),
+// then Latin faces. Only families the engine reports are offered; duplicates of one family are dropped.
+export const OFFICE_FONT_MENU = Object.freeze([
+  ['苹方', ['PingFang SC']], ['冬青黑体', ['Hiragino Sans GB']], ['黑体', ['Heiti SC', 'STHeiti']],
+  ['宋体', ['Songti SC', 'STSong', ...SERIF_CJK]], ['楷体', ['Kaiti SC', 'STKaiti']], ['仿宋', ['STFangsong']],
+  ['Arial', ['Arial', 'Liberation Sans']], ['Helvetica Neue', ['Helvetica Neue']], ['Times New Roman', ['Times New Roman', 'Liberation Serif']],
+  ['Georgia', ['Georgia']], ['Menlo', ['Menlo']],
+]);
+export function officeFontMenu(installed) {
+  const have = new Set((installed || []).map(norm)), seen = new Set(), out = [];
+  for (const [label, families] of OFFICE_FONT_MENU) {
+    const family = have.size ? families.find(f => have.has(norm(f))) : families[0];
+    if (!family || seen.has(norm(family))) continue;
+    seen.add(norm(family));
+    out.push({name: label, family, label});
+  }
+  return out;
+}

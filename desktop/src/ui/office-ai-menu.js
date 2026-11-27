@@ -190,6 +190,11 @@ export function mountOfficeAIMenu({
   doc.addEventListener('keydown', keydown, true);
   doc.addEventListener('pointerdown', outside, true);
   return {
+    // [v1.0.7] used by the AI 对话 panel: same diff → confirm flow as the floating menu
+    run(action, options) {
+      if (!session.selection?.rects?.length || session.selection?.kind !== 'text') throw Error('请先在文档中选中要处理的文字');
+      start(action, options);
+    },
     destroy() {
       destroyed = true;
       closeMenu();

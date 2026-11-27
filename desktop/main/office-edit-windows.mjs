@@ -150,10 +150,11 @@ export function createOfficeEditWindows({
       const token = randomUUID();
       const done = resolve => {
         decisions.delete(token);
+        if (resolve === 'cancel') return; // [v1.0.7] 取消 keeps the window open
         void (async () => {
           try {
             if (resolve === 'save') await binding.view?.session?.save({reason:'manual'});
-            if (resolve === 'discard') await binding.view?.session?.reload();
+            if (resolve === 'discard') await Promise.race([binding.view?.session?.reload(), new Promise(r => setTimeout(r, 3000))]); // [v1.0.7] never hang the close
           } catch (error) { onEvent(id, 'error', {message:error.message}); return; }
           closing.add(wcId);
           safe(w, 'destroy');

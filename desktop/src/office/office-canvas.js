@@ -1,3 +1,6 @@
+// [v1.0.7] guarded media query: falls back to no-match where matchMedia is unavailable
+const qkMatchMedia = query => (typeof globalThis.matchMedia === 'function' ? globalThis.matchMedia(query)
+  : {matches: false, media: String(query), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}});
 const emptySelection = () => ({kind:'none', text:'', rects:[], anchor:null, token:null});
 
 export function unoProperties(args = {}) {
@@ -182,7 +185,7 @@ export function officePageStatus({kind, part = 0, parts = 0, height = 0, pageHei
 }
 
 export function mountOfficeCanvas(host, {session, metadata, request, preview, initialScroll = {}, initialZoom = 1, maxTiles = 128, onError = () => {}, onStatus = () => {}, zoomMode: startMode}) {
-    let doc = {...metadata}, cursor = null, pointerAnchor = null, zoom = clampOfficeZoom(initialZoom), dpr = devicePixelRatio, generation = 0;
+    let doc = {...metadata}, cursor = null, caretHeight = 0, pointerAnchor = null, zoom = clampOfficeZoom(initialZoom), dpr = devicePixelRatio, generation = 0;
     let stopped = false, painting = false, needsPaint = false, frame = 0, inputPending = 0, viewportKey = '';
     let focused = false, hasFirstPaint = false;
     // [v1.0.3] 'auto' = the opening zoom (defaultOfficeZoom); any +/−/menu choice switches to manual or a fit mode.
@@ -319,6 +322,7 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         const cells = session.selection.rects ?? [];
         for (const rect of cells) {
             const kind = session.selection.kind;
+            if (kind === 'text' && rect.w <= 2*scale()) continue; // [v1.0.7] collapsed selection is the caret, not a highlight
             const mark = element('div', {}, {position:'absolute', boxSizing:'border-box',
                 border:kind === 'text' ? '0' : '1px solid #2869cb', background:kind === 'text' ? '#639cff66' : 'transparent'});
             place(mark,rect,scale());
@@ -331,12 +335,15 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
                 }
             }
         }
-        if (cursor) {
-            if (focused && !cells.length) {
-                const caret = element('div', {}, {position:'absolute', background:'#173b76', minWidth:'2px'});
-                place(caret,cursor,scale());
-                overlay.append(caret);
-            }
+        if (cursor?.h) caretHeight = cursor.h;
+        const highlighted = session.selection.kind === 'text' && cells.some(rect => rect.w > 2*scale());
+        if (cursor && focused && !highlighted) { // [v1.0.7] dark 2px caret that blinks on its own, drawn without waiting for tiles
+            const dark = qkMatchMedia('(prefers-color-scheme: dark)')?.matches;
+            const caret = element('div', {className:'qk-office-caret'}, {position:'absolute', background:dark ? '#f0f3ff' : '#1f2a44', width:'2px', minWidth:'2px', borderRadius:'1px', pointerEvents:'none', zIndex:'3'});
+            place(caret,cursor,scale());
+            caret.style.width = '2px';
+            overlay.append(caret);
+            try { caret.animate([{opacity:1},{opacity:1,offset:.5},{opacity:0,offset:.5},{opacity:0}],{duration:1060,iterations:Infinity,delay:500}); } catch {}
         }
         const anchor = cursor ?? cells[0] ?? pointerAnchor ?? {x:0,y:0,h:0};
         const left = anchor.x/scale(), top = anchor.y/scale(), height = Math.max(16,anchor.h/scale());
@@ -563,10 +570,10 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         if (!nativeFocus) event.preventDefault();
         const bounds = sheet.getBoundingClientRect();
         pointerAnchor = {x:(event.clientX-bounds.left)*scale(), y:(event.clientY-bounds.top)*scale(), h:0};
-        cursor = null;
+        cursor = session.kind === 'calc' ? null : {x:pointerAnchor.x, y:Math.max(0,pointerAnchor.y-(caretHeight||16*scale())/2), w:1, h:caretHeight||16*scale(), predicted:true}; // [v1.0.7]
         if (!nativeFocus) {
-            renderOverlay();
             input.focus({preventScroll:true});
+            renderOverlay();
         }
         pointerId = event.pointerId;
         try { sheet.setPointerCapture(pointerId); } catch { /* capture 不可用时仍走 document 级兜底 */ }
