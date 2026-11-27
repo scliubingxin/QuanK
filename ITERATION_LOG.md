@@ -1,5 +1,14 @@
 > v0.46.0 之前（WillBuddy 时期 0.1 – 0.37.x）的迭代记录已归档到 [docs/releases/ITERATION_LOG_v0.1-v0.37.md](docs/releases/ITERATION_LOG_v0.1-v0.37.md)；每个版本的发布记录见 [docs/releases/](docs/releases/README.md)。
 
+## v1.0.3 · 2026-11-27 · 品牌收尾与默认助手名
+
+- 新标语「量化工作，见机即获」；侧栏品牌改为两行（英文 `QuankSight` 在上、中文「量见·量化工作，见机即获」在下），侧栏加宽到 248px。
+- 版本号从侧栏移出：悬停品牌显示 `QuankSight v1.0.3`，设置页底部显示「版本 v1.0.3」。
+- DMG 安装窗口换成新品牌背景图（1x/2x 双分辨率），说明改为新版 macOS 的「仍要打开」流程。
+- 默认助手名改为「QuankSight 助手」，自我介绍不再自称旧名；老用户存档里仍是旧默认名「QuanK 助手」的，载入时自动迁移，用户自己改过名字的不动。
+- 清理用户可见的旧名：PDF 预览标题与状态栏（`QuankSight Office`）、仪表盘窗口标题、触控 ID 解锁提示。
+- 详见 [v1.0.3 发布记录](docs/releases/v1.0.3.md)。
+
 ## v1.0.2 · 2026-11-26 · 钥匙串迁移、Office 编辑窗口与投研 PPT 修复
 
 - 修复 v1.0.1 改名后的钥匙串迁移：依次用 `QuanK`、`Actwill AI` 旧身份解密并迁移到 `QuankSight`，`*Sealed` 字段一并处理；本机引擎管理员密码解不开时自动重建，仍失败则提示「请在量化设置里重新填写」。首次打开 macOS 询问「QuanK Safe Storage」时点「始终允许」。
