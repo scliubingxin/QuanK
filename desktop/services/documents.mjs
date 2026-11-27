@@ -37,6 +37,30 @@ const summary = (d) => ({
   })),
 });
 export const documentViews = (data) => (data.documents || []).map(summary);
+export const DOCUMENT_LIMITS = {count: 200, bytes: 64 * 1024 * 1024}; // [v1.0.6] was 100 / 16 MiB
+const mib = n => (n / 1048576).toFixed(1);
+const docBytes = list => Buffer.byteLength(JSON.stringify(list));
+/** [v1.0.6] Make room by dropping the oldest saved versions (never a document's current version, never the
+ *  document being saved). Returns how many versions were dropped; the list is changed in place. */
+function trimHistory(list, keepId) {
+  let dropped = 0;
+  const pool = list.filter(x => x.id !== keepId && (x.history || []).length)
+    .map(x => ({x, t: x.history[0]?.time || 0}));
+  while (docBytes(list) > DOCUMENT_LIMITS.bytes && pool.length) {
+    pool.sort((a, b) => a.t - b.t);
+    const head = pool[0];
+    head.x.history = head.x.history.slice(1); dropped++;
+    if (head.x.history.length) head.t = head.x.history[0].time || 0; else pool.shift();
+  }
+  return dropped;
+}
+function spaceError(list) {
+  const e = Error(`文档空间已满（${list.length}/${DOCUMENT_LIMITS.count} 个，${mib(docBytes(list))}/${mib(DOCUMENT_LIMITS.bytes)} MiB）。请在「资料库 › 成果中心 › 文档」里点文档卡片的「删除文档」清理不再需要的文档（可先「导出文件」备份），再重试。`);
+  e.code = 'QK_DOC_SPACE'; return e;
+}
+export function documentUsage(list = []) {
+  return {count: list.length, bytes: docBytes(list), maxCount: DOCUMENT_LIMITS.count, maxBytes: DOCUMENT_LIMITS.bytes};
+}
 const storeLocks=new WeakMap();
 export function createDocumentService({
   store,
@@ -76,11 +100,12 @@ export function createDocumentService({
         candidate,
         ...previous.filter((d) => d.id !== candidate.id),
       ];
-      if (
-        next.length > 100 ||
-        Buffer.byteLength(JSON.stringify(next)) > 16 * 1024 * 1024
-      )
-        throw Error("文档空间超限（100 个 / 16 MiB），请导出备份后清理");
+      if (next.length > DOCUMENT_LIMITS.count) throw spaceError(next);
+      if (docBytes(next) > DOCUMENT_LIMITS.bytes) {
+        const keep = next.map(x => x.history);
+        trimHistory(next, candidate.id);
+        if (docBytes(next) > DOCUMENT_LIMITS.bytes) { next.forEach((x, i) => { x.history = keep[i]; }); throw spaceError(next); }
+      }
       store.data.documents = next;
       try {
         await store.save();signal?.throwIfAborted();await guard();signal?.throwIfAborted();
@@ -312,7 +337,8 @@ export function createDocumentService({
       const candidates=items.map(i=>({...record(checkName(i.name),i.format,{bytes:i.bytes,...inspectDocument(i.format,i.bytes)}),...(i.archive?{attachmentSource:{archive:i.archive,entryPath:i.entryPath}}:{})}));
       return lock(async()=>{
         const previous=store.data.documents,next=[...candidates,...previous];
-        if(next.length>100||Buffer.byteLength(JSON.stringify(next))>16*1024*1024)throw Error('文档空间超限（100个/16MiB）');
+        if(next.length>DOCUMENT_LIMITS.count)throw spaceError(next);
+        if(docBytes(next)>DOCUMENT_LIMITS.bytes){const keep=next.map(x=>x.history);trimHistory(next,'');if(docBytes(next)>DOCUMENT_LIMITS.bytes){next.forEach((x,i)=>{x.history=keep[i];});throw spaceError(next);}}
         store.data.documents=next;
         try{await store.save();}catch(e){store.data.documents=previous;throw e;}
         notify();return candidates.map(summary);
