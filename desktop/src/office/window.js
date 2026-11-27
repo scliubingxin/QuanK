@@ -128,7 +128,7 @@ async function start() {
   editor.insertBefore(toolbar.element, host);
   canvas.element.append(float.element);
   aiMenu = mountOfficeAIMenu({
-    session:view.session, floatToolbar:float, ai:makeAI(state), root:cards, input:canvas.input,
+    session:view.session, floatToolbar:float, ai:makeAI(state), root:canvas.viewport, input:canvas.input, // [v1.0.7] was #qk-cards (0×0)
     allowChart:true,
     confirmApply:panel => new Promise(resolve => {
       const finish = allowed => { cancelApply = undefined; resolve(allowed); };

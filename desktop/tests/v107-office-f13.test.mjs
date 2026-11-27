@@ -30,3 +30,8 @@ test('caret: dark, 2px, blinking, drawn on pointer down before the engine answer
   assert.match(begin, /predicted:true/);
   assert.ok(begin.indexOf('input.focus') < begin.indexOf('renderOverlay()'), 'focus before drawing so the caret shows');
 });
+
+test('selection AI is laid out against the canvas viewport, not the 0×0 card overlay', () => {
+  const src = read('src/office/window.js');
+  assert.match(src, /mountOfficeAIMenu\(\{\n\s*session:view\.session, floatToolbar:float, ai:makeAI\(state\), root:canvas\.viewport,/);
+});
