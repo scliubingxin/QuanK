@@ -1,6 +1,6 @@
 import {officeApprovalCard} from './ui/office-cards.js';
 import {homeApprovalCards, conversationApprovalCards} from './ui/approval-card.js';
-import {approvalRoute, barRequests} from './shared/approval-route.js';
+import {approvalRoute, barRequests, orderApprovalCards} from './shared/approval-route.js';
 import { modalLayout } from './ui/modal.js';
 import {bindPresetFilters, plazaIcon} from './ui/preset-catalog.js'; // [ux11] plazaIcon
 import {agentAvatar} from './ui/avatars.js';
@@ -164,7 +164,26 @@ function pendingOrderApproval(orderId) {
 }
 function mountOrderCards() {
     const root = $('#app');
-    if (root) mountOrderApprovals(root, [...localApprovals.values()].map(entry => entry.card), card => officeApprovalCard(card, action));
+    if (!root) return;
+    const cards = orderApprovalCards({
+        local: [...localApprovals.values()].map(entry => entry.card),
+        requests: approvalRequests(),
+        orders: [...(state.trade?.orders || []), ...(state.trade?.history || [])],
+    });
+    mountOrderApprovals(root, cards, card => officeApprovalCard(card, action));
+}
+let orderReveal = null; // {orderId, requestId, until, scrolled} set by gotoApproval
+function applyOrderReveal() {
+    if (!orderReveal) return;
+    if (Date.now() > orderReveal.until) { orderReveal = null; return; }
+    if (page !== 'tasks' || taskTab !== 'trade') return;
+    const root = $('#app');
+    const row = root && [...root.querySelectorAll('.td-row[data-order]')].find(el => el.dataset.order === String(orderReveal.orderId));
+    if (!row) return;
+    const card = root.querySelector('[data-approval-id="' + String(orderReveal.requestId).replace(/"/g, '') + '"]');
+    row.classList.add('flash');
+    card?.classList.add('flash');
+    if (!orderReveal.scrolled) { (card || row).scrollIntoView({block: 'center'}); orderReveal.scrolled = true; }
 }
 function paintApprovalSummaries(root = document) {
     for (const card of root.querySelectorAll('.inline-approval-card')) {
@@ -188,18 +207,15 @@ async function gotoApproval(request) {
     });
     if (route.kind === 'order') {
         taskTab = 'trade';
+        // The order list can be painted after this call and every later render rebuilds the rows, so the
+        // reveal is applied from renderInner until the row exists, and the card is re-mounted each render.
+        orderReveal = {orderId: route.orderId, requestId: route.requestId, until: Date.now() + 4000, scrolled: false};
+        setTimeout(() => document.querySelectorAll('.td-row.flash, .td-approval-row .flash').forEach(el => el.classList.remove('flash')), 4100);
         if (page !== 'tasks') await navigate('tasks');
         render();
-        await new Promise(resolve => requestAnimationFrame(() => resolve())); // the rows exist after the paint
-        const root = document.getElementById('app') || document;
-        const row = root.querySelector(`.td-row[data-order="${route.orderId}"]`);
-        // The approval may only exist as a stored request (not a local card), so mount it under the row.
-        mountOrderApprovals(root, [{requestId: route.requestId, orderId: route.orderId}],
-            card => officeApprovalCard({...request, orderId: card.orderId}, action));
-        if (row) {
-            row.scrollIntoView({block: 'center'});
-            row.classList.add('flash');
-            setTimeout(() => row.classList.remove('flash'), 4000);
+        for (let i = 0; i < 20 && orderReveal && !orderReveal.scrolled; i++) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            mountOrderCards(); applyOrderReveal();
         }
         return 'tasks/trade#' + route.orderId;
     }
@@ -485,6 +501,7 @@ function renderInner() {
         savePanel();
     }
     renderPanel(); // [v0.54]
+    mountOrderCards(); applyOrderReveal(); // [v1.0.5] cards and highlight survive re-renders
     paintApprovalSummaries();
     mountOrderCards();
     for (const el of [document.scrollingElement, document.getElementById('app'), document.querySelector('.main'), document.querySelector('.workbench')]) if (el && el.scrollLeft) el.scrollLeft = 0; // [resp] never leave the shell scrolled sideways

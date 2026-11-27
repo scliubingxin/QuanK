@@ -35,3 +35,17 @@ export function barTargets(pending) {
   const list = Array.isArray(pending) ? pending : [];
   return {first: list[0]?.requestId, all: list.length > 1};
 }
+
+/** Order cards to mount under their rows: local cards with an orderId, plus stored pending approvals that
+ *  route to an order still on the list. Decided stored approvals and duplicates of local cards are skipped. */
+export function orderApprovalCards({local = [], requests = [], orders = []} = {}) {
+  const mine = (local || []).filter(card => card && card.orderId);
+  const seen = new Set(mine.map(card => card.requestId));
+  const stored = [];
+  for (const request of requests || []) {
+    if (!request || request.decision || seen.has(request.requestId)) continue;
+    const target = approvalRoute(request, {orders});
+    if (target.kind === 'order') { stored.push({...request, orderId: target.orderId}); seen.add(request.requestId); }
+  }
+  return [...mine, ...stored];
+}
