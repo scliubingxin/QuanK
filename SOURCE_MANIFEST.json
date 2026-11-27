@@ -3219,8 +3219,8 @@
     },
     {
       "path": "desktop/src/workbench.css",
-      "bytes": 176794,
-      "sha256": "74aa62a35a4360db86b1fbbb6bc72d29c81c186a68e2bb5a45b46ce5b72d4c44"
+      "bytes": 203222,
+      "sha256": "f0bde3901d78debbeea990fc0da462d93554cf07c6aa686ea89e8ee667f8173f"
     },
     {
       "path": "desktop/tests/abortable-work-037112.test.mjs",

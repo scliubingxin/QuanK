@@ -2422,6 +2422,13 @@ body.pp-on .main{container: qkmain / inline-size}
 .sidebar .brand-cn{display:block;margin-top:3px;font-size:12px;font-weight:500;letter-spacing:0;line-height:1.35;color:#6b7aa8!important;white-space:nowrap}
 .sidebar .brand-cn b{font-weight:700;color:#0b2ba6}
 .sidebar .brand-dot{margin:0 4px;font-style:normal;font-weight:600;color:#2f62f5}
+
+/* [v1.0.4] 收起态品牌：54px 的 !important 规则会把 logo 顶出 66px 的侧栏（右侧溢出、与下方图标不同轴）。
+   用 `.sidebar-collapsed .sidebar .brand…`（0,3,0）压过 `.sidebar .brand…`（0,2,0）与旧 `.sidebar-collapsed .brand`（0,2,0）；
+   54px 规则本身保留 !important，展开态完全不受影响。36px = + 按钮宽度 51px − 8px 上限再取整，
+   .brand 去内边距并居中后，logo 与 + 按钮、导航图标共用同一条中轴。 */
+.sidebar-collapsed .sidebar .brand{padding:10px 0 17px;gap:0;justify-content:center}
+.sidebar-collapsed .sidebar .brand-mark{width:36px!important;height:36px!important}
 @media (prefers-color-scheme:dark){.sidebar .brand-en{color:#c9d6ff}.sidebar .brand-cn{color:#8fb0ff}}
 /* [v1.0.3] 窄窗口（侧栏 210px）兜底：logo 44、标语 11px，仍放不下就省略号 */
 @media(max-width:1150px){
