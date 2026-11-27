@@ -19,6 +19,18 @@ export function migrateSubagents(data) {
   if (assistant && !assistant.subagents) assistant.subagents = getSubagents(data, assistant);
 }
 
+// [v1.0.3] 默认助手名从「QuanK 助手」改为「QuankSight 助手」。只迁移仍保存为旧默认名的档案；
+// 用户改过名字的不动（必须完全相等才迁移）。
+export const LEGACY_ASSISTANT_NAME = 'QuanK 助手';
+export const DEFAULT_ASSISTANT_NAME = 'QuankSight 助手';
+export function migrateAssistantName(data) {
+  const assistant = data?.agents?.find(agent => agent.id === 'assistant');
+  if (!assistant) return false;
+  if (assistant.name !== LEGACY_ASSISTANT_NAME) return false;
+  assistant.name = DEFAULT_ASSISTANT_NAME;
+  return true;
+}
+
 export function boundCodingAgents(data, agent) {
   const {coding} = getSubagents(data, agent);
   return (data.coding?.agents || []).filter(item => coding.includes(item.id));

@@ -299,11 +299,14 @@ test('UI, feed, audit and wiring', async () => {
   assert.ok(!/sendInputEvent|\.click\(/.test(broker), 'the broker window code never clicks');
 });
 
-test('version badge: main exposes appVersion, sidebar shows it', async () => {
+test('version: main exposes appVersion, sidebar title + settings footer show it', async () => {
   const read = f => readFile(new URL(f, import.meta.url), 'utf8');
   const [main, app, css] = await Promise.all(['../main.mjs', '../src/app.js', '../src/workbench.css'].map(read));
   assert.match(main, /appVersion: app\.getVersion\(\)/);
   assert.match(app, /if \(next\?\.appVersion\) appVersion = String\(next\.appVersion\)/);
-  assert.match(app, /class="brand-ver"[^`]*v\$\{escape\(appVersion\)\}/);
-  assert.match(css, /\.brand \.brand-ver\{/);
+  // [v1.0.3] 侧栏徽标已去掉，版本改由 .brand 的 title 与设置页底部展示
+  assert.doesNotMatch(app, /class="brand-ver"/);
+  assert.match(app, /title="QuankSight v\$\{escape\(appVersion\)\}"/);
+  assert.match(app, /<p class="settings-version">版本 v\$\{escape\(appVersion\)\}<\/p>/);
+  assert.match(css, /\.settings-version\{/);
 });

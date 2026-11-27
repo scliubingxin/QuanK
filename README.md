@@ -1,7 +1,7 @@
 <div align="center">
   <img src="desktop/assets/icon-512.png" alt="QuankSight" width="120">
   <h1>QuankSight</h1>
-  <p><b>量化工作，一键搞定</b></p>
+  <p><b>量化工作，见机即获</b></p>
   <p>本地优先的金融量化 Mac 工作台 · 你的策略，在你的电脑上跑</p>
   <p>
     <img src="https://img.shields.io/badge/version-0.58.0-2F62F5" alt="version">

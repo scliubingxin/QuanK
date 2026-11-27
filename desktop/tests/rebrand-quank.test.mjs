@@ -110,9 +110,15 @@ test('wiring and visible brand', async () => {
   assert.equal(pkg.productName, 'QuankSight'); assert.equal(pkg.build.appId, 'com.quank.desktop'); assert.equal(pkg.name, 'quank-desktop');
   const app = await read(new URL('../src/app.js', import.meta.url));
   assert.match(app, /alt="QuankSight 标志"/);
-  assert.match(app, /<span class="brand-en">QuankSight<\/span><span class="brand-cn">量见\$\{appVersion \? `<span class="brand-ver"[^`]*` : ''\}<\/span>/);
-  assert.match(app, /<small>量化工作，一键搞定<\/small>/);
-  assert.doesNotMatch(app, /<small>量见 · 量化工作，一键搞定<\/small>/); // [v0.52] version badge between name and tagline
+  // [v1.0.3] 两行：QuankSight，然后 量见 · 标语 同一行；版本徽标逻辑保留在 .brand-cn 之后
+  assert.match(app, /<span class="brand-en">QuankSight<\/span><span class="brand-cn"><b>量见<\/b><i class="brand-dot">·<\/i>量化工作，见机即获<\/span>/);
+  // [v1.0.3] 侧栏不再显示版本徽标：版本只在 .brand 的 title 里，品牌严格两行
+  assert.doesNotMatch(app, /<span class="brand-ver"/, 'sidebar must not render a visible version badge');
+  assert.match(app, /<div class="brand"\$\{appVersion \? ` title="QuankSight v\$\{escape\(appVersion\)\}"` : ''\}>/);
+  // [v1.0.3] 量见 + 标语合成一行：<b>量见</b><i class="brand-dot">·</i>量化工作，见机即获
+  assert.match(app, /<span class="brand-cn"><b>量见<\/b><i class="brand-dot">·<\/i>量化工作，见机即获<\/span>/);
+  assert.doesNotMatch(app, /<small>量化工作，见机即获<\/small>/, 'tagline must not be a separate <small> line any more');
+  assert.doesNotMatch(app, /<small>量见 · 量化工作，见机即获<\/small>/); // [v0.52] version badge between name and tagline
   const html = await read(new URL('../src/index.html', import.meta.url));
   assert.match(html, /<title>QuankSight 量见 · 金融量化工作台<\/title>/);
   for (const f of ['main.mjs', 'src/app.js', 'src/index.html', 'src/office/index.html', 'src/ui/quant.js', 'services/app-tools.mjs'])

@@ -2,7 +2,7 @@
 :root{--muted:#727a87;--line:#e8ebef;color:#242a32}
 button:focus-visible,summary:focus-visible{outline:2px solid #2f62f5;outline-offset:3px}
 .titlebar{height:32px;z-index:5;pointer-events:none}
-.sidebar{width:238px;padding:42px 12px 12px}
+.sidebar{width:248px;padding:42px 12px 12px} /* [v1.0.3] 238 → 248：品牌第二行「量见 · 标语」需要 ≥150px */
 .brand{padding:10px 9px 26px;gap:9px;font-size:21px;letter-spacing:-.6px}
 .brand-mark{width:32px;height:32px}
 .brand small{letter-spacing:.4px;font-size:10px;margin-top:5px}
@@ -1556,7 +1556,6 @@ svg.pf-svg text,svg.pf-svg tspan{stroke:none}
 @media (max-width:860px){.td-row{grid-template-columns:auto minmax(0,1fr)}.td-row .sec-pill,.td-acts{grid-column:2}.td-acts{justify-content:flex-start}}
 
 /* [v0.52] version badge next to the brand */
-.brand .brand-ver{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:600;line-height:16px;vertical-align:2px;color:#2F62F5;background:linear-gradient(90deg,#eef3ff,#f3eeff);border:1px solid #dfe6fb;letter-spacing:.2px}
 
 /* [v0.52.1] backtest plan label, per-second price flash */
 .q-return-head .q-return-plan{margin-left:10px;margin-right:auto;padding:2px 9px;border-radius:999px;font-size:12px;color:#4c5a85;background:#f1f4fc}
@@ -2415,12 +2414,20 @@ body.pp-on .main{container: qkmain / inline-size}
 @media (prefers-color-scheme:dark) { .qk-office-viewport { background:#252a33; } }
 
 /* [v1.0.2] Sidebar brand: larger mark, English name over 量见, tagline below — no empty band under the name. */
-.sidebar .brand{display:flex;align-items:center;gap:12px;padding:12px 10px 22px}
+.sidebar .brand{display:flex;align-items:center;gap:8px;padding:12px 6px 22px}
 .sidebar .brand-mark{width:54px!important;height:54px!important;flex:none}
 .sidebar .brand-mark img{width:100%;height:100%;object-fit:contain}
 .sidebar .brand-text{display:flex;flex-direction:column;justify-content:center;min-width:0;line-height:1.1}
 .sidebar .brand-en{font-size:22px;font-weight:800;letter-spacing:-.5px;color:#0b2ba6}
-.sidebar .brand-cn{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:16px;font-weight:700;letter-spacing:4px;color:#2f62f5}
-.sidebar .brand-cn .brand-ver{margin-left:0;letter-spacing:.2px}
-.sidebar .brand-text small{margin-top:5px;font-size:11px;letter-spacing:.3px;color:#6b7aa8!important;font-weight:500;white-space:nowrap}
+.sidebar .brand-cn{display:block;margin-top:3px;font-size:12px;font-weight:500;letter-spacing:0;line-height:1.35;color:#6b7aa8!important;white-space:nowrap}
+.sidebar .brand-cn b{font-weight:700;color:#0b2ba6}
+.sidebar .brand-dot{margin:0 4px;font-style:normal;font-weight:600;color:#2f62f5}
 @media (prefers-color-scheme:dark){.sidebar .brand-en{color:#c9d6ff}.sidebar .brand-cn{color:#8fb0ff}}
+/* [v1.0.3] 窄窗口（侧栏 210px）兜底：logo 44、标语 11px，仍放不下就省略号 */
+@media(max-width:1150px){
+  .sidebar .brand{gap:8px;padding:12px 6px 22px}
+  .sidebar .brand-mark{width:44px!important;height:44px!important}
+  .sidebar .brand-cn{font-size:11px;overflow:hidden;text-overflow:ellipsis}
+}
+/* [v1.0.3] 版本号在设置页底部的弱化文字 */
+.settings-version{margin:18px 0 0;padding-top:14px;border-top:1px solid #e7ebf7;font-size:11.5px;color:#96a0bd;letter-spacing:.2px}

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<title>QuankSight DMG background</title>
+<!--
+  DMG 安装窗口背景源文件（v1.0.3 起）。
+  渲染：Chrome headless，窗口 660x420；
+    1x  → --force-device-scale-factor=1 → background.png    (660x420)
+    @2x → --force-device-scale-factor=2 → background@2x.png (1320x840)
+  Finder 图标位置（make-dmg.sh）：左 QuankSight.app、右「应用程序」，文字区避开图标。
+  LOGO 由渲染脚本替换为 desktop 里侧栏 .brand-mark 使用的透明底 logo（同目录 logo.png）。
+-->
+<style>
+html,body{margin:0;padding:0}
+body{width:660px;height:420px;overflow:hidden;position:relative;
+  font-family:"PingFang SC","Hiragino Sans GB","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(420px 300px at 640px 10px, rgba(196,184,255,.55), transparent 70%),
+    radial-gradient(380px 260px at 0px 420px, rgba(186,208,255,.55), transparent 70%),
+    linear-gradient(135deg,#eff3ff 0%,#f0efff 55%,#f3eeff 100%)}
+.brand{position:absolute;left:39px;top:28px;display:flex;align-items:center;gap:10px}
+.brand img{width:40px;height:40px;display:block}
+.brand .en{font-size:28px;font-weight:800;letter-spacing:-.5px;line-height:1;
+  background:linear-gradient(90deg,#0B2BA6,#183FF5 70%,#6f6cff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand .cn{margin-left:6px;font-size:13.5px;color:#5d6a92;line-height:1;padding-top:6px;white-space:nowrap}
+.brand .cn b{color:#2F62F5;font-weight:700}
+.brand .cn i{font-style:normal;margin:0 5px;color:#8c95b5}
+svg.arrow{position:absolute;left:0;top:0}
+.main{position:absolute;left:0;right:0;top:310px;text-align:center;font-size:18px;font-weight:600;color:#1b3fc4;letter-spacing:.5px}
+.sub{position:absolute;left:0;right:0;top:346px;text-align:center;font-size:12px;line-height:20px;color:#66718f}
+.sub b{color:#2F62F5;font-weight:600}
+</style></head>
+<body>
+<div class="brand"><img src="logo.png" alt=""><span class="en">QuankSight</span><span class="cn"><b>量见</b><i>·</i>量化工作，见机即获</span></div>
+<svg class="arrow" width="660" height="420" viewBox="0 0 660 420">
+  <defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#4F7CFF"/><stop offset="1" stop-color="#8C7CFF"/></linearGradient></defs>
+  <path d="M261 205 Q338 182 413 207" fill="none" stroke="url(#g)" stroke-width="5.5" stroke-linecap="round"/>
+  <polyline points="391,192 414,207 391,220" fill="none" stroke="#8C7CFF" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<div class="main">把 QuankSight 拖到「应用程序」，即完成安装</div>
+<div class="sub">首次打开若提示「未打开 QuankSight」：点「完成」，<br>再到 <b>系统设置 › 隐私与安全性</b> 点「仍要打开」</div>
+</body></html>

@@ -113,7 +113,7 @@ export function homeDashboard({state, icon, composer, action, date, taskStatus})
   const setup = !state.settings?.hasKey ? `<div class="setup-note qk-setup">${icon('link')}<div><b>连接你自己的模型</b><p>支持第三方 Chat Completions API 与本机 Ollama。首次使用请填写服务地址与模型。</p></div>${action('设置模型', 'settings')}</div>` : '';
   return `<div class="home qk-home">
 <section class="qk-hero">${heroArt()}<div class="qk-hero-inner">
-<span class="qk-pill"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1l1.8 4.6L14.5 7l-4.7 1.5L8 13l-1.8-4.5L1.5 7l4.7-1.4z" fill="currentColor"/></svg>QuankSight · 量化工作，一键搞定</span>
+<span class="qk-pill"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1l1.8 4.6L14.5 7l-4.7 1.5L8 13l-1.8-4.5L1.5 7l4.7-1.4z" fill="currentColor"/></svg>QuankSight · 量化工作，见机即获</span>
 <h1>今天的市场，从哪里开始？</h1>
 <p class="subtitle">看信号、读财报、写研报、做模型，一句话交给 QuankSight；也可以先附上资料。</p>
 ${composer()}
