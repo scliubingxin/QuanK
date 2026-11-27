@@ -1,5 +1,10 @@
 > v0.46.0 之前（WillBuddy 时期 0.1 – 0.37.x）的迭代记录已归档到 [docs/releases/ITERATION_LOG_v0.1-v0.37.md](docs/releases/ITERATION_LOG_v0.1-v0.37.md)；每个版本的发布记录见 [docs/releases/](docs/releases/README.md)。
 
+## v1.0.4 · 2026-11-27 · 侧栏收起态 logo 修复
+
+- 修复侧栏收起后 logo 溢出：收起态 logo 改为 36px 并与「+」按钮、导航图标同轴居中，右边缘不再被裁切；展开态（248px / 54px / 两行品牌）保持不变。
+- 详见 [v1.0.4 发布记录](docs/releases/v1.0.4.md)。
+
 ## v1.0.3 · 2026-11-27 · 品牌收尾与默认助手名
 
 - 新标语「量化工作，见机即获」；侧栏品牌改为两行（英文 `QuankSight` 在上、中文「量见·量化工作，见机即获」在下），侧栏加宽到 248px。
