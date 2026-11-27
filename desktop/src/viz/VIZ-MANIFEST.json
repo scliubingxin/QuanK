@@ -3,8 +3,8 @@
   "files": [
     {
       "name": "index.html",
-      "bytes": 2368,
-      "sha256": "6b0e73a100f949bd81e5727bed6e3fa86420b421ade4a46087ff36580ca3e87d"
+      "bytes": 2373,
+      "sha256": "dc3c674068217da925eef33ef8c2d918ef999222b8310d4e6005e619ed8b2db1"
     },
     {
       "name": "boot.js",

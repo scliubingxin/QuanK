@@ -1724,8 +1724,8 @@
     },
     {
       "path": "desktop/core.mjs",
-      "bytes": 8824,
-      "sha256": "d48099a1f6f6b7f4e6b0e4ddb4845b0b979421e6573ebace3337a734abdb4acb"
+      "bytes": 9141,
+      "sha256": "7fe3896924f97d40d4f8cb840571437f6f30abd0d405eca5b367282e1691fc35"
     },
     {
       "path": "desktop/installer/Apply-Draft-Generation-Update.command",
@@ -2885,7 +2885,7 @@
     {
       "path": "desktop/src/pdf/PDF-MANIFEST.json",
       "bytes": 154,
-      "sha256": "ea3262d71a01604dd8acd711a0048285a89df06e2cf1dd6799465c57d9120261"
+      "sha256": "56ae148bcf3000b7f68c6287631b62baea22df64c00ac37a7ec0eae6a6c0c422"
     },
     {
       "path": "desktop/src/pdf/PDFJS-LICENSE.txt",
@@ -2904,18 +2904,18 @@
     },
     {
       "path": "desktop/src/pdf/engine.js",
-      "bytes": 4191935,
-      "sha256": "c10a3f203b1a78ce0e156de87ef69ae486b1b24bae48621fd9e3358f83f67d30"
+      "bytes": 4191950,
+      "sha256": "115ece8fad070f631db3576a2d52e87045ef790cf84000ab6e578dec54f19986"
     },
     {
       "path": "desktop/src/pdf/frame-source.js",
-      "bytes": 4147,
-      "sha256": "946d34401c17a99c4636c7828a0a4565062bfca7d0bffb561ef0d8cacd8934d5"
+      "bytes": 4162,
+      "sha256": "fa0f6e6924f20ad4078b3aacbcc9e8a69f2fa7e39fc822cf77beacf614682a9e"
     },
     {
       "path": "desktop/src/pdf/index.html",
-      "bytes": 1500,
-      "sha256": "fa1de08b2419a1ea5d31000bf4a809dccf813bcc50291c0b73bbc607859097a1"
+      "bytes": 1546,
+      "sha256": "5f432ec179d200e4dfe9697ecf710faccbe1b06ccb734da6798fe6b25188f605"
     },
     {
       "path": "desktop/src/pdf/panel-frame.js",

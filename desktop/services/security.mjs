@@ -43,7 +43,7 @@ export function createSecurityService({store, audit, egress, vault = null, dir =
     if (now() < lockedUntil) throw new Error(`尝试次数过多，请 ${Math.ceil((lockedUntil - now()) / 1000)} 秒后再试`);
     if (how === 'touchid') {
       if (!s.lock.touchId || !touchId.can()) throw new Error('触控 ID 不可用，请输入解锁密码');
-      await touchId.prompt(`解锁 ${appName}`);
+      await touchId.prompt(`解锁 ${displayName}`);
     } else if (!verifyPassword(password, s.lock.passwordHash)) {
       failures++; if (failures >= 5) { lockedUntil = now() + 30e3 * 2 ** Math.min(4, failures - 5); }
       log('security', '解锁失败', '', `第 ${failures} 次`); throw new Error('密码不对');
