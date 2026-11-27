@@ -1,0 +1,328 @@
+[
+ {
+  "page": "01 工作台",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "未计算"
+  ],
+  "ctx": [
+   ".89/现价/-0.55%/涨跌/比亚迪/002594/未计算/—/综合分/79.68/现价/"
+  ],
+  "count": {
+   "chats": 12,
+   "poolRows": 12
+  },
+  "note": ""
+ },
+ {
+  "page": "02 行情",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "indices": 3,
+   "stocks": 20
+  },
+  "note": ""
+ },
+ {
+  "page": "03 量化",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "poolRows": 9,
+   "scores": 4
+  },
+  "note": ""
+ },
+ {
+  "page": "04 600438 详情",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "svgs": 28,
+   "research": 0,
+   "kn": 0
+  },
+  "note": ""
+ },
+ {
+  "page": "05 财务与单季趋势",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "0/市值/0.00/浮动盈亏/—/可用资金/0.00//还没有记录过成交。//策略收益/-13"
+  ],
+  "count": {
+   "tables": 1,
+   "svg": 1
+  },
+  "note": ""
+ },
+ {
+  "page": "06 公司关系图",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "0/市值/0.00/浮动盈亏/—/可用资金/0.00//还没有记录过成交。//策略收益/-13"
+  ],
+  "count": {
+   "svg": 1,
+   "nodes": 52
+  },
+  "note": ""
+ },
+ {
+  "page": "07 投研资料(个股)",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "0/市值/0.00/浮动盈亏/—/可用资金/0.00//还没有记录过成交。//策略收益/-13"
+  ],
+  "count": {
+   "items": 12
+  },
+  "note": ""
+ },
+ {
+  "page": "08 持仓与定投",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "0/市值/0.00/浮动盈亏/—/可用资金/0.00//还没有记录过成交。//策略收益/-13"
+  ],
+  "count": {
+   "rows": 2,
+   "plans": 2
+  },
+  "note": ""
+ },
+ {
+  "page": "09 组合与风控",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "0/市值/0.00/浮动盈亏/—/可用资金/0.00//还没有记录过成交。//策略收益/-13"
+  ],
+  "count": {
+   "total": 1
+  },
+  "note": ""
+ },
+ {
+  "page": "10 风险指标/压力测试",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "0/市值/0.00/浮动盈亏/—/可用资金/0.00//还没有记录过成交。//策略收益/-13"
+  ],
+  "count": {
+   "charts": 1
+  },
+  "note": ""
+ },
+ {
+  "page": "11 成果中心",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "为 Word/AI 修改/精确修改/导出文件/删除文档/还没有保存的成果//在助手回复下点击“"
+  ],
+  "count": {
+   "docs": 7
+  },
+  "note": ""
+ },
+ {
+  "page": "12 文档预览 doc1",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "为 Word/AI 修改/精确修改/导出文件/删除文档/还没有保存的成果//在助手回复下点击“"
+  ],
+  "count": {
+   "err": 0,
+   "outline": 2
+  },
+  "note": ""
+ },
+ {
+  "page": "13 投研资料库",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "items": 11
+  },
+  "note": ""
+ },
+ {
+  "page": "14 知识库检索",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "len": 611,
+   "hits": "共 5 处匹配"
+  },
+  "note": ""
+ },
+ {
+  "page": "15 智能体",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "agents": 7
+  },
+  "note": ""
+ },
+ {
+  "page": "16 技能",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "kill/0/个已添加/0/个已启用/我的 Skill/还没有技能。上传 SKILL.md 或"
+  ],
+  "count": {
+   "skills": 3
+  },
+  "note": ""
+ },
+ {
+  "page": "17 连接·数据源",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "conns": 4
+  },
+  "note": ""
+ },
+ {
+  "page": "18 MCP",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "kill/0/个已添加/0/个已启用/我的 Skill/还没有技能。上传 SKILL.md 或"
+  ],
+  "count": {
+   "mcp": 0
+  },
+  "note": ""
+ },
+ {
+  "page": "19 定时任务",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "tasks": 11
+  },
+  "note": ""
+ },
+ {
+  "page": "20 运行记录",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "runs": 0,
+   "len": 740
+  },
+  "note": ""
+ },
+ {
+  "page": "21 动态",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "items": 10
+  },
+  "note": ""
+ },
+ {
+  "page": "22 知识图谱",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "svg": 31,
+   "nodes": 1
+  },
+  "note": ""
+ },
+ {
+  "page": "23 记忆库",
+  "pass": true,
+  "waited": 0,
+  "placeholders": [],
+  "ctx": [],
+  "count": {
+   "mems": 5
+  },
+  "note": ""
+ },
+ {
+  "page": "24 安全与合规",
+  "pass": false,
+  "waited": 60,
+  "placeholders": [
+   "还没有"
+  ],
+  "ctx": [
+   "仓位比例。//关闭/操作审计/记录中//已记录 3 条。还没有校验过。//校验完整性/查看记录"
+  ],
+  "count": {
+   "audit": 2,
+   "egress": 1,
+   "len": 1173
+  },
+  "note": ""
+ }
+]
