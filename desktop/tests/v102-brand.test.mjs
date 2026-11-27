@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const app = readFileSync(new URL('../src/app.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../src/workbench.css', import.meta.url), 'utf8');
-// 首行标记：版本号作为 sup 嵌在 .brand-en 内；appVersion 为空时不渲染
-const BRAND_EN = '<span class="brand-en">QuankSight${appVersion ? `<sup class="brand-ver">v${escape(appVersion)}</sup>` : \'\'}</span>';
+// 首行标记：版本号作为胶囊 span 嵌在 .brand-en 内；appVersion 为空时不渲染
+const BRAND_EN = '<span class="brand-en">QuankSight${appVersion ? `<span class="brand-ver">v${escape(appVersion)}</span>` : \'\'}</span>';
 test('v1.0.2 侧栏品牌：英文 QuankSight 在上、中文「量见」在下，logo 54px', () => {
   assert.match(app, /<span class="brand-en">QuankSight[\s\S]{0,90}?<\/span><span class="brand-cn"><b>量见/);
   // [v1.0.3] 中文品牌与标语合并为一行，不再单独一行 <small>
@@ -20,10 +20,10 @@ test('v1.0.3 侧栏加宽到 248、品牌严格两行，版本号在首行且 ti
   assert.match(css, /\.sidebar \.brand\{display:flex;align-items:center;gap:8px;padding:12px 6px 22px\}/);
   assert.match(css, /\.sidebar \.brand-cn\{[^}]*font-size:12px[^}]*white-space:nowrap/);
   // [v1.0.5] 版本号回到首行（.brand-en 内的小字 sup），但仍不是独立一行
-  assert.ok(app.includes(BRAND_EN), 'brand-en carries the version sup');
+  assert.ok(app.includes(BRAND_EN), 'brand-en carries the version pill');
   const brand = app.slice(app.indexOf('<div class="brand"'), app.indexOf('<button class="new"'));
-  assert.match(brand, /<sup class="brand-ver">/, 'version lives inside the brand-en line');
-  assert.doesNotMatch(brand, /<span class="brand-ver">/, 'no standalone badge element');
+  assert.match(brand, /<span class="brand-ver">/, 'version lives inside the brand-en line');
+  assert.doesNotMatch(brand, /<sup class="brand-ver">/, 'no superscript version element');
   assert.equal((brand.match(/<small/g) || []).length, 0, 'brand must stay two lines: no <small> tagline');
   assert.match(brand, /<b>量见<\/b><i class="brand-dot">·<\/i>量化工作，见机即获/);
 });
@@ -55,18 +55,19 @@ test('v1.0.5 收起态品牌：logo 28px 居中，压过展开态 54px 的 !impo
 });
 
 test('v1.0.5 展开态首行显示版本号：与 QuankSight 同一行，品牌仍是两行', () => {
-  assert.ok(app.includes(BRAND_EN), 'brand-en carries the version sup');
+  assert.ok(app.includes(BRAND_EN), 'brand-en carries the version pill');
   const brand = app.slice(app.indexOf('<div class="brand"'), app.indexOf('<button class="new"'));
-  const en = brand.indexOf('<span class="brand-en">'), ver = brand.indexOf('<sup class="brand-ver">'), cn = brand.indexOf('<span class="brand-cn">');
+  const en = brand.indexOf('<span class="brand-en">'), ver = brand.indexOf('<span class="brand-ver">'), cn = brand.indexOf('<span class="brand-cn">');
   // 版本号在 .brand-en 内、.brand-cn 之前：属于首行，不另起一行
   assert.ok(en >= 0 && ver > en && cn > ver, 'version must sit inside .brand-en, before .brand-cn');
-  assert.equal((brand.match(/<sup/g) || []).length, 1, 'exactly one version element');
+  assert.equal((brand.match(/<span class="brand-ver">/g) || []).length, 1, 'exactly one version element');
   // 两行结构：首行 .brand-en（锁定不换行）+ 次行 .brand-cn，没有第三行的载体
   assert.equal((brand.match(/<small/g) || []).length, 0, 'no <small> line');
   assert.equal((brand.match(/<br/g) || []).length, 0, 'no hard line break');
-  assert.match(css, /\.sidebar \.brand-en\{font-size:20px;[^}]*white-space:nowrap\}/);
-  // 样式：10px / 600 / #8c95b5 / margin-left 4px / 无字间距 / 无底色胶囊
-  assert.match(css, /\.sidebar \.brand-ver\{font-size:10px;font-weight:600;color:#8c95b5;margin-left:4px;letter-spacing:0;/);
+  assert.match(css, /\.sidebar \.brand-en\{font-size:19px;[^}]*white-space:nowrap\}/);
+  // 版本号是高亮胶囊，靠 inline-flex 居中在首行的字身上
+  assert.match(css, /\.sidebar \.brand-en\{display:inline-flex;align-items:center\}/);
+  assert.match(css, /\.sidebar \.brand-ver\{font-size:10px;font-weight:700;line-height:1;padding:2px 5px;border-radius:999px;color:#2f62f5;background:#e8eeff;margin-left:6px;letter-spacing:0;/);
   // 收起态（.sidebar-collapsed 与 ≤980 自动收起）隐藏版本号；窄窗口放不下时也隐藏
   assert.match(css, /\.sidebar-collapsed \.brand>div,[^{]*\{display:none\}/);
   assert.match(css, /\.sidebar \.brand-ver\{display:none\}/);

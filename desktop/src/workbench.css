@@ -2418,12 +2418,13 @@ body.pp-on .main{container: qkmain / inline-size}
 .sidebar .brand-mark{width:54px!important;height:54px!important;flex:none}
 .sidebar .brand-mark img{width:100%;height:100%;object-fit:contain}
 .sidebar .brand-text{display:flex;flex-direction:column;justify-content:center;min-width:0;line-height:1.1}
-.sidebar .brand-en{font-size:20px;font-weight:800;letter-spacing:-.5px;color:#0b2ba6;white-space:nowrap}
+.sidebar .brand-en{font-size:19px;font-weight:800;letter-spacing:-.5px;color:#0b2ba6;white-space:nowrap}
 .sidebar .brand-cn{display:block;margin-top:3px;font-size:12px;font-weight:500;letter-spacing:0;line-height:1.35;color:#6b7aa8!important;white-space:nowrap}
 .sidebar .brand-cn b{font-weight:700;color:#0b2ba6}
 .sidebar .brand-dot{margin:0 4px;font-style:normal;font-weight:600;color:#2f62f5}
-/* [v1.0.5] 首行 QuankSight 后的小字版本号（sup 只抬高基线，不另起一行） */
-.sidebar .brand-ver{font-size:10px;font-weight:600;color:#8c95b5;margin-left:4px;letter-spacing:0;vertical-align:super;line-height:1;background:none;padding:0}
+/* [v1.0.5] 首行 QuankSight 后的版本号胶囊：与文字视觉中线对齐（inline-flex 居中，不用上标基线） */
+.sidebar .brand-en{display:inline-flex;align-items:center}
+.sidebar .brand-ver{font-size:10px;font-weight:700;line-height:1;padding:2px 5px;border-radius:999px;color:#2f62f5;background:#e8eeff;margin-left:6px;letter-spacing:0;position:relative;top:-1px}
 
 /* [v1.0.4] 收起态品牌：54px 的 !important 规则会把 logo 顶出 66px 的侧栏（右侧溢出、与下方图标不同轴）。
    用 `.sidebar-collapsed .sidebar .brand…`（0,3,0）压过 `.sidebar .brand…`（0,2,0）与旧 `.sidebar-collapsed .brand`（0,2,0）；
@@ -2431,7 +2432,7 @@ body.pp-on .main{container: qkmain / inline-size}
    + 按钮的下外边距 17px 相等，logo 与 + 按钮、导航图标共用同一条中轴，logo→+ 与 +→首个导航图标间距一致。 */
 .sidebar-collapsed .sidebar .brand{padding:10px 0 17px;gap:0;justify-content:center}
 .sidebar-collapsed .sidebar .brand-mark{width:28px!important;height:28px!important}
-@media (prefers-color-scheme:dark){.sidebar .brand-en{color:#c9d6ff}.sidebar .brand-cn{color:#8fb0ff}}
+@media (prefers-color-scheme:dark){.sidebar .brand-en{color:#c9d6ff}.sidebar .brand-cn{color:#8fb0ff}.sidebar .brand-ver{color:#c9d6ff;background:rgba(47,98,245,.28)}}
 /* [v1.0.3] 窄窗口（侧栏 210px）兜底：logo 44、标语 11px，仍放不下就省略号 */
 @media(max-width:1150px){
   .sidebar .brand{gap:8px;padding:12px 6px 22px}

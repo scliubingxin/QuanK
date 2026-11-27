@@ -306,8 +306,8 @@ test('version: main exposes appVersion, sidebar title + settings footer show it'
   assert.match(app, /if \(next\?\.appVersion\) appVersion = String\(next\.appVersion\)/);
   // [v1.0.5] 版本号回到品牌首行（QuankSight 后的小字），title 与设置页底部同时保留
   assert.match(app, /class="brand-ver"/);
-  const brandEn = '<span class="brand-en">QuankSight${appVersion ? `<sup class="brand-ver">v${escape(appVersion)}</sup>` : \'\'}</span>';
-  assert.ok(app.includes(brandEn), 'version sup sits on the first brand line');
+  const brandEn = '<span class="brand-en">QuankSight${appVersion ? `<span class="brand-ver">v${escape(appVersion)}</span>` : \'\'}</span>';
+  assert.ok(app.includes(brandEn), 'version pill sits on the first brand line');
   assert.match(app, /title="QuankSight v\$\{escape\(appVersion\)\}"/);
   assert.match(app, /<p class="settings-version">版本 v\$\{escape\(appVersion\)\}<\/p>/);
   assert.match(css, /\.settings-version\{/);

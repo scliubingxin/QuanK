@@ -113,8 +113,8 @@ test('wiring and visible brand', async () => {
   // [v1.0.3] 两行：QuankSight（[v1.0.5] 其后带小字版本号），然后 量见 · 标语 同一行
   assert.match(app, /<span class="brand-en">QuankSight[\s\S]{0,90}?<\/span><span class="brand-cn"><b>量见<\/b><i class="brand-dot">·<\/i>量化工作，见机即获<\/span>/);
   // [v1.0.5] 版本号作为 sup 嵌在首行 .brand-en 内，品牌依旧严格两行
-  assert.match(app, /<span class="brand-en">QuankSight\$\{appVersion \? `<sup class="brand-ver">v\$\{escape\(appVersion\)\}<\/sup>` : ''\}<\/span>/);
-  assert.doesNotMatch(app, /<span class="brand-ver">/, 'no standalone version badge element');
+  assert.match(app, /<span class="brand-en">QuankSight\$\{appVersion \? `<span class="brand-ver">v\$\{escape\(appVersion\)\}<\/span>` : ''\}<\/span>/);
+  assert.doesNotMatch(app, /<sup class="brand-ver">/, 'no superscript version element');
   assert.match(app, /<div class="brand"\$\{appVersion \? ` title="QuankSight v\$\{escape\(appVersion\)\}"` : ''\}>/);
   // [v1.0.3] 量见 + 标语合成一行：<b>量见</b><i class="brand-dot">·</i>量化工作，见机即获
   assert.match(app, /<span class="brand-cn"><b>量见<\/b><i class="brand-dot">·<\/i>量化工作，见机即获<\/span>/);
