@@ -51,7 +51,8 @@ test('unread, filters and dismiss/seen/restore state', () => {
   assert.deepEqual(visibleFeed(s, 'important').map(x => x.id), ['task:t1:r2', 'approval:a1', 'task:t2:last', 'task:t1:r1']);
   assert.equal(visibleFeed(s, 'all').length, 7, '「全部」 still lists everything except the log');
   s.feed = applyFeedAction(s, {action: 'seen'}, 1000);
-  assert.deepEqual(visibleFeed(s, 'unread').map(x => x.id), ['task:t1:r2', 'approval:a1'], 'items that need action stay unread');
+  // [v1.0.4] 全部标为已读 must really clear 未读; what still needs action stays in 「需要处理」.
+  assert.deepEqual(visibleFeed(s, 'unread').map(x => x.id), [], 'seen clears unread even for items that need action');
   assert.deepEqual(visibleFeed(s, 'action').map(x => x.id), ['task:t1:r2', 'approval:a1']);
   assert.deepEqual(visibleFeed(s, 'research').map(x => x.kind), ['research', 'plan']);
   assert.deepEqual(visibleFeed(s, 'log').map(x => x.id), ['log:l1']);

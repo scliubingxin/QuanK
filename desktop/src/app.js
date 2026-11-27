@@ -55,7 +55,7 @@ import { researchPage, noteEditForm } from './ui/research-page.js'; // [v0.53]
 import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView, patchLive, liveTargets, setKlinePeriod } from './ui/market.js';
 import { session as marketSession } from './shared/market.js'; // [v0.52.1]
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
-import { feedUnread, visibleFeed } from './shared/feed.js';
+import { feedCounts, feedUnread, visibleFeed } from './shared/feed.js';
 const visibleFeedCount = (s, filter) => { try { return visibleFeed(s, filter).length; } catch { return 0; } };
 function viewContext() {
     return { state, approvalCards: approvalRequests().filter(item => chatId ? item.chatId === chatId : (!item.chatId && !item.decision)).map(item => officeApprovalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
@@ -2069,7 +2069,7 @@ async function handle(actionId, id, stockTarget) {
     if (actionId === 'feedSeen') {
         await update('feed', { action: 'seen' });
         // [v1.0.2] Read ≠ handled: approvals and orders stay until they are answered, so say so and show them.
-        const left = visibleFeedCount(state, 'action');
+        const left = feedCounts(approvalFeedState()).pending; // the same number the hero shows
         if (left) { feedFilter = 'action'; render(); toast(`已全部标为已读；还有 ${left} 项需要你处理（待确认的授权或委托单），已为你筛选出来`); }
         else toast('已全部标为已读');
         return;

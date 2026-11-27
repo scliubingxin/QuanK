@@ -2,7 +2,7 @@
 // [v45k] Home-style layout: gradient hero with counters, briefing card, then a card with filter chips and
 // day-grouped rows (coloured letter badges like the agent cards).
 import { escape } from './markdown.js';
-import { visibleFeed, FEED_FILTERS, feedState } from '../shared/feed.js';
+import { visibleFeed, FEED_FILTERS, feedState, feedCounts } from '../shared/feed.js';
 import { feedAvatar } from './avatars.js'; // [F1d]
 
 const KIND = {approval: ['确', '#f59e0b', '#f97316', '待确认'], task: ['任', '#2f62f5', '#5b8def', '定时任务'], research: ['研', '#7b6cf6', '#a78bfa', '研究'],
@@ -19,7 +19,8 @@ function dayLabel(day, now = Date.now()) {
 export function feedPage(state, {action, date, heading, empty, filter = 'important', now = Date.now()}) {
   const all = visibleFeed(state, 'all'), items = filter === 'all' ? all : visibleFeed(state, filter);
   const count = f => f === 'all' ? all.length : visibleFeed(state, f).length;
-  const unread = count('unread'), needs = count('action'), today = all.filter(x => dayOf(x.time) === dayOf(now)).length;
+  const counts = feedCounts(state);
+  const unread = counts.unread, needs = counts.pending, today = all.filter(x => dayOf(x.time) === dayOf(now)).length;
   const tabs = `<div class="feed-filters" role="tablist">${FEED_FILTERS.map(([id, label]) => `<button type="button" role="tab" aria-selected="${id === filter}" class="${id === filter ? 'chosen' : ''}" data-action="feedFilter" data-id="${id}">${label}${['important', 'unread', 'action'].includes(id) && count(id) ? ` <small>${count(id)}</small>` : ''}</button>`).join('')}</div>`;
   const row = x => {
     const [ch, a, b, label] = KIND[x.kind] || KIND.log;
