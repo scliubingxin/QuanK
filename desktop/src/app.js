@@ -1,4 +1,5 @@
 import {officeApprovalCard} from './ui/office-cards.js';
+import {homeApprovalCards, conversationApprovalCards} from './ui/approval-card.js';
 import { modalLayout } from './ui/modal.js';
 import {bindPresetFilters, plazaIcon} from './ui/preset-catalog.js'; // [ux11] plazaIcon
 import {agentAvatar} from './ui/avatars.js';
@@ -58,7 +59,7 @@ import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, ma
 import { feedCounts, feedUnread, visibleFeed } from './shared/feed.js';
 const visibleFeedCount = (s, filter) => { try { return visibleFeed(s, filter).length; } catch { return 0; } };
 function viewContext() {
-    return { state, approvalCards: approvalRequests().filter(item => chatId ? item.chatId === chatId : (!item.chatId && !item.decision)).map(item => officeApprovalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
+    return { state, approvalCards: conversationApprovalCards(approvalRequests(), chatId).map(item => officeApprovalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
 // [p1-m4] away recap: remember what finished while the user was elsewhere, then clear the unread flag
 let recap = null;
 function markSeen(id) {
@@ -556,7 +557,9 @@ function currentUsage() { const chat = page === 'chat' ? state.chats.find(c => c
 function paintMeter() { const node = document.querySelector('.context-meter'); if (node) node.outerHTML = contextMeter(currentUsage()); }
 
 function homeContent() {
-    const cards = approvalRequests().filter(item => !item.codingTaskId && !state.chats.some(chat => chat.id === item.chatId));
+    // [v1.0.4] 工作台首页只画理财看板和输入框；待授权项由输入框上方的「N 项待授权 · 前往授权」条承载，
+    // 已处理记录只在所属对话里出现。这里不再堆任何授权卡（含 已拒绝/已允许 的旧记录）。
+    const cards = homeApprovalCards(approvalRequests());
     return (cards.length ? `<div class="home-approvals">${cards.map(item => officeApprovalCard(item, action)).join('')}</div>` : '') + views.homeContent(viewContext());
 }
 function conversationContent() { return views.conversationContent(viewContext()); }

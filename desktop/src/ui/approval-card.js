@@ -31,6 +31,17 @@ export function pendingApprovalRequests(requests) {
   return requests.filter(request => !request.decision).sort((a, b) => a.time - b.time);
 }
 
+// [v1.0.4] 工作台首发页不再画任何授权卡：待处理的只在输入框上方的「N 项待授权」条里出现，
+// 已拒绝/已允许这类已处理记录只在它所属的对话里显示。以前 homeContent 会把没有对话归属的
+// 审批（含 5 条已拒绝）全部堆在 hero 上方。这里只决定画哪些卡，不改动任何存储的审批记录。
+export function homeApprovalCards() { return []; }
+
+/** Cards drawn inside one conversation: only approvals that belong to that conversation. */
+export function conversationApprovalCards(requests, chatId) {
+  if (!chatId) return [];
+  return (requests || []).filter(request => request.chatId === chatId);
+}
+
 export function approvalBar(requests, chatId, action) {
   const pending = pendingApprovalRequests(requests);
   const first = pending[0];
