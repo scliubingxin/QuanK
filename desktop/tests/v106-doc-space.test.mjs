@@ -41,3 +41,12 @@ test('when current versions alone are over budget the save is refused with usage
   assert.equal(s.data.documents.length, 7, 'nothing written');
   assert.equal(JSON.stringify(s.data.documents.map(x => x.history)), before, 'old versions restored after a refused save');
 });
+
+test('the renderer state carries document usage for the library header', async () => {
+  const {readFileSync} = await import('node:fs');
+  const main = readFileSync(new URL('../main.mjs', import.meta.url), 'utf8');
+  assert.match(main, /documentUsage:documentUsage\(store\.data\.documents\|\|\[\]\)/);
+  const {documentLibrary} = await import('../src/ui/documents.js');
+  const html = documentLibrary({state: {documents: [], documentUsage: {bytes: 3 * 1048576, maxBytes: 64 * 1048576}}, action: () => '', date: () => ''});
+  assert.match(html, /已用 3\.0 \/ 64 MiB/);
+});
