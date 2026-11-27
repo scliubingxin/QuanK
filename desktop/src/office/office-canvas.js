@@ -1,3 +1,6 @@
+// [v1.0.7] guarded media query: falls back to no-match where matchMedia is unavailable
+const qkMatchMedia = query => (typeof globalThis.matchMedia === 'function' ? globalThis.matchMedia(query)
+  : {matches: false, media: String(query), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}});
 const emptySelection = () => ({kind:'none', text:'', rects:[], anchor:null, token:null});
 
 export function unoProperties(args = {}) {
@@ -335,7 +338,7 @@ export function mountOfficeCanvas(host, {session, metadata, request, preview, in
         if (cursor?.h) caretHeight = cursor.h;
         const highlighted = session.selection.kind === 'text' && cells.some(rect => rect.w > 2*scale());
         if (cursor && focused && !highlighted) { // [v1.0.7] dark 2px caret that blinks on its own, drawn without waiting for tiles
-            const dark = matchMedia?.('(prefers-color-scheme: dark)')?.matches;
+            const dark = qkMatchMedia('(prefers-color-scheme: dark)')?.matches;
             const caret = element('div', {className:'qk-office-caret'}, {position:'absolute', background:dark ? '#f0f3ff' : '#1f2a44', width:'2px', minWidth:'2px', borderRadius:'1px', pointerEvents:'none', zIndex:'3'});
             place(caret,cursor,scale());
             caret.style.width = '2px';
