@@ -4,7 +4,7 @@ QuanK 每个正式版本的打包与发布过程记录（同步清单、asar 检
 
 | 版本 | 日期 | 内容 | 合并提交 | 发布记录提交 | DMG 字节 | DMG sha256 | ZIP sha256 | 记录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| [v1.0.4](https://github.com/scliubingxin/QuanK/releases/tag/v1.0.4) | 2026-11-27 | 修复侧栏收起后 logo 溢出：收起态 logo 36px、与「+」按钮和导航图标同轴居中、右边缘不再裁切；展开态保持不变。 | 本次 | 本次 | 待发布 | 待发布 | 待发布 | [v1.0.4.md](v1.0.4.md) |
+| [v1.0.4](https://github.com/scliubingxin/QuanK/releases/tag/v1.0.4) | 2026-11-27 | 修复侧栏收起后 logo 溢出：收起态 logo 36px、与「+」按钮和导航图标同轴居中、右边缘不再裁切；展开态保持不变。 | 本次 | 本次 | 303,017,122 | `4a4626e4c03249…` | `3aa053d5bf9eb6…` | [v1.0.4.md](v1.0.4.md) |
 | [v1.0.3](https://github.com/scliubingxin/QuanK/releases/tag/v1.0.3) | 2026-11-27 | 新标语「量化工作，见机即获」；侧栏品牌两行、侧栏 248px；版本号移到品牌悬停标题与设置页底部；新品牌 DMG 安装窗口（含新版 macOS「仍要打开」说明）；默认助手名改为 QuankSight 助手（旧默认名自动迁移）；清理 PDF/仪表盘/触控 ID 提示里的旧名。 | 本次 | 本次 | 303,016,751 | `adbb3a89512eba…` | `c7e005347d9c6d…` | [v1.0.3.md](v1.0.3.md) |
 | [v1.0.2](https://github.com/scliubingxin/QuanK/releases/tag/v1.0.2) | 2026-11-26 | 钥匙串迁移修复（QuanK/Actwill AI → QuankSight，含 `*Sealed`）、引擎管理员密码自修复；Office 编辑窗口撑满与默认缩放、工具栏固定、底部状态栏、AI 确认卡修复；投研 PPT 信号页绑定本股、回撤负值、估值说明等；工作台授权堆叠、滚动保持、全部已读提示与信号标签中文化。 | 本次 | 本次 | 302,841,708 | `51c4d769473dec…` | `0efbf1151d9138…` | [v1.0.2.md](v1.0.2.md) |
 | [v1.0.1](https://github.com/scliubingxin/QuanK/releases/tag/v1.0.1) | 2026-11-25 | QuankSight 量见更名；修复独立编辑窗口、展开白屏与 Office 自动保存。 | 本次 | 本次 | 待发布 | 待发布 | 待发布 | [v1.0.1.md](v1.0.1.md) |
