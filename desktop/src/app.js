@@ -50,6 +50,7 @@ import { knowledgeUI } from './ui/knowledge.js'; // [F3]
 import { portfolioUI } from './ui/portfolio.js'; // [F4]
 import { securityUI } from './ui/security.js'; // [F5]
 import { tradeUI } from './ui/trade.js'; // [v0.52]
+import { mountOrderApprovals, revealOrderApproval } from './ui/order-approval.js';
 import { researchPage, noteEditForm } from './ui/research-page.js'; // [v0.53]
 import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView, patchLive, liveTargets, setKlinePeriod } from './ui/market.js';
 import { session as marketSession } from './shared/market.js'; // [v0.52.1]
@@ -137,19 +138,28 @@ function approvalFeedState() {
 function approvalMarkup() {
     return approvalBar(approvalRequests(), page === 'chat' ? chatId : '', action);
 }
+let nextApprovalOrder = null; // set by the order buttons so the card can be mounted under its row
 function inlineConfirm(title, html, handler) {
     const requestId = crypto.randomUUID();
     const body = document.createElement('template');
     body.innerHTML = html.replace(/<\/(?:p|li|div)>|<br\s*\/?>/gi, '$&\n');
     const card = { requestId, agent: 'QuankSight', action: title,
         summary: body.content.textContent.trim(), chatId: page === 'chat' ? chatId : undefined,
-        time: Date.now(), highRisk: true, channel: 'local' };
+        time: Date.now(), highRisk: true, channel: 'local', orderId: nextApprovalOrder || undefined };
+    nextApprovalOrder = null;
     localApprovals.set(requestId, { card, handler });
     if ($('#modal')?.open) $('#modal').close();
     render();
     // [v1.0.3] Outside the chat the card is rendered at the bottom of the page, often below the fold, so a
     // click on 「下单」/「撤销」 looked like it did nothing. Bring the card into view and highlight it.
     requestAnimationFrame(() => { const target = document.getElementById('app'); if (target) revealApproval(target, requestId); });
+}
+function pendingOrderApproval(orderId) {
+    return [...localApprovals.values()].map(entry => entry.card).find(card => card.orderId === orderId) || null;
+}
+function mountOrderCards() {
+    const root = $('#app');
+    if (root) mountOrderApprovals(root, [...localApprovals.values()].map(entry => entry.card), card => officeApprovalCard(card, action));
 }
 function paintApprovalSummaries(root = document) {
     for (const card of root.querySelectorAll('.inline-approval-card')) {
@@ -437,6 +447,7 @@ function renderInner() {
     }
     renderPanel(); // [v0.54]
     paintApprovalSummaries();
+    mountOrderCards();
     for (const el of [document.scrollingElement, document.getElementById('app'), document.querySelector('.main'), document.querySelector('.workbench')]) if (el && el.scrollLeft) el.scrollLeft = 0; // [resp] never leave the shell scrolled sideways
     if(previousComposer&&$('#prompt'))$('#prompt').replaceWith(previousComposer);
     composerMenus.afterRender(`${page}:${chatId}`);
@@ -1790,11 +1801,17 @@ async function handle(actionId, id, stockTarget) {
         const line = o => `${o.side === 'buy' ? '买入' : '卖出'} <b>${escape(o.name)}</b>（${escape(o.code)}）${escape(String(o.shares))} 股，限价 ${escape(String(o.price))}，约 ${escape(String(Math.round(o.amount)))} 元`;
         if (actionId === 'tdConfirm' || actionId === 'tdConfirmAgain') {
             const o = order(id); if (!o) return;
+            const pendingCard = pendingOrderApproval(o.id);
+            if (pendingCard) return revealOrderApproval($('#app') || document, pendingCard.requestId);
+            nextApprovalOrder = o.id;
             const real = tv.settings?.mode === 'real';
             modal(real ? '下单：在券商页面填好委托' : '模拟下单', `<p>${line(o)}</p>${real ? '<p>QuankSight 会打开券商网页版并填好代码、价格和数量，用红框标出提交按钮。<b>请核对后由你自己点击提交</b>，QuankSight 不会替你提交。</p>' : '<p>按模拟盘撮合：现价到达委托价时成交，记入模拟账户。</p>'}${(o.notes || []).length ? `<p class="hint">${escape(o.notes.join('；'))}</p>` : ''}`, real ? '打开券商并填单' : '模拟下单', async () => { const r = await call({ action: 'confirm', id }); render(); toast(r.note || '已处理'); });
             return;
         }
-        if (actionId === 'tdCancel') { const o = order(id); modal('撤销委托单', `<p>撤销：${o ? line(o) : ''}？</p>`, '撤销', async () => { const r = await call({ action: 'cancel', id }); render(); toast(r.note || '已撤销'); }); return; }
+        if (actionId === 'tdCancel') { const o = order(id);
+            const pendingCancel = o && pendingOrderApproval(o.id);
+            if (pendingCancel) return revealOrderApproval($('#app') || document, pendingCancel.requestId);
+            if (o) nextApprovalOrder = o.id; modal('撤销委托单', `<p>撤销：${o ? line(o) : ''}？</p>`, '撤销', async () => { const r = await call({ action: 'cancel', id }); render(); toast(r.note || '已撤销'); }); return; }
         if (actionId === 'tdReport') { const [oid, st] = String(id).split(':'); const r = await call({ action: 'report', id: oid, status: st }); render(); toast(st === 'submitted' ? '已记下：等待成交后点「回填成交」' : st === 'cancelled' ? '已标记为撤单' : '已更新'); void r; return; }
         if (actionId === 'tdRead') { const r = await call({ action: 'readBack', id }); modal('券商页面上的委托记录', r.rows?.length ? `<div class="td-rows">${r.rows.map(x => `<code>${escape(x)}</code>`).join('')}</div>` : '<p class="empty-note">委托列表里没有找到这只股票。请在券商页面打开「当日委托」后再试。</p>'); return; }
         if (actionId === 'tdFill') {
