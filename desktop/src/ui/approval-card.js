@@ -31,13 +31,26 @@ export function pendingApprovalRequests(requests) {
   return requests.filter(request => !request.decision).sort((a, b) => a.time - b.time);
 }
 
+// [v1.0.4] 工作台首发页不再画任何授权卡：待处理的只在输入框上方的「N 项待授权」条里出现，
+// 已拒绝/已允许这类已处理记录只在它所属的对话里显示。以前 homeContent 会把没有对话归属的
+// 审批（含 5 条已拒绝）全部堆在 hero 上方。这里只决定画哪些卡，不改动任何存储的审批记录。
+export function homeApprovalCards() { return []; }
+
+/** Cards drawn inside one conversation: only approvals that belong to that conversation. */
+export function conversationApprovalCards(requests, chatId) {
+  if (!chatId) return [];
+  return (requests || []).filter(request => request.chatId === chatId);
+}
+
 export function approvalBar(requests, chatId, action) {
   const pending = pendingApprovalRequests(requests);
   const first = pending[0];
   if (!first) return '';
   const label = pending.length === 1 ? first.agent + ' 需要你的授权：' + first.action : pending.length + ' 项待授权';
   const sources = [...new Set(pending.filter(request => !chatId || request.chatId !== chatId || request.codingTaskId).map(request => request.source).filter(Boolean))];
-  return `<div class="inline-approval-bar"><span role="status" title="${escape([label, ...sources].join(' · '))}">${escape(label)}${sources.length ? `<small title="${escape(sources.join('、'))}"> · ${escape(sources.join('、'))}</small>` : ''}</span>${action('前往授权', 'approvalJump', first.requestId)}</div>`;
+  // [v1.0.4] 前往授权 goes to the first pending item; with two or more the bar also offers 查看全部.
+  const all = pending.length > 1 ? action('查看全部', 'approvalAll', '') : '';
+  return `<div class="inline-approval-bar"><span role="status" title="${escape([label, ...sources].join(' · '))}">${escape(label)}${sources.length ? `<small title="${escape(sources.join('、'))}"> · ${escape(sources.join('、'))}</small>` : ''}</span>${action('前往授权', 'approvalJump', first.requestId)}${all}</div>`;
 }
 
 export function codingApprovalRequests(task) {

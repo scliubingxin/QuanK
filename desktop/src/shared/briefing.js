@@ -1,5 +1,6 @@
 // [p2-m4] Daily briefing built only from local data. Pure helpers shared by the main process (scheduling,
 // storage) and the renderer (card + settings). An optional model summary is added by services/briefing.mjs.
+import { feedCounts } from './feed.js';
 import { eventTimeLabel } from './connectors.js'; // [p3-m6]
 import { actionLabel } from './quant.js'; // [q3]
 export const BRIEFING_SECTIONS = [['attention', '需要你处理'], ['done', '上次简报以来完成'], ['today', '今天的定时任务'], ['calendar', '今日日程'], ['mail', '新邮件'], ['updates', '订阅与群消息'], ['quant', '量化信号'], ['outputs', '新成果'], ['memory', '记忆变化']];
@@ -41,10 +42,19 @@ export function buildBriefing(data, now = Date.now(), {sections} = {}) {
   const chats = (data.chats || []).filter(c => !c.incognito), tasks = data.tasks || [];
   const out = {};
   out.attention = [
-    ...(data.pendingApprovals || []).map(x => ({text: `待你确认：${clip(x.title, 40)}${x.candidate?.label ? ' · ' + clip(x.candidate.label, 60) : ''}`, action: 'gotoPending'})),
-    ...tasks.filter(t => t.status === 'failed').map(t => ({text: `任务失败：${clip(t.name, 40)}${t.error ? ' · ' + clip(t.error, 60) : ''}`, action: 'runTask', id: t.id, label: '重新运行'})),
+    // [v1.0.4] 需要你处理 comes from the live feed, not from the last snapshot: pending approvals,
+    // 待确认的委托单 and failed runs are all here, and the count matches what the hero shows.
+    ...feedCounts(data).items.map(x => {
+      const acts = x.actions || [];
+      const pick = (x.kind === 'task' && acts.find(a => a.action === 'runTask')) || acts[0] || {};
+      return {key: x.kind + '|' + x.title, text: clip(x.detail ? `${x.title} · ${x.detail}` : x.title, 90),
+        action: pick.action || 'gotoPending', id: pick.id,
+        label: pick.action === 'tradeHome' ? '查看委托单' : pick.action === 'runTask' ? '重新运行' : '前往授权'};
+    }).filter((item, index, list) => list.findIndex(other => other.key === item.key) === index)
+      .slice(0, 5).map(({key, ...item}) => item),
     ...chats.filter(c => c.plan && c.plan.status === 'failed' && (c.plan.finished || 0) >= since).map(c => ({text: `${c.plan.kind === 'research' ? '研究' : '计划'}未完成：${clip(c.plan.goal, 50)}`, action: 'openChat', id: c.id, label: '打开'})),
   ];
+  out.attentionCount = feedCounts(data).pending;
   out.done = [
     ...tasks.flatMap(t => (t.history || []).filter(r => r.status === 'done' && r.at >= since).slice(0, 3).map(r => ({at: r.at, text: `任务完成：${clip(t.name, 40)}`, action: t.chatId ? 'openChat' : undefined, id: t.chatId, label: '查看'}))),
     ...chats.filter(c => c.plan?.status === 'done' && (c.plan.finished || 0) >= since).map(c => ({at: c.plan.finished, text: `${c.plan.kind === 'research' ? '深度研究' : '计划'}完成：${clip(c.plan.goal, 50)}${c.plan.sources?.length ? `（${c.plan.sources.length} 个来源）` : ''}`, action: c.plan.report ? 'documentWordEditor' : 'openChat', id: c.plan.report?.id || c.id, label: c.plan.report ? '打开报告' : '打开'})),

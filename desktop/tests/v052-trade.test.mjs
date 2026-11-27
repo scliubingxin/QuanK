@@ -304,8 +304,10 @@ test('version: main exposes appVersion, sidebar title + settings footer show it'
   const [main, app, css] = await Promise.all(['../main.mjs', '../src/app.js', '../src/workbench.css'].map(read));
   assert.match(main, /appVersion: app\.getVersion\(\)/);
   assert.match(app, /if \(next\?\.appVersion\) appVersion = String\(next\.appVersion\)/);
-  // [v1.0.3] 侧栏徽标已去掉，版本改由 .brand 的 title 与设置页底部展示
-  assert.doesNotMatch(app, /class="brand-ver"/);
+  // [v1.0.5] 版本号回到品牌首行（QuankSight 后的小字），title 与设置页底部同时保留
+  assert.match(app, /class="brand-ver"/);
+  const brandEn = '<span class="brand-en">QuankSight${appVersion ? `<span class="brand-ver">v${escape(appVersion)}</span>` : \'\'}</span>';
+  assert.ok(app.includes(brandEn), 'version pill sits on the first brand line');
   assert.match(app, /title="QuankSight v\$\{escape\(appVersion\)\}"/);
   assert.match(app, /<p class="settings-version">版本 v\$\{escape\(appVersion\)\}<\/p>/);
   assert.match(css, /\.settings-version\{/);

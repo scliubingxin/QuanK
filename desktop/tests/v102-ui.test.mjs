@@ -4,7 +4,9 @@ import {readFileSync} from 'node:fs';
 const app = readFileSync(new URL('../src/app.js', import.meta.url), 'utf8');
 
 test('v1.0.2 工作台不再堆叠已处理的授权结果', () => {
-  assert.match(app, /item => chatId \? item\.chatId === chatId : \(!item\.chatId && !item\.decision\)/);
+  // v1.0.5: home draws no approval cards; a conversation draws only its own (tests/v105-home-approvals).
+  assert.match(app, /conversationApprovalCards\(approvalRequests\(\), chatId/);
+  assert.match(app, /homeApprovalCards\(approvalRequests\(\)\)/);
 });
 
 test('v1.0.2 非对话页面重绘时保留滚动位置', () => {
@@ -15,6 +17,7 @@ test('v1.0.2 非对话页面重绘时保留滚动位置', () => {
 
 test('v1.0.2 全部标为已读后提示仍需处理的项目并切到「待处理」', () => {
   const body = app.slice(app.indexOf("if (actionId === 'feedSeen')"), app.indexOf("if (actionId === 'feedDismiss')"));
-  assert.match(body, /visibleFeedCount\(state, 'action'\)/);
+  // v1.0.5: the count comes from the shared feedCounts (orders included), see tests/v105-feed-counts.
+  assert.match(body, /feedCounts\(/);
   assert.match(body, /feedFilter = 'action'/);
 });

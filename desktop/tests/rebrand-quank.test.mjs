@@ -110,10 +110,11 @@ test('wiring and visible brand', async () => {
   assert.equal(pkg.productName, 'QuankSight'); assert.equal(pkg.build.appId, 'com.quank.desktop'); assert.equal(pkg.name, 'quank-desktop');
   const app = await read(new URL('../src/app.js', import.meta.url));
   assert.match(app, /alt="QuankSight 标志"/);
-  // [v1.0.3] 两行：QuankSight，然后 量见 · 标语 同一行；版本徽标逻辑保留在 .brand-cn 之后
-  assert.match(app, /<span class="brand-en">QuankSight<\/span><span class="brand-cn"><b>量见<\/b><i class="brand-dot">·<\/i>量化工作，见机即获<\/span>/);
-  // [v1.0.3] 侧栏不再显示版本徽标：版本只在 .brand 的 title 里，品牌严格两行
-  assert.doesNotMatch(app, /<span class="brand-ver"/, 'sidebar must not render a visible version badge');
+  // [v1.0.3] 两行：QuankSight（[v1.0.5] 其后带小字版本号），然后 量见 · 标语 同一行
+  assert.match(app, /<span class="brand-en">QuankSight[\s\S]{0,90}?<\/span><span class="brand-cn"><b>量见<\/b><i class="brand-dot">·<\/i>量化工作，见机即获<\/span>/);
+  // [v1.0.5] 版本号作为 sup 嵌在首行 .brand-en 内，品牌依旧严格两行
+  assert.match(app, /<span class="brand-en">QuankSight\$\{appVersion \? `<span class="brand-ver">v\$\{escape\(appVersion\)\}<\/span>` : ''\}<\/span>/);
+  assert.doesNotMatch(app, /<sup class="brand-ver">/, 'no superscript version element');
   assert.match(app, /<div class="brand"\$\{appVersion \? ` title="QuankSight v\$\{escape\(appVersion\)\}"` : ''\}>/);
   // [v1.0.3] 量见 + 标语合成一行：<b>量见</b><i class="brand-dot">·</i>量化工作，见机即获
   assert.match(app, /<span class="brand-cn"><b>量见<\/b><i class="brand-dot">·<\/i>量化工作，见机即获<\/span>/);

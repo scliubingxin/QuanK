@@ -29,6 +29,15 @@ export function buildFeed(data) {
       detail: clip(x.source || x.agent), time: x.time, status: 'pending', needsAction: true,
       actions: [{ label: '前往授权', action: 'approvalJump', id: x.requestId }] });
   }
+  // [v1.0.4] 委托单等你确认的项，以前只在自动化页里存在，动态的「需要处理」看不到它们。
+  for (const o of data.trade?.orders || []) {
+    if (o.status !== 'draft' && o.status !== 'awaiting') continue;
+    items.push({id: 'order:' + o.id, kind: 'order', group: 'action',
+      title: (o.status === 'draft' ? '待确认委托单：' : '待提交委托单：') + clip(`${o.name || ''} ${o.code || ''}`, 60),
+      detail: clip(`${o.side === 'buy' ? '买入' : '卖出'} ${o.shares} 股 · 限价 ${o.price}`, 120),
+      time: Number(o.created || o.time) || 0, status: 'pending', needsAction: true,
+      actions: [{label: '查看委托单', action: 'tradeHome', id: o.id}]});
+  }
   for (const x of data.approvalFeed ? [] : data.pendingApprovals || []) {
     const task = (data.tasks || []).find(t => t.id === x.taskId);
     items.push({id: 'approval:' + x.id, kind: 'approval', group: 'action', title: '待你确认：' + clip(x.title, 60), detail: clip((task ? task.name + ' · ' : '') + (x.candidate?.label || x.detail)), time: x.time, status: 'pending', needsAction: true,
@@ -44,6 +53,12 @@ export function buildFeed(data) {
         time: r.at + (r.ms || 0), status: r.status, needsAction: failed && latest && r.status === 'failed',
         actions: [...open(t.chatId), ...(!t.chatId && t.result && latest ? [{label: '查看结果', action: 'taskResult', id: t.id}] : []), ...(failed && latest && !['queued', 'running', 'cancelling'].includes(t.status) ? [{label: '重新运行', action: 'runTask', id: t.id, kind: 'primary'}] : [])]});
     });
+    // [v1.0.4] A task that is failed but whose history has no failed run still needs you: the old
+    // briefing listed it from tasks.status, so the feed must list it too, otherwise it disappears.
+    if (t.status === 'failed' && !items.some(x => x.kind === 'task' && x.needsAction && x.title.includes(clip(t.name, 60))))
+      items.push({id: `task:${t.id}:status`, kind: 'task', group: 'tasks', title: `任务失败：${clip(t.name, 60)}`,
+        detail: clip(t.error || ''), time: Number(t.lastRun) || 0, status: 'failed', needsAction: true,
+        actions: [{label: '重新运行', action: 'runTask', id: t.id, kind: 'primary'}]});
     if (t.chatId) covered.add(t.chatId);
   }
   for (const c of data.chats || []) {
@@ -53,7 +68,7 @@ export function buildFeed(data) {
       const research = p.kind === 'research', done = p.status === 'done';
       items.push({id: 'plan:' + p.id, kind: research ? 'research' : 'plan', group: 'research',
         title: `${research ? '深度研究' : '计划'}${done ? '完成' : p.status === 'cancelled' ? '已停止' : '未完成'}：${clip(p.goal, 60)}`,
-        detail: research && done ? `${p.steps.length} 步 · ${p.sources?.length || 0} 个来源${p.report ? ' · 报告已存入成果中心' : ''}` : clip(p.error || `${p.steps.filter(s => s.status === 'done').length}/${p.steps.length} 步完成`),
+        detail: research && done ? `${(p.steps || []).length} 步 · ${p.sources?.length || 0} 个来源${p.report ? ' · 报告已存入成果中心' : ''}` : clip(p.error || `${(p.steps || []).filter(s => s.status === 'done').length}/${(p.steps || []).length} 步完成`),
         time: p.finished || c.time || 0, status: p.status, needsAction: false,
         actions: [...(p.report ? [{label: '打开报告', action: 'documentWordEditor', id: p.report.id, kind: 'primary'}] : []), {label: '打开对话', action: 'openChat', id: c.id}]});
       covered.add(c.id);
@@ -110,11 +125,33 @@ export function feedState(data) { const f = data.feed || {}; return {seenAt: Num
 /** Visible items for a filter, with `unread` set. Only important items count as unread. */
 export function visibleFeed(data, filter = 'all') {
   const {seenAt, dismissed, read} = feedState(data), hidden = new Set(dismissed), opened = new Set(read);
-  return buildFeed(data).filter(x => !hidden.has(x.id)).map(x => ({...x, unread: x.important && (x.needsAction || (x.time > seenAt && !opened.has(x.id)))}))
+  // [v1.0.4] 已读只由 seenAt / 单条已读决定；需要处理的项仍留在「需要处理」，但不再算未读，
+  // so 全部标为已读 really zeroes the badge and the hero instead of leaving them at the old number.
+  return buildFeed(data).filter(x => !hidden.has(x.id)).map(x => ({...x, unread: x.important && x.time > seenAt && !opened.has(x.id)}))
     .filter(x => (filter === 'all' && x.kind !== 'log') || (filter === 'important' ? x.important : filter === 'unread' ? x.unread : filter === 'action' ? x.needsAction : x.group === filter));
 }
 
 export const feedUnread = data => visibleFeed(data, 'unread').length;
+
+// A caller may hold only part of the workspace (a briefing fixture, a partially synced state);
+// the feed treats every missing list as empty instead of throwing.
+// approvalFeed is deliberately absent: buildFeed treats a present but empty approvalFeed as
+// "approvals already flattened", so filling it in here would hide data.pendingApprovals.
+const FEED_LISTS = ['chats', 'tasks', 'documents', 'artifacts', 'connectors', 'connectorItems', 'quant', 'signals', 'pendingApprovals', 'resolvedApprovals'];
+export function feedData(data) {
+  const out = {...(data || {})};
+  for (const key of FEED_LISTS) if (!Array.isArray(out[key])) out[key] = [];
+  if (!out.feed || typeof out.feed !== 'object') out.feed = {};
+  if (out.trade && !Array.isArray(out.trade.orders)) out.trade = {...out.trade, orders: []};
+  return out;
+}
+
+/** [v1.0.4] The only place the feed numbers come from: hero, sidebar badge, toast and 需要处理 all read this. */
+export function feedCounts(source) {
+  const data = feedData(source);
+  const all = visibleFeed(data, 'all'), pending = visibleFeed(data, 'action');
+  return {unread: all.filter(x => x.unread).length, pending: pending.length, items: pending};
+}
 
 /** Apply a feed mutation (pure; returns the new data.feed). */
 export function applyFeedAction(data, p, now = Date.now()) {

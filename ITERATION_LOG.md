@@ -1,5 +1,10 @@
 > v0.46.0 之前（WillBuddy 时期 0.1 – 0.37.x）的迭代记录已归档到 [docs/releases/ITERATION_LOG_v0.1-v0.37.md](docs/releases/ITERATION_LOG_v0.1-v0.37.md)；每个版本的发布记录见 [docs/releases/](docs/releases/README.md)。
 
+## v1.0.5 · 2026-11-27 · Office 字体崩溃修复与侧栏版本标签
+
+- v1.0.5：Office 字体崩溃、半自动委托按钮、动态计数、工作台授权堆叠、前往授权跳转修复；侧栏 logo 与版本标签
+- 详见 [v1.0.5 发布记录](docs/releases/v1.0.5.md)。
+
 ## v1.0.4 · 2026-11-27 · 侧栏收起态 logo 修复
 
 - 修复侧栏收起后 logo 溢出：收起态 logo 改为 36px 并与「+」按钮、导航图标同轴居中，右边缘不再被裁切；展开态（248px / 54px / 两行品牌）保持不变。

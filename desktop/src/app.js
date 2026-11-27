@@ -1,4 +1,6 @@
 import {officeApprovalCard} from './ui/office-cards.js';
+import {homeApprovalCards, conversationApprovalCards} from './ui/approval-card.js';
+import {approvalRoute, barRequests, orderApprovalCards} from './shared/approval-route.js';
 import { modalLayout } from './ui/modal.js';
 import {bindPresetFilters, plazaIcon} from './ui/preset-catalog.js'; // [ux11] plazaIcon
 import {agentAvatar} from './ui/avatars.js';
@@ -50,14 +52,15 @@ import { knowledgeUI } from './ui/knowledge.js'; // [F3]
 import { portfolioUI } from './ui/portfolio.js'; // [F4]
 import { securityUI } from './ui/security.js'; // [F5]
 import { tradeUI } from './ui/trade.js'; // [v0.52]
+import { mountOrderApprovals, revealOrderApproval } from './ui/order-approval.js';
 import { researchPage, noteEditForm } from './ui/research-page.js'; // [v0.53]
 import { marketPage, marketHomeCard, mountKlineBoxes, marketAlertForm, marketAlertPayload, sectorStocksView, patchLive, liveTargets, setKlinePeriod } from './ui/market.js';
 import { session as marketSession } from './shared/market.js'; // [v0.52.1]
 import { connectorsPage, connectorForm, connectorPayload, connectorItemsView, mailComposeForm, mailComposePayload, officeMessageForm, officeMessagePayload } from './ui/connectors.js';
-import { feedUnread, visibleFeed } from './shared/feed.js';
+import { feedCounts, feedUnread, visibleFeed } from './shared/feed.js';
 const visibleFeedCount = (s, filter) => { try { return visibleFeed(s, filter).length; } catch { return 0; } };
 function viewContext() {
-    return { state, approvalCards: approvalRequests().filter(item => chatId ? item.chatId === chatId : (!item.chatId && !item.decision)).map(item => officeApprovalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
+    return { state, approvalCards: conversationApprovalCards(approvalRequests(), chatId).map(item => officeApprovalCard(item, action)).join(''), chatId, pending, previewTabs, previewId, previewSource, previewZoom, sideTab, icon, composer, action, date, taskStatus, trace, executionRecords, executionRow, rich, htmlPreview, previewHtml, previewInteractive, openedDetails, recap }; }
 // [p1-m4] away recap: remember what finished while the user was elsewhere, then clear the unread flag
 let recap = null;
 function markSeen(id) {
@@ -135,21 +138,52 @@ function approvalFeedState() {
     return { ...state, approvalFeed: approvalRequests().filter(request => !request.decision) };
 }
 function approvalMarkup() {
-    return approvalBar(approvalRequests(), page === 'chat' ? chatId : '', action);
+    // [v1.0.4] On 自动化 › 半自动委托 an order approval is already mounted under its row; repeating
+    // it in the bar above the input was the duplicate the user screenshot showed.
+    const orders = [...(state.trade?.orders || []), ...(state.trade?.history || [])];
+    return approvalBar(barRequests(approvalRequests(), {page, taskTab, orders}), page === 'chat' ? chatId : '', action);
 }
+let nextApprovalOrder = null; // set by the order buttons so the card can be mounted under its row
 function inlineConfirm(title, html, handler) {
     const requestId = crypto.randomUUID();
     const body = document.createElement('template');
     body.innerHTML = html.replace(/<\/(?:p|li|div)>|<br\s*\/?>/gi, '$&\n');
     const card = { requestId, agent: 'QuankSight', action: title,
         summary: body.content.textContent.trim(), chatId: page === 'chat' ? chatId : undefined,
-        time: Date.now(), highRisk: true, channel: 'local' };
+        time: Date.now(), highRisk: true, channel: 'local', orderId: nextApprovalOrder || undefined };
+    nextApprovalOrder = null;
     localApprovals.set(requestId, { card, handler });
     if ($('#modal')?.open) $('#modal').close();
     render();
     // [v1.0.3] Outside the chat the card is rendered at the bottom of the page, often below the fold, so a
     // click on 「下单」/「撤销」 looked like it did nothing. Bring the card into view and highlight it.
     requestAnimationFrame(() => { const target = document.getElementById('app'); if (target) revealApproval(target, requestId); });
+}
+function pendingOrderApproval(orderId) {
+    return [...localApprovals.values()].map(entry => entry.card).find(card => card.orderId === orderId) || null;
+}
+function mountOrderCards() {
+    const root = $('#app');
+    if (!root) return;
+    const cards = orderApprovalCards({
+        local: [...localApprovals.values()].map(entry => entry.card),
+        requests: approvalRequests(),
+        orders: [...(state.trade?.orders || []), ...(state.trade?.history || [])],
+    });
+    mountOrderApprovals(root, cards, card => officeApprovalCard(card, action));
+}
+let orderReveal = null; // {orderId, requestId, until, scrolled} set by gotoApproval
+function applyOrderReveal() {
+    if (!orderReveal) return;
+    if (Date.now() > orderReveal.until) { orderReveal = null; return; }
+    if (page !== 'tasks' || taskTab !== 'trade') return;
+    const root = $('#app');
+    const row = root && [...root.querySelectorAll('.td-row[data-order]')].find(el => el.dataset.order === String(orderReveal.orderId));
+    if (!row) return;
+    const card = root.querySelector('[data-approval-id="' + String(orderReveal.requestId).replace(/"/g, '') + '"]');
+    row.classList.add('flash');
+    card?.classList.add('flash');
+    if (!orderReveal.scrolled) { (card || row).scrollIntoView({block: 'center'}); orderReveal.scrolled = true; }
 }
 function paintApprovalSummaries(root = document) {
     for (const card of root.querySelectorAll('.inline-approval-card')) {
@@ -163,20 +197,51 @@ function paintApprovalSummaries(root = document) {
         button.setAttribute('aria-expanded', String(expanded));
     }
 }
-async function jumpToApproval(id) {
-    const request = approvalRequests().find(item => item.requestId === id);
-    if (!request || state.locked) return;
+// [v1.0.4] The single entry point behind every 「前往授权」: the bar, feed items, briefing items.
+async function gotoApproval(request) {
+    if (!request || state.locked) return '';
     if ($('#modal')?.open) $('#modal').close();
-    if (request.codingTaskId) await handle('codingTaskOpen', request.codingTaskId);
-    else if (request.chatId && state.chats.some(chat => chat.id === request.chatId)) {
-        if (page !== 'chat' || chatId !== request.chatId) await handle('openChat', request.chatId);
-    } else {
-        switchChat('');
-        page = 'home';
+    const route = approvalRoute(request, {
+        chats: state.chats,
+        orders: [...(state.trade?.orders || []), ...(state.trade?.history || [])],
+    });
+    if (route.kind === 'order') {
+        taskTab = 'trade';
+        // The order list can be painted after this call and every later render rebuilds the rows, so the
+        // reveal is applied from renderInner until the row exists, and the card is re-mounted each render.
+        orderReveal = {orderId: route.orderId, requestId: route.requestId, until: Date.now() + 4000, scrolled: false};
+        setTimeout(() => document.querySelectorAll('.td-row.flash, .td-approval-row .flash').forEach(el => el.classList.remove('flash')), 4100);
+        if (page !== 'tasks') await navigate('tasks');
         render();
+        for (let i = 0; i < 20 && orderReveal && !orderReveal.scrolled; i++) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            mountOrderCards(); applyOrderReveal();
+        }
+        return 'tasks/trade#' + route.orderId;
     }
-    const target = request.codingTaskId ? document.getElementById('pagePanel') : document.getElementById('app');
-    if (target) revealApproval(target, id);
+    if (route.kind === 'coding') {
+        await handle('codingTaskOpen', route.taskId);
+        revealApproval(document.getElementById('pagePanel') || document.getElementById('app'), route.requestId);
+        return 'coding/' + route.taskId;
+    }
+    if (route.kind === 'chat') {
+        if (page !== 'chat' || chatId !== route.chatId) await handle('openChat', route.chatId);
+        render();
+        revealApproval(document.getElementById('app'), route.requestId);
+        return 'chat/' + route.chatId;
+    }
+    // Everything else is answerable on the feed itself (approvals with no conversation, Office edits,
+    // approvals whose conversation was deleted): show 需要处理 and highlight that item's card.
+    switchChat('');
+    feedFilter = 'action';
+    if (page !== 'feed') await navigate('feed');
+    render();
+    const card = document.querySelector(`[data-approval-id="${route.requestId}"]`);
+    if (card) { card.scrollIntoView({block: 'center'}); card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 4000); }
+    return 'feed#' + route.requestId;
+}
+async function jumpToApproval(id) {
+    return gotoApproval(approvalRequests().find(item => item.requestId === id));
 }
 async function answerApproval(id, decision) {
     if (busyApprovals.has(id)) return;
@@ -426,7 +491,7 @@ function renderInner() {
     const active = nav.find(n => n[0] === page);
     const name = state.settings.name || '我的工作空间';
     $('#app').className = sidebarCollapsed ? 'sidebar-collapsed' : '';
-    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"${appVersion ? ` title="QuankSight v${escape(appVersion)}"` : ''}><span class="brand-mark"><img src="assets/logo.png" alt="QuankSight 标志"></span><div class="brand-text"><span class="brand-en">QuankSight</span><span class="brand-cn"><b>量见</b><i class="brand-dot">·</i>量化工作，见机即获</span></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(approvalFeedState())})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div>${state.officeEngine?.phase==='starting' ? '<span class="office-engine-pill" role="status" title="Office 引擎启动中">Office 启动中</span>' : ''}<button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}${['home', 'chat'].includes(page) ? '' : approvalMarkup()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
+    const markup = `<div class="titlebar"></div><aside class="sidebar"><div class="brand"${appVersion ? ` title="QuankSight v${escape(appVersion)}"` : ''}><span class="brand-mark"><img src="assets/logo.png" alt="QuankSight 标志"></span><div class="brand-text"><span class="brand-en">QuankSight${appVersion ? `<span class="brand-ver">v${escape(appVersion)}</span>` : ''}</span><span class="brand-cn"><b>量见</b><i class="brand-dot">·</i>量化工作，见机即获</span></div></div><button class="new" data-action="new">${icon('plus')}<span>新建任务</span><span>⌘ N</span></button>${sidebarNav({page, icon, unread: feedUnread(approvalFeedState())})}<div class="recent"><div class="recent-header"><span>任务 <small>${state.chats.filter(c => !c.incognito).length}</small></span><button data-action="newFolder" aria-label="新建文件夹" title="新建文件夹">${icon('folder')}</button><button data-action="search" aria-label="搜索任务与成果">${icon('search')}</button></div><input id="recentQuery" aria-label="筛选历史任务" placeholder="搜索对话标题和内容" value="${escape(recentQuery)}"><div id="recentList">${recentRows()}</div></div><button class="profile" data-action="settings"><div class="avatar">QK</div><div>${escape(name)}<small>${escape(state.settings.model)} · 本地工作空间</small></div>${icon('settings')}</button></aside><main class="main"><header class="topbar"><div><button class="icon-button" data-action="sidebarToggle" aria-label="${sidebarCollapsed ? '展开' : '收起'}侧栏">${icon('grid')}</button><span class="topbar-title">${escape(page === 'chat' ? state.chats.find(c => c.id === chatId)?.name || '新任务' : active?.[2] || '工作台')}${(page === 'chat' && state.chats.find(c => c.id === chatId)?.incognito) || (page === 'home' && incognito) ? '<span class="incognito-badge">无痕</span>' : ''}</span></div><div>${state.officeEngine?.phase==='starting' ? '<span class="office-engine-pill" role="status" title="Office 引擎启动中">Office 启动中</span>' : ''}<button class="topbar-action" data-page="tasks" aria-label="查看后台任务">后台 ${(state.runJobs||[]).filter(j=>['running','cancelling'].includes(j.status)).length} 执行 · ${(state.runJobs||[]).filter(j=>j.status==='queued').length} 排队</button>${page === 'chat' && state.chats.some(c => c.id === chatId) ? `<button class="topbar-action" data-action="chatMenu" data-id="${escape(chatId)}" aria-label="对话操作">···</button>` : ''}${page === 'chat' ? `<button class="topbar-action" data-action="panelTab" data-id="execution">${icon('activity')}执行过程</button>` : ''}<button class="topbar-action ${sidePanel ? 'chosen' : ''}" data-action="panelToggle">${icon('file')}工作区</button><button class="status" data-action="settings"><span class="dot ${state.settings.hasKey ? 'on' : ''}"></span>${state.settings.hasKey ? escape(state.settings.model) : '连接模型'}</button></div></header><div class="workbench ${sidePanel ? 'with-panel' : ''}"><div class="workspace ${page === 'chat' ? 'conversation-space' : ''}">${content()}${['home', 'chat'].includes(page) ? '' : approvalMarkup()}</div>${sidePanel ? previewPanel() : ''}</div></main>`;
     officeWorkspace.update(markup, `${page}:${chatId}`);
     // [website-shot-fix] Last-resort guard: a page must never be open on both sides; keep the main copy.
     const mirror = !state.locked && pageTabs.find(t => t.kind === 'page' && t.page === page);
@@ -436,7 +501,9 @@ function renderInner() {
         savePanel();
     }
     renderPanel(); // [v0.54]
+    mountOrderCards(); applyOrderReveal(); // [v1.0.5] cards and highlight survive re-renders
     paintApprovalSummaries();
+    mountOrderCards();
     for (const el of [document.scrollingElement, document.getElementById('app'), document.querySelector('.main'), document.querySelector('.workbench')]) if (el && el.scrollLeft) el.scrollLeft = 0; // [resp] never leave the shell scrolled sideways
     if(previousComposer&&$('#prompt'))$('#prompt').replaceWith(previousComposer);
     composerMenus.afterRender(`${page}:${chatId}`);
@@ -545,7 +612,9 @@ function currentUsage() { const chat = page === 'chat' ? state.chats.find(c => c
 function paintMeter() { const node = document.querySelector('.context-meter'); if (node) node.outerHTML = contextMeter(currentUsage()); }
 
 function homeContent() {
-    const cards = approvalRequests().filter(item => !item.codingTaskId && !state.chats.some(chat => chat.id === item.chatId));
+    // [v1.0.4] 工作台首页只画理财看板和输入框；待授权项由输入框上方的「N 项待授权 · 前往授权」条承载，
+    // 已处理记录只在所属对话里出现。这里不再堆任何授权卡（含 已拒绝/已允许 的旧记录）。
+    const cards = homeApprovalCards(approvalRequests());
     return (cards.length ? `<div class="home-approvals">${cards.map(item => officeApprovalCard(item, action)).join('')}</div>` : '') + views.homeContent(viewContext());
 }
 function conversationContent() { return views.conversationContent(viewContext()); }
@@ -709,7 +778,9 @@ function content() {
         return memoryPage({state, action, icon, date, empty, filter: memoryFilter, query: memoryQuery,
             heading: (kicker, title, desc, buttons = '') => contextHeader(state, {tab: 'context', date}) + `<div class="ctx-sub"><p class="description">${desc}</p><div class="ctx-actions">${buttons}</div></div>`}).replace('<div class="page">', '<div class="page context-page">');
     if (page === 'feed') // [p2-m3]
-        return feedPage(approvalFeedState(), {action, date, heading, empty, filter: feedFilter}).replace('<!--briefing-->', briefingCard(state, {action})); // [p2-m4] briefing on top
+        return feedPage(approvalFeedState(), {action, date, heading, empty, filter: feedFilter,
+            // [v1.0.4] pending approvals carry their card right in the feed item, so 前往授权 always lands on something answerable
+            inlineApproval: item => officeApprovalCard(approvalRequests().find(r => r.requestId === item.actions?.[0]?.id) || {}, action)}).replace('<!--briefing-->', briefingCard(state, {action})); // [p2-m4] briefing on top
     return '';
 }
 function modal(title, body, submit, handler) {
@@ -1790,11 +1861,17 @@ async function handle(actionId, id, stockTarget) {
         const line = o => `${o.side === 'buy' ? '买入' : '卖出'} <b>${escape(o.name)}</b>（${escape(o.code)}）${escape(String(o.shares))} 股，限价 ${escape(String(o.price))}，约 ${escape(String(Math.round(o.amount)))} 元`;
         if (actionId === 'tdConfirm' || actionId === 'tdConfirmAgain') {
             const o = order(id); if (!o) return;
+            const pendingCard = pendingOrderApproval(o.id);
+            if (pendingCard) return revealOrderApproval($('#app') || document, pendingCard.requestId);
+            nextApprovalOrder = o.id;
             const real = tv.settings?.mode === 'real';
             modal(real ? '下单：在券商页面填好委托' : '模拟下单', `<p>${line(o)}</p>${real ? '<p>QuankSight 会打开券商网页版并填好代码、价格和数量，用红框标出提交按钮。<b>请核对后由你自己点击提交</b>，QuankSight 不会替你提交。</p>' : '<p>按模拟盘撮合：现价到达委托价时成交，记入模拟账户。</p>'}${(o.notes || []).length ? `<p class="hint">${escape(o.notes.join('；'))}</p>` : ''}`, real ? '打开券商并填单' : '模拟下单', async () => { const r = await call({ action: 'confirm', id }); render(); toast(r.note || '已处理'); });
             return;
         }
-        if (actionId === 'tdCancel') { const o = order(id); modal('撤销委托单', `<p>撤销：${o ? line(o) : ''}？</p>`, '撤销', async () => { const r = await call({ action: 'cancel', id }); render(); toast(r.note || '已撤销'); }); return; }
+        if (actionId === 'tdCancel') { const o = order(id);
+            const pendingCancel = o && pendingOrderApproval(o.id);
+            if (pendingCancel) return revealOrderApproval($('#app') || document, pendingCancel.requestId);
+            if (o) nextApprovalOrder = o.id; modal('撤销委托单', `<p>撤销：${o ? line(o) : ''}？</p>`, '撤销', async () => { const r = await call({ action: 'cancel', id }); render(); toast(r.note || '已撤销'); }); return; }
         if (actionId === 'tdReport') { const [oid, st] = String(id).split(':'); const r = await call({ action: 'report', id: oid, status: st }); render(); toast(st === 'submitted' ? '已记下：等待成交后点「回填成交」' : st === 'cancelled' ? '已标记为撤单' : '已更新'); void r; return; }
         if (actionId === 'tdRead') { const r = await call({ action: 'readBack', id }); modal('券商页面上的委托记录', r.rows?.length ? `<div class="td-rows">${r.rows.map(x => `<code>${escape(x)}</code>`).join('')}</div>` : '<p class="empty-note">委托列表里没有找到这只股票。请在券商页面打开「当日委托」后再试。</p>'); return; }
         if (actionId === 'tdFill') {
@@ -2052,18 +2129,15 @@ async function handle(actionId, id, stockTarget) {
     if (actionId === 'feedSeen') {
         await update('feed', { action: 'seen' });
         // [v1.0.2] Read ≠ handled: approvals and orders stay until they are answered, so say so and show them.
-        const left = visibleFeedCount(state, 'action');
+        const left = feedCounts(approvalFeedState()).pending; // the same number the hero shows
         if (left) { feedFilter = 'action'; render(); toast(`已全部标为已读；还有 ${left} 项需要你处理（待确认的授权或委托单），已为你筛选出来`); }
         else toast('已全部标为已读');
         return;
     }
     if (actionId === 'feedDismiss') { await update('feed', { action: 'dismiss', id }); return; }
     if (actionId === 'feedRestore') { await update('feed', { action: 'restore' }); return; }
-    if (actionId === 'gotoPending') {
-        const first = approvalRequests().find(item => item.channel === 'scheduled' && !item.decision);
-        if (first) return jumpToApproval(first.requestId);
-        return;
-    }
+    if (actionId === 'gotoPending') return gotoApproval(approvalRequests().find(item => !item.decision));
+    if (actionId === 'approvalAll') { switchChat(''); feedFilter = 'action'; await navigate('feed'); render(); return; }
     if (actionId === 'editTask') { // [p2-m1]
         const t = state.tasks.find(t => t.id === id); if (!t) return;
         modal('编辑定时任务', taskEditor(state, t), '保存', async (f) => update('task', taskPayload(f, id))); // [ux6]

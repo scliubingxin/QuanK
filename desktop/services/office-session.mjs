@@ -291,7 +291,7 @@ export function bindOfficeViewPort(port, view, closeView, canAccess = () => true
     const session = view.session;
     const methods = new Set(['uno','getSelection','replaceSelection','setTrackChanges','acceptAll','rejectAll',
         'acceptChange','rejectChange','undo','redo','save','reload']);
-    const operations = new Set(['viewport','tile','mouse','key','ime','paste','part','poll','graphic','thumbnail','thumbnails','locate']);
+    const operations = new Set(['viewport','tile','mouse','key','ime','paste','part','poll','graphic','thumbnail','thumbnails','locate','fonts']);
     const epoch = randomUUID();
     let closed = false, lastSequence = 0;
     const send = message => {

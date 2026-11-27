@@ -25,6 +25,7 @@ const log = () => {};
 function fail(error) {
   if (disposed) return;
   loading.hidden = false;
+  loading.classList.add('failed'); // [v1.0.4] the error state must not keep spinning
   loading.querySelector('b').textContent = '未能载入 Office 编辑器';
   loading.querySelector('small').textContent = String(error?.message || error || '引擎启动失败');
   retryButton.hidden = false;
@@ -118,7 +119,9 @@ async function start() {
   if (disposed) return;
   if (!ok) throw Error('编辑画布未能完成首次绘制');
 
-  toolbar = createOfficeToolbar(view.session, view.session.kind, {native:true});
+  // [v1.0.4] The font list comes from the families the engine reports, so it can never offer a font
+  // whose name the engine would reject.
+  toolbar = createOfficeToolbar(view.session, view.session.kind, {native:true, fonts:await view.session.fonts?.()});
   float = createFloatToolbar(view.session, {viewport:canvas.viewport});
   // [v1.0.3] Toolbar is fixed under the title bar, outside the scrolling canvas; zoom lives in the status bar.
   toolbar.element.classList.add('qk-win-toolbar');

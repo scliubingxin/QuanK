@@ -757,6 +757,8 @@ export function connectOfficeViewPort(port) {
     let initialize, fail;
     const ready = new Promise((resolve,reject) => {initialize = resolve; fail = reject;});
     const expose = {
+        // [v1.0.4] Font families the engine can really render; a failed query hides nothing.
+        fonts:() => call('fonts',[{}]).then(result => Array.isArray(result?.fonts) ? result.fonts : [], () => []),
         uno:(command,args) => call('uno',[command,args]),
         getSelection:(options) => call('getSelection',[options]),
         replaceSelection:(text,options) => call('replaceSelection',[text,options]),
