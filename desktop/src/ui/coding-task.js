@@ -119,7 +119,7 @@ const paragraphs = text => String(text || '').split(/\n{2,}/).map(part => `<p>${
 const KIND_ICON = { command: 'terminal', file: 'file', network: 'globe' };
 
 // [v1.0.8] Permission requests sit in one sticky line above the page instead of full cards that push the output
-// down. While a request waits the line is amber and carries that request's buttons inline; clicking the line opens
+// down. While a request waits the line is bold and carries that request's buttons inline; clicking the line opens
 // every card (including decided ones) as an overlay. 前往授权 opens it too.
 function approvalStrip(approvals, action) {
   if (!approvals.length) return '';

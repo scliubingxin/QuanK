@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
+import {readFileSync} from 'node:fs';
 
 test('Office decision card: icon header, danger for 拒绝, primary last, stable hooks', async () => {
   const {window} = new JSDOM('<div id="host"></div>');
@@ -17,5 +18,13 @@ test('Office decision card: icon header, danger for 拒绝, primary last, stable
       [['拒绝', 'danger', 'deny'], ['允许写入', 'primary', 'allow']]);
     const exit = showOfficeDecision(host, '退出前处理未保存修改', [['save', '保存并退出', true], ['discard', '放弃修改'], ['cancel', '取消退出']], () => true);
     assert.deepEqual([...exit.querySelectorAll('button')].map(b => b.className), ['danger', 'secondary', 'primary']);
+    assert.ok(card.classList.contains('inline-approval-card'), 'the Office card reuses the neutral approval card');
   } finally { delete globalThis.document; }
+});
+
+test('Office decision card: neutral card, no amber', () => {
+  const css = readFileSync(new URL('../src/workbench.css', import.meta.url), 'utf8');
+  assert.match(css, /\.qk-office-decision\.inline-approval-card \{ padding:14px 16px; \}/);
+  assert.doesNotMatch(css, /approval-tint/);
+  assert.match(css, /\.qk-office-decision \.inline-approval-actions button\.primary \{ background:var\(--qk-grad,#2f62f5\)!important/);
 });

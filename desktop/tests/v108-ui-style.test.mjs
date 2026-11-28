@@ -111,7 +111,7 @@ test('the action bar sticks to the bottom: 合并 primary, 放弃 danger', () =>
   assert.match(css, /@container qkzone \(max-width: 480px\) \{\n  \.ct-steps \{ grid-template-columns:1fr;/);
 });
 
-test('approval cards: amber accent, icon by kind, 允许 primary, 拒绝 danger, pulse only while new', () => {
+test('approval cards: neutral card, icon by kind, only the buttons carry colour, pulse only while new', () => {
   const now = 10_000;
   const request = {requestId: 'r1', agent: 'Coding 智能体', action: '运行测试命令', summary: 'python -m unittest', taskLabel: '任务结束后失效。', time: now - 500};
   const doc = parse(approvalCard(request, action, {now}));
@@ -129,13 +129,21 @@ test('approval cards: amber accent, icon by kind, 允许 primary, 拒绝 danger,
   const bar = parse(approvalBar([{...request, chatId: 'other'}], 'mine', action)).querySelector('.inline-approval-bar');
   assert.ok(bar.querySelector('.inline-approval-icon svg'));
   assert.equal(bar.querySelector('[data-action="approvalJump"]').className, 'primary');
-  for (const rule of [/\.inline-approval-card \{ position:relative; border:1px solid var\(--approval-tint-border\); border-left:4px solid var\(--approval-accent\); background:var\(--approval-tint\);/,
-    /\.inline-approval-bar \{ border:1px solid var\(--approval-tint-border\); border-left:4px solid var\(--approval-accent\);/,
+  for (const rule of [/\.inline-approval-card \{ position:relative; border:1px solid var\(--line\); border-radius:12px; background:var\(--panel,#fff\);/,
+    /\.inline-approval-bar \{ border:1px solid var\(--line\); background:var\(--panel,#fff\); color:inherit;/,
     /\.inline-approval-actions button:focus-visible, [^{]*\{ outline:2px solid #2f62f5; outline-offset:2px; \}/,
-    /@keyframes qk-approval-pulse/, /@media \(prefers-reduced-motion: reduce\) \{ \.inline-approval-card\.fresh/,
-    /\.coding-task-page details\.coding-approval-bar\[data-pending\] \{ border-color:var\(--approval-tint-border\); border-left:4px solid var\(--approval-accent\);/]) {
+    /@keyframes qk-approval-pulse \{ 0% \{ box-shadow:0 0 0 0 rgba\(100,116,139,/, /@media \(prefers-reduced-motion: reduce\) \{ \.inline-approval-card\.fresh/,
+    /\.coding-task-page details\.coding-approval-bar\[data-pending\] \{ border-color:var\(--line\); background:var\(--panel,#fff\); \}/,
+    /button\.primary, [^{]*\{ background:var\(--qk-grad,#2f62f5\)!important; color:#fff!important;/,
+    /button\[data-id\$=":deny"\], [^{]*\{ border:1px solid #c62828; background:transparent; color:#b42318; \}/]) {
     assert.match(css, rule);
   }
+  // no amber strip, tint or amber glow anywhere in the approval styles
+  const block = css.slice(css.indexOf('[v1.0.8] Approvals'));
+  for (const bad of [/border-left:4px/, /approval-tint/, /rgba\(217,119,6/, /rgba\(245,165,36/, /rgba\(180,83,9/, /#d97706/, /#f5a524/, /#fde7c2/, /#fff8eb/]) {
+    assert.doesNotMatch(block.slice(0, block.indexOf('.q-table')), bad, String(bad));
+  }
+  assert.doesNotMatch(css, /approval-tint/);
 });
 
 // WCAG relative luminance and contrast ratio, with alpha colours composited over the surface below them.
@@ -148,26 +156,29 @@ const token = (block, name) => new RegExp(`--${name}:([^;]+);`).exec(block)[1].t
 test('approval and Coding page colours meet WCAG AA', () => {
   const light = /:root \{ --approval-accent:[^}]+\}/.exec(css)[0];
   const dark = /@media \(prefers-color-scheme: dark\) \{\n  :root \{ --approval-accent:[^}]+\}/.exec(css)[0];
-  const tint = rgb(token(light, 'approval-tint'));
+  const panel = rgb('#ffffff');
   const darkPanel = rgb('#212733');
-  const darkTint = over(token(dark, 'approval-tint'), darkPanel);
   const pairs = [
-    ['amber text on the tint', rgb(token(light, 'approval-text')), tint],
-    ['card title on the tint', rgb(token(light, 'approval-title')), tint],
-    ['拒绝 on the tint', rgb('#b42318'), tint],
+    ['approval text on the card', rgb(token(light, 'approval-text')), panel],
+    ['card title on the card', rgb(token(light, 'approval-title')), panel],
+    ['icon on its chip', rgb(token(light, 'approval-icon')), rgb(token(light, 'approval-icon-bg'))],
+    ['拒绝 on the card', rgb('#b42318'), panel],
     ['secondary button text', rgb('#1f2a44'), rgb('#ffffff')],
     ['白字 on the brand button', rgb('#ffffff'), rgb('#2f62f5')],
     ['better delta', rgb('#0f7a43'), rgb('#ffffff')],
     ['worse delta', rgb('#c62828'), rgb('#ffffff')],
-    ['dark amber text', rgb(token(dark, 'approval-text')), darkTint],
-    ['dark card title', rgb(token(dark, 'approval-title')), darkTint],
-    ['dark 拒绝', rgb('#ffb3b3'), darkTint],
+    ['dark approval text', rgb(token(dark, 'approval-text')), darkPanel],
+    ['dark card title', rgb(token(dark, 'approval-title')), darkPanel],
+    ['dark icon', rgb(token(dark, 'approval-icon')), over(token(dark, 'approval-icon-bg'), darkPanel)],
+    ['dark 拒绝', rgb('#ffb3b3'), darkPanel],
+    ['dark secondary button text', rgb('#e6ebf5'), darkPanel],
     ['dark better delta', rgb('#8ee0b0'), darkPanel],
     ['dark worse delta', rgb('#ff9aa4'), darkPanel],
   ];
   for (const [name, fg, bg] of pairs) assert.ok(ratio(fg, bg) >= 4.5, `${name}: ${ratio(fg, bg).toFixed(2)}`);
-  // the amber accent border is a non-text UI component: 3:1 against the panel
-  assert.ok(ratio(rgb(token(light, 'approval-accent')), rgb('#ffffff')) >= 3);
+  // the 拒绝 outline and the waiting-step ring are non-text UI components: 3:1 against the card
+  assert.ok(ratio(rgb('#c62828'), panel) >= 3);
+  assert.ok(ratio(rgb(token(light, 'approval-accent')), panel) >= 3);
   assert.ok(ratio(rgb(token(dark, 'approval-accent')), darkPanel) >= 3);
 });
 
