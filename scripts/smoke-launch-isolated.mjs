@@ -14,7 +14,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const before = (await readdir(real)).length;
 const ud = await mkdtemp(path.join('/private/tmp', 'qk108-smoke-ud-'));
 const bin = path.join(app, 'Contents', 'MacOS', 'Electron');
-const child = spawn(bin, [`--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'], {
+// a mock keychain: the fresh data folder has no saved secrets, and a new build must not raise a system keychain prompt
+const child = spawn(bin, [`--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1', '--use-mock-keychain'], {
   env: {...process.env, QUANK_SELFTEST: '1', QUANK_USER_DATA: ud}, stdio: ['ignore', 'ignore', 'pipe']});
 let stderr = ''; child.stderr.on('data', d => { stderr = (stderr + d).slice(-2000); });
 const result = {ok: false, userData: ud};
