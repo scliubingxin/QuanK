@@ -57,6 +57,9 @@
     "appId": "com.quank.desktop",
     "productName": "QuankSight",
     "asar": true,
+    "asarUnpack": [
+      "runtime/deck/**"
+    ],
     "files": [
       "main.mjs",
       "preload.cjs",
