@@ -29,16 +29,16 @@ test('desktop production code contains no native confirmation calls', async () =
   }
 });
 
-test('buttons are ordered deny, allow, always and decisions become an inline result', async () => {
+test('buttons are ordered deny, always, allow with allow as the primary choice, and decisions become an inline result', async () => {
   const broker = createInlineApprovals();
   const response = broker.request(card.action, card.summary, undefined, card);
   const pending = broker.list()[0];
   const doc = parse(approvalCard(pending, action));
   assert.equal(doc.querySelector('pre').textContent, card.summary);
   assert.deepEqual(buttons(doc).map(button => [button.textContent, button.dataset.id, button.className]), [
-    ['拒绝', pending.requestId + ':deny', 'secondary'],
-    ['允许一次', pending.requestId + ':allow', 'secondary'],
-    ['本任务内允许', pending.requestId + ':always', 'primary'],
+    ['拒绝', pending.requestId + ':deny', 'danger'],
+    ['本任务内允许', pending.requestId + ':always', 'secondary'],
+    ['允许一次', pending.requestId + ':allow', 'primary'],
   ]);
   assert.equal(broker.finish(pending.requestId, 'allow'), true);
   assert.equal(await response, 'allow');

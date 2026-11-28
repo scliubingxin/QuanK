@@ -85,7 +85,7 @@ export function panelBusy(tab) {
 export function showOfficeDecision(host, title, options, choose) {
   host.querySelector('.qk-office-decision')?.remove();
   const card = document.createElement('div');
-  card.className = 'inline-approval-card qk-office-decision';
+  card.className = 'inline-approval-card qk-office-decision'; card.dataset.kind = 'office'; // [v1.0.8]
   card.setAttribute('role', 'alert');
   const label = document.createElement('strong');
   label.textContent = title;
