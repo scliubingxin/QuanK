@@ -1,7 +1,7 @@
 // [q1] 量化 page: engine status, stock pool cards, stock detail. Field names are generic; the private engine's
 // wb-engine.json maps its own response onto them (see src/shared/quant.js).
 import { escape } from './markdown.js';
-import { actionLabel, actionTone, normalizeWatch, describeWatch, WATCH_INTERVALS, normalizeReportAuto, describeReportAuto, summaryText } from '../shared/quant.js';
+import { actionLabel, actionTone, opLabel, opTone, normalizeWatch, describeWatch, WATCH_INTERVALS, normalizeReportAuto, describeReportAuto, summaryText } from '../shared/quant.js';
 import { plazaIcon } from './preset-catalog.js';
 import { sparkSvg } from './spark.js'; // [fin2]
 import { klineBox, opsMarks } from './market.js'; // [F1]
@@ -23,7 +23,7 @@ function engineCard(q, {action, date}) {
 ${q.error ? `<p class="task-error">${escape(q.error)}</p>` : ''}${q.fellBack ? '<p class="q-fallback">远程服务器连不上，本次已切换到本地引擎；恢复后点「重启」重新连接远程引擎。</p>' : ''}
 <p class="pc-desc">${remote ? `远程引擎 · HTTPS · 鉴权密钥${q.remote?.hasToken ? '已保存' : '未填写'}${q.remote?.lastRemote ? ' · 上次连接 ' + escape(date(q.remote.lastRemote)) : ''}${q.remote?.fallback !== false ? ' · 离线回退本地' : ''}` : q.installed ? `已同步 ${q.files || 0} 个文件${q.lastSync ? ' · ' + escape(date(q.lastSync)) : ''} · Python：${escape(q.python || q.pythonFound || '未找到')}` : '需要添加微信 findingnoone 获取量化策略和支持。'}</p>
 <p class="q-watch"><span class="${normalizeWatch(q.watch).enabled ? 'on' : 'off'}">${escape(describeWatch(q.watch))}</span>${q.lastWatch ? `<span>上次检查 ${escape(date(q.lastWatch))}</span>` : ''}${q.watchError ? `<span class="err">${escape(q.watchError)}</span>` : ''}</p>
-<div class="pc-actions">${q.installed || remote ? '' : action('添加微信', 'quantContact', '', 'primary')}${btn}${remote ? action('测试连接', 'quantTestRemote', '', 'secondary') : action(q.installed ? '从源目录同步' : '导入策略项目', 'quantSync', '', 'secondary')}${action('盯盘与提醒', 'quantWatch')}${q.features?.plan ? action('定投计划', 'quantPlan') : ''}${action('设置', 'quantSettings')}${action('日志', 'quantLog')}</div></div>`;
+<div class="pc-actions">${q.installed || remote ? '' : action('添加微信', 'quantContact', '', 'secondary')}${btn}${remote ? action('测试连接', 'quantTestRemote', '', 'secondary') : action(q.installed ? '从源目录同步' : '导入策略项目', 'quantSync', '', 'secondary')}${action('盯盘与提醒', 'quantWatch')}${q.features?.plan ? action('定投计划', 'quantPlan') : ''}${action('设置', 'quantSettings')}${action('日志', 'quantLog')}</div></div>`;
 }
 
 // [v45q] company logo (data URL fetched when the stock was added), letter badge otherwise
@@ -66,7 +66,7 @@ function quantDetail(q, code, d, {action, date, research = null, panel = false, 
   const list = (title, items, cls = '') => items?.length ? `<section class="q-box ${cls}"><h3>${title}</h3><ul class="q-list">${items.map(x => `<li>${escape(String(x).replace(/\*\*/g, ''))}</li>`).join('')}</ul></section>` : ''; // [F1e]
   const factors = s.factors?.length ? `<section class="q-box q-factors"><h3>评分构成</h3><div class="qf-list">${s.factors.map(b => { const sc = Number(b.score), mx = Number(b.max), p = mx > 0 && Number.isFinite(sc) ? Math.max(0, Math.min(100, sc / mx * 100)) : null; return `<div class="qf-row${sc ? '' : ' zero'}"><div class="qf-top"><span class="qf-name">${escape(b.name)}</span><span class="qf-score"><b>${f(b.score, 1)}</b>${b.max ? `<small> / ${escape(String(b.max))}</small>` : ''}</span></div>${p != null ? `<div class="qf-bar"><i style="width:${p.toFixed(1)}%"></i></div>` : ''}${b.reason ? `<p>${escape(String(b.reason).replace(/\*\*/g, ''))}</p>` : ''}</div>`; }).join('')}</div></section>` : ''; // [F1e] cards with progress bars
   const inds = s.indicators?.length ? `<section class="q-box q-inds"><h3>指标</h3><div class="qi-grid">${s.indicators.map(x => `<div class="qi"><small>${escape(x.name)}</small><b class="${typeof x.value === 'number' && /涨跌|%/.test(x.name) ? (x.value >= 0 ? 'up' : 'down') : ''}">${f(x.value)}</b></div>`).join('')}</div></section>` : '';
-  const ops = d.charts?.ops?.length ? `<section class="q-box"><h3>回测操作（最近 ${d.charts.ops.length} 次）</h3><div class="table-scroll"><table class="q-table"><thead><tr><th>日期</th><th>操作</th><th>价格</th><th>股数</th><th>金额</th><th>分</th><th>原因</th></tr></thead><tbody>${d.charts.ops.map(o => `<tr><td>${escape(o.date)}</td><td>${escape(o.action)}</td><td>${f(o.price)}</td><td>${f(o.shares, 0)}</td><td>${f(o.amount, 0)}</td><td>${f(o.score, 1)}</td><td>${escape(o.reason)}</td></tr>`).join('')}</tbody></table></div></section>` : '';
+  const ops = d.charts?.ops?.length ? `<section class="q-box"><h3>回测操作（最近 ${d.charts.ops.length} 次）</h3><div class="table-scroll"><table class="q-table"><thead><tr><th>日期</th><th>操作</th><th>价格</th><th>股数</th><th>金额</th><th>分</th><th>原因</th></tr></thead><tbody>${d.charts.ops.map(o => `<tr><td>${escape(o.date)}</td><td class="q-op ${opTone(o.action)}">${escape(opLabel(o.action))}</td><td>${f(o.price)}</td><td>${f(o.shares, 0)}</td><td>${f(o.amount, 0)}</td><td>${f(o.score, 1)}</td><td>${escape(o.reason)}</td></tr>`).join('')}</tbody></table></div></section>` : '';
   const up = (s.changePct || 0) >= 0 ? 'up' : 'down';
   return `<div class="page quant-page">${bar}${section === 'graph' ? knowledge : ''}
 <div class="q-hero q-${tone}"><div><span class="q-action q-${tone}">${escape(actionLabel(s.action, s.actionText))}</span><p>${escape(s.detail)}</p></div>

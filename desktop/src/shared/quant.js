@@ -14,6 +14,10 @@ const actionKey = a => {
 };
 export const actionLabel = (a, text = '') => text || ACTIONS[actionKey(a)]?.[0] || (a == null || a === '' ? '—' : String(a));
 export const actionTone = a => ACTIONS[actionKey(a)]?.[1] || 'hold';
+// [v1.0.8] backtest operations also use engine codes for top-ups and trims
+const OPS = {REBUY: ['回补买入', 'buy'], ADD: ['加仓', 'buy'], REDUCE: ['减仓', 'sell'], CLEAR: ['清仓', 'sell'], PAUSE: ['暂停定投', 'hold'], NORMAL: ['正常定投', 'hold']};
+export const opLabel = a => OPS[actionKey(a)]?.[0] || actionLabel(a);
+export const opTone = a => OPS[actionKey(a)]?.[1] || actionTone(a);
 const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const num = v => typeof v === 'number' && Number.isFinite(v) ? v : null;
 const arr = v => Array.isArray(v) ? v : [];
