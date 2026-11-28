@@ -67,6 +67,8 @@ export function codingApprovalRequests(task) {
 export function revealApproval(root, requestId) {
   const card = [...root.querySelectorAll('[data-approval-id]')].find(element => element.dataset.approvalId === requestId);
   if (!card) return false;
+  const fold = card.closest('details'); // [v1.0.8] Coding approvals live in a collapsed bar
+  if (fold && !fold.open) fold.open = true;
   card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   card.focus({ preventScroll: true });
   card.classList.remove('inline-approval-highlight');

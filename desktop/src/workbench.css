@@ -1911,6 +1911,17 @@ body.pp-on .main{container: qkmain / inline-size}
 .coding-output, .coding-permission, .coding-result { padding:12px; border:1px solid var(--line); border-radius:10px; }
 .coding-permission { background:var(--panel2, #f0f4ff); }
 .coding-table { min-width:0; overflow-x:auto; margin-bottom:12px; }
+/* [v1.0.8] Coding approvals: one sticky line; the cards open as an overlay so the output never moves. */
+.coding-task-page details.coding-approval-bar { position:sticky; top:0; z-index:5; margin:0 0 6px; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--approval-surface, #f5f7ff); box-shadow:0 2px 8px rgba(20,32,60,.08); }
+.coding-approval-bar > summary { display:flex; align-items:center; gap:8px; min-height:34px; padding:4px 10px; font-size:12px; list-style:none; }
+.coding-approval-bar > summary::-webkit-details-marker { display:none; }
+.coding-approval-bar > summary > span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.coding-approval-bar > summary > small { flex:0 0 auto; color:var(--muted); }
+.coding-approval-bar[data-pending] { border-color:#2F62F5; }
+.coding-approval-bar[data-pending] > summary > span { font-weight:600; }
+.coding-approval-bar[data-pending] > summary::before { content:''; flex:0 0 auto; width:8px; height:8px; border-radius:50%; background:#2F62F5; }
+.coding-approval-list { position:absolute; left:-1px; right:-1px; top:calc(100% + 4px); max-height:min(60vh, 520px); overflow:auto; padding:2px 12px 8px; border:1px solid var(--line); border-radius:8px; background:var(--approval-surface, #f5f7ff); box-shadow:0 10px 28px rgba(20,32,60,.18); }
+.coding-approval-list .inline-approval-card { margin:8px 0; }
 .coding-table table { border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; }
 .coding-table caption { text-align:left; font-weight:600; padding:4px 0; }
 .coding-table :is(th,td) { padding:5px 6px; border-bottom:1px solid var(--line); text-align:left; }

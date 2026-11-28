@@ -26,6 +26,20 @@ function diffFiles(diff) {
   }).join('');
 }
 
+// [v1.0.8] Permission requests sit in one sticky line above the page instead of full cards that push the output
+// down. Clicking the line (or 前往授权) opens the cards as an overlay; decided requests stay listed there.
+function approvalStrip(approvals, action) {
+  if (!approvals.length) return '';
+  const pending = approvals.filter(request => !request.decision);
+  const done = approvals.filter(request => request.decision);
+  const first = pending[0];
+  const label = first ? first.agent + ' 需要你的授权：' + first.action + (pending.length > 1 ? ` 等 ${pending.length} 项` : '')
+    : `授权记录 ${done.length} 条`;
+  return `<details class="coding-approval-bar" data-coding-fold="approvals"${first ? ' data-pending' : ''}>
+<summary><span title="${escape(label)}">${escape(label)}</span><small>${first ? '点击处理' : '查看'}</small></summary>
+<div class="coding-approval-list">${[...pending, ...done].map(request => approvalCard(request, action)).join('')}</div></details>`;
+}
+
 export function codingTaskPage(task, { action, date, approvals = task ? codingApprovalRequests(task) : [] }) {
   if (!task) return '<div class="pp-same"><p>找不到 Coding 任务。</p></div>';
   const { id, result } = task;
@@ -55,7 +69,7 @@ ${task.fallbackReason ? `<p class="hint">${escape(task.fallbackReason)}</p>` : '
 ${task.branch ? `<code>${escape(task.branch)}</code>` : ''}</header>
 <details data-coding-fold="request"><summary>原始需求</summary><pre>${escape(task.request)}</pre></details>
 ${task.error ? `<p class="coding-failure" role="alert">${escape(task.error.message)}</p>` : ''}
-${approvals.map(request => approvalCard(request, action)).join('')}
+${approvalStrip(approvals, action)}
 ${buttons ? `<div class="toolbar coding-task-actions">${buttons}</div>` : ''}
 ${result ? `<section class="coding-result"><h3>迭代结果</h3><p>${escape(codingDiffStat(result.diffStat))}</p>
 ${result.tests ? `<p class="${result.tests.ok ? 'coding-success' : 'coding-failure'}"><strong>${result.tests.ok ? '✓ 测试通过' : '✕ 测试失败'}</strong> · ${escape(result.tests.summary)}</p>` : '<p class="hint">报告中没有测试结果。</p>'}

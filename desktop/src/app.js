@@ -13,6 +13,7 @@ import {legacyRoundLimit} from './ui/legacy-round-limit.js';
 import {capabilityTabs,skillsPage,mcpPage,mcpAuthFields,mcpForm,bindMcpForm,mcpPayload} from './ui/capability-library.js';
 import { approvalBar, codingApprovalRequests, revealApproval } from './ui/approval-card.js';
 import {codingTaskPage} from './ui/coding-task.js';
+import {captureScroll, restoreScroll} from './ui/panel-scroll.js'; // [v1.0.8] keep the reading position
 import {codingCards, codingDetection, codingForm, codingPayload, bindCodingForm, codingPreset, workBuddyPreset} from './ui/coding.js';
 import {agentEditor,bindAgentEditor,readAgentEditor} from './ui/agent-editor.js';
 import {imageCards} from './ui/image-cards.js';
@@ -2394,9 +2395,10 @@ function renderPanelTab(host, tab) {
     const el = host.querySelector('.pp-body');
     el.classList.toggle('pp-file-body', tab.kind === 'document');
     if (key !== panelBodyKey) { disposeFilePreview?.(); disposeFilePreview = undefined; const same = panelBodyKey.split('\n')[0] === key.split('\n')[0];
+        const keep = same && tab.kind === 'coding-task' ? captureScroll(el) : null;
         const openFolds = same && tab.kind === 'coding-task' ? new Map([...el.querySelectorAll('[data-coding-fold]')].map(item => [item.dataset.codingFold, item.open])) : new Map();
         el.innerHTML = body;
-        for (const fold of el.querySelectorAll('[data-coding-fold]')) if (openFolds.has(fold.dataset.codingFold)) fold.open = openFolds.get(fold.dataset.codingFold); panelBodyKey = key; if (!same) el.scrollTop = tab.scroll || 0;
+        for (const fold of el.querySelectorAll('[data-coding-fold]')) if (openFolds.has(fold.dataset.codingFold)) fold.open = openFolds.get(fold.dataset.codingFold); panelBodyKey = key; if (!same) el.scrollTop = tab.scroll || 0; else if (keep) restoreScroll(el, keep);
         const preview = el.querySelector('.file-preview-panel');
         if (preview) {
             // v0.58.1: the right tab is a read-only preview only. Editing lives in the
