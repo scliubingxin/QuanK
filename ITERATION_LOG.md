@@ -1,5 +1,10 @@
 > v0.46.0 之前（WillBuddy 时期 0.1 – 0.37.x）的迭代记录已归档到 [docs/releases/ITERATION_LOG_v0.1-v0.37.md](docs/releases/ITERATION_LOG_v0.1-v0.37.md)；每个版本的发布记录见 [docs/releases/](docs/releases/README.md)。
 
+## v1.0.8 · 2026-11-28 · Coding 任务页改版、授权确认与投研 PPT 修复
+
+- v1.0.8：Coding 任务详情页改版并保持阅读位置；授权确认更醒目；回测操作显示中文；修复安装版无法生成投研 PPT。
+- 详见 [v1.0.8 发布记录](docs/releases/v1.0.8.md)。
+
 ## v1.0.7 · 2026-11-28 · Office 编辑窗口：分页工具栏与 AI 对话
 
 - v1.0.7：Office 编辑窗口：分页工具栏（开始/插入/设计/数据/视图）、右侧 AI 对话面板；光标清晰、工具栏按钮全部可用、中文字体在表格内生效、关闭窗口与确认卡片修复。
