@@ -2649,3 +2649,10 @@ body.pp-on .main{container: qkmain / inline-size}
 }
 .q-table .q-op.buy { color:#dc2626; } .q-table .q-op.sell { color:#059669; } /* [v1.0.8] same colours as 方向 in 持仓 */
 .qk-office-decision header { display:flex; align-items:center; gap:8px; } .qk-office-decision header strong { color:var(--approval-title); font-size:13.5px; } /* [v1.0.8] */
+/* [v1.0.8] dark: KPI row headers and the Coding status pills (also used by the task list in 自动化) */
+.coding-task-page .ct-kpi-table tbody th { background:transparent; color:inherit; }
+@media (prefers-color-scheme: dark) {
+  .coding-task-status { color:#c2cbe0; background:#2b3448; }
+  .coding-task-status.review, .coding-task-status.running { color:#a7baff; background:#22305a; }
+  .coding-task-status.failed { color:#ff9aa4; background:#4a2230; }
+}

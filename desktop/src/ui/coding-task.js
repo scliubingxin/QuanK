@@ -73,8 +73,10 @@ function streamBlocks(stream) {
     const previous = blocks.at(-1);
     if (event.type === 'text' && previous?.type === 'text') { previous.text += event.text; continue; }
     if (event.type === 'tool') {
-      const match = /^([\s\S]*?)(?: · (pending|in_progress|completed|failed))?$/.exec(event.text || '');
-      const title = (match?.[1] || event.text || '').trim(), state = match?.[2] || '';
+      // the status sits at the end of the first line; a finished call may carry its output on the following lines
+      const first = String(event.text || '').split('\n')[0];
+      const match = /^(.*?) · (pending|in_progress|completed|failed)$/.exec(first);
+      const title = (match ? match[1] : first).trim(), state = match?.[2] || '';
       if (previous?.type === 'tool' && previous.title === title) { previous.state = state || previous.state; previous.text += '\n' + event.text; continue; }
       blocks.push({ ...event, title, state });
       continue;

@@ -205,3 +205,17 @@ test('stable data-* hooks for automation', () => {
   const decided = parse(approvalCard({requestId: 'd1', agent: 'A', action: 'B', decision: 'allow', finishedAt: 1}, action));
   assert.equal(decided.querySelector('[data-approval-pending]'), null);
 });
+
+test('a finished call with output lines still merges with its earlier status updates', () => {
+  const task = {...reviewTask, stream: [
+    {type: 'tool', text: '运行命令 python -m unittest · in_progress', at: 1},
+    {type: 'tool', text: '运行命令 python -m unittest · completed\n.....\nRan 5 tests in 0.004s\n\nOK', at: 2},
+  ]};
+  const doc = parse(codingTaskPage(task, {action, date, markdown}));
+  const tools = doc.querySelectorAll('details.ct-tool');
+  assert.equal(tools.length, 1);
+  assert.equal(tools[0].querySelector('.ct-block-title').textContent, '运行命令 python -m unittest');
+  assert.equal(tools[0].dataset.state, 'completed');
+  assert.match(tools[0].querySelector('pre').textContent, /Ran 5 tests/);
+  assert.match(css, /\.coding-task-page \.ct-kpi-table tbody th \{ background:transparent; color:inherit; \}/);
+});
