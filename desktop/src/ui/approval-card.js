@@ -38,7 +38,7 @@ export function approvalCard(request, action, { compact = false, now = Date.now(
   const kind = approvalKind(request);
   const age = approvalAge(request, now);
   const fresh = age !== null ? ' fresh' : '';
-  const attr = `data-approval-id="${escape(requestId)}" data-kind="${kind}" tabindex="-1"${age !== null ? ` style="--qk-age:-${age}ms"` : ''}`;
+  const attr = `data-approval-id="${escape(requestId)}" data-kind="${kind}" tabindex="-1"${decision ? '' : ' data-approval-pending'}${age !== null ? ` style="--qk-age:-${age}ms"` : ''}`;
   if (decision) {
     const result = decision === 'allow' && highRisk ? 'confirmed' : decision;
     return `<div class="inline-approval-result ${result === 'deny' || result === 'cancelled' ? 'denied' : 'allowed'}" ${attr} aria-label="${escape(title)}">${results[result] || results.allow}${stamp ? ' · ' + escape(stamp) : ''}<span class="inline-approval-what">${escape(request.action || '')}</span></div>`;

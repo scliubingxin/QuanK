@@ -180,3 +180,28 @@ test('backtest operations show Chinese labels', () => {
   assert.match(quant, /<td class="q-op \$\{opTone\(o\.action\)\}">\$\{escape\(opLabel\(o\.action\)\)\}<\/td>/);
   assert.match(quant, /action\('添加微信', 'quantContact', '', 'secondary'\)/);
 });
+
+// The tutorial recording and other automation find these elements by data-* hooks, not by layout classes.
+test('stable data-* hooks for automation', () => {
+  const waiting = {...reviewTask, status: 'waiting_permission', result: null,
+    pendingPermission: {requestId: 'p1', action: '运行测试', summary: 'python -m unittest', time: 1}};
+  const doc = parse(codingTaskPage(waiting, {action, date, markdown}));
+  const page = doc.querySelector('[data-coding-task="fixture"]');
+  assert.equal(page.dataset.codingStatus, 'waiting_permission');
+  assert.equal(page.querySelector('[data-coding-status-label]').textContent, '待授权');
+  assert.deepEqual([...page.querySelectorAll('[data-coding-step]')].map(step => step.dataset.codingStep), ['context', 'edit', 'test', 'backtest', 'review']);
+  assert.equal(page.querySelector('[data-coding-step="test"]').dataset.state, 'wait');
+  assert.deepEqual([...page.querySelectorAll('[data-coding-output]')].map(block => block.dataset.codingOutput), ['text', 'tool']);
+  const pending = [...page.querySelectorAll('[data-approval-pending]')];
+  assert.ok(pending.length >= 1 && pending.every(el => el.dataset.approvalId === 'p1'));
+  assert.ok(page.querySelector('[data-coding-approvals] summary [data-approval-pending] [data-action="approvalDecision"][data-id="p1:always"]'),
+    'the collapsed bar carries the buttons of the waiting request');
+  assert.ok(page.querySelector('[data-coding-actions] [data-action="codingTaskStop"]'));
+  const review = parse(codingTaskPage(reviewTask, {action, date, markdown}));
+  assert.ok(review.querySelector('[data-coding-result] [data-coding-backtest] table'));
+  assert.ok(review.querySelector('[data-coding-file="vol_filter.py"] pre'));
+  assert.ok(review.querySelector('[data-coding-actions] [data-action="codingTaskMerge"]'));
+  assert.equal(review.querySelector('[data-coding-output="tool"]').dataset.state, 'completed');
+  const decided = parse(approvalCard({requestId: 'd1', agent: 'A', action: 'B', decision: 'allow', finishedAt: 1}, action));
+  assert.equal(decided.querySelector('[data-approval-pending]'), null);
+});
