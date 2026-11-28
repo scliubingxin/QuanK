@@ -8,7 +8,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bundledExecutable } from './bundled-runtime.mjs';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
+// [v1.0.8] Packaged builds keep runtime/deck in app.asar.unpacked: the bundled Python cannot read files inside the archive.
+export function unpackedPath(p) { return String(p).replace(/([\\/])app\.asar(?=[\\/]|$)/, '$1app.asar.unpacked'); }
+const HERE = unpackedPath(path.dirname(fileURLToPath(import.meta.url)));
 export const DECK_DIR = path.join(HERE, 'deck');
 export const SCRIPT = path.join(DECK_DIR, 'build_deck.py');
 export const THEMES = Object.freeze(['research', 'report', 'product']);

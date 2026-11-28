@@ -112,7 +112,9 @@ def main():
     package={k:metadata[k] for k in ['name','productName','version','description','author','license','type','main']}
     (source/'package.json').write_text(json.dumps(package,indent=2)+'\n')
     cli=ROOT/'desktop/node_modules/@electron/asar/bin/asar.js'
-    subprocess.run(['node',str(cli),'pack',str(source),str(resources/'app.asar')],check=True)
+    # runtime/deck is run by the bundled Python, which cannot read inside app.asar
+    subprocess.run(['node',str(cli),'pack',str(source),str(resources/'app.asar'),'--unpack-dir','runtime/deck'],check=True)
+    if not (resources/'app.asar.unpacked'/'runtime/deck/build_deck.py').is_file():raise ValueError('runtime/deck was not unpacked')
     for helper in (app/'Contents/Frameworks').glob('*.app/Contents/Info.plist'):
         helper_info=plistlib.loads(helper.read_bytes());old_id=helper_info.get('CFBundleIdentifier','')
         role=helper.parent.parent.stem.replace('Electron Helper','').strip(' ()').lower() or 'main'

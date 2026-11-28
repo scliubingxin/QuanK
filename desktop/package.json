@@ -1,7 +1,7 @@
 {
   "name": "quank-desktop",
   "productName": "QuankSight",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "private": true,
   "description": "QuankSight 量见 · 金融量化工作台",
   "author": "Actwill",
@@ -57,6 +57,9 @@
     "appId": "com.quank.desktop",
     "productName": "QuankSight",
     "asar": true,
+    "asarUnpack": [
+      "runtime/deck/**"
+    ],
     "files": [
       "main.mjs",
       "preload.cjs",
