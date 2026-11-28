@@ -64,6 +64,8 @@ function diffFiles(diff) {
   }).join('');
 }
 
+// [v1.0.8] plan entries: a mark per state; finished steps are checked, not struck through
+const PLAN_MARK = { completed: ['✓', '已完成'], in_progress: ['●', '进行中'], pending: ['○', '待执行'], failed: ['✗', '未完成'] };
 const TOOL_STATUS = { pending: '等待', in_progress: '进行中', completed: '完成', failed: '失败' };
 
 /** Tool calls arrive as one event per status change; consecutive events for the same call become one block. */
@@ -99,7 +101,9 @@ function streamView(stream, { date, markdown }) {
     if (item.type === 'plan') {
       const entries = String(item.text || '').split('\n').filter(Boolean).map(line => {
         const [state, ...rest] = line.split(' · ');
-        return `<li class="${escape(state)}">${escape(rest.join(' · ') || state)}</li>`;
+        const known = PLAN_MARK[state], st = known ? state : 'pending', [mark, label] = PLAN_MARK[st];
+        const text = known ? rest.join(' · ') : line;
+        return `<li class="${st}" data-plan-state="${st}"><span class="ct-plan-mark" aria-label="${label}">${mark}</span><span class="ct-plan-text">${escape(text)}</span></li>`;
       }).join('');
       return `<details class="ct-block ct-plan" data-coding-fold="${key}" data-coding-output="plan" open><summary>${icon('grid')}<span class="ct-block-title">计划</span><time>${escape(date(item.at))}</time></summary><ol class="ct-plan-list">${entries}</ol></details>`;
     }

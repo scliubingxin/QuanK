@@ -2659,3 +2659,18 @@ body.pp-on .main{container: qkmain / inline-size}
 /* [v1.0.8] review 2: a wrapped result chip keeps a soft corner; the bar sticks only while a request waits */
 .ct-chip { border-radius:10px; }
 .coding-task-page details.coding-approval-bar:not([data-pending]) { position:relative; top:auto; box-shadow:none; }
+/* [v1.0.8] polish: plan check marks instead of a strikethrough; holdings note wraps */
+.ct-plan-list { list-style:none; padding-left:14px; }
+.ct-plan-list li { display:flex; align-items:baseline; gap:8px; padding:2px 0; }
+.ct-plan-list li.completed { text-decoration:none; color:var(--muted); }
+.ct-plan-mark { flex:none; width:14px; text-align:center; font-weight:700; color:var(--muted); }
+.ct-plan-list li.completed .ct-plan-mark { color:#0f6b3a; }
+.ct-plan-list li.in_progress .ct-plan-mark { color:#2f62f5; }
+.ct-plan-list li.failed .ct-plan-mark { color:#b3261e; }
+.ct-plan-text { min-width:0; overflow-wrap:anywhere; }
+@media (prefers-color-scheme: dark) {
+  .ct-plan-list li.completed .ct-plan-mark { color:#8ee0b0; }
+  .ct-plan-list li.in_progress .ct-plan-mark { color:#a7baff; }
+  .ct-plan-list li.failed .ct-plan-mark { color:#ff9b93; }
+}
+.q-kpi b em { white-space:normal; overflow-wrap:anywhere; line-height:1.35; margin-top:2px; }
