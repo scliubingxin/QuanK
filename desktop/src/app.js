@@ -13,6 +13,7 @@ import {legacyRoundLimit} from './ui/legacy-round-limit.js';
 import {capabilityTabs,skillsPage,mcpPage,mcpAuthFields,mcpForm,bindMcpForm,mcpPayload} from './ui/capability-library.js';
 import { approvalBar, codingApprovalRequests, revealApproval } from './ui/approval-card.js';
 import {codingTaskPage} from './ui/coding-task.js';
+import {icon} from './ui/icons.js'; // [v1.0.8] shared with the panel pages
 import {captureScroll, restoreScroll} from './ui/panel-scroll.js'; // [v1.0.8] keep the reading position
 import {codingCards, codingDetection, codingForm, codingPayload, bindCodingForm, codingPreset, workBuddyPreset} from './ui/coding.js';
 import {agentEditor,bindAgentEditor,readAgentEditor} from './ui/agent-editor.js';
@@ -79,8 +80,6 @@ installChatMedia(document,{readImage:id=>invoke('imagePreview',{id})});
 const api = window.actwill;
 const browserTargets = new Map();
 const $ = s => document.querySelector(s);
-const paths = { spark: 'm12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z', chat: 'M5 4h14v12H9l-4 4Z', folder: 'M3 7V5h6l2 3h10v12H3Z', grid: 'M3 3h7v7H3Zm11 0h7v7h-7ZM3 14h7v7H3Zm11 0h7v7h-7Z', agent: 'M5 7h14v13H5ZM12 3v4M8 12h1m6 0h1m-7 4h6', clock: 'M12 8v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0', settings: 'M4 7h16M4 17h16M8 4v6m8 4v6', search: 'M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm6-2 6 6', plus: 'M12 5v14M5 12h14', arrow: 'M5 12h14m-5-5 5 5-5 5', up: 'M12 20V4m-6 6 6-6 6 6', file: 'M5 3h9l5 5v13H5Zm9 0v6h5M8 13h8m-8 4h6', link: 'm9 15 6-6M8 17l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 8a4 4 0 0 0 6 0l4-4a4 4 0 0 0-6-6l-1 1', check: 'm5 12 4 4L19 6', close: 'm5 5 14 14M5 19 19 5', activity: 'M3 12h4l3-8 4 16 3-8h4', trend: 'M3 17l6-6 4 4 8-8M15 7h6v6', fileDown: 'M5 3h9l5 5v13H5Zm9 0v5h5m-7 3v7m-3-3 3 3 3-3', download: 'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4', shield: 'm12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z', stop: 'M6 6h12v12H6Z' };
-const icon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] || paths.spark}"/></svg>`;
 const pendingChats=new Set();
 let state = { chats: [], folders: [], memories: [], agents: [], tasks: [], artifacts: [], activity: [], settings: { model: '尚未配置', name: '我的工作空间' } }, page = 'home', chatId = '', agentId = 'assistant', files = [], images = [], sendImages = false, pending = false, folderId = '', fileResults = [], fileTruncated = false, searchTerm = '', draft = '', toolsEnabled = true, activeCommand = '', toolDraft = { url: 'https://example.com', executable: 'node', args: '["--version"]', folderId: '', relative: '' };
 let selections=[];
@@ -1522,6 +1521,12 @@ async function handle(actionId, id, stockTarget) {
         renderPanel();
         return;
     }
+    if (actionId === 'codingCopy') { // [v1.0.8] copy a tool output or a file diff from the Coding task page
+        const block = [...document.querySelectorAll('#pagePanel [data-coding-fold]')].find(element => element.dataset.codingFold === id);
+        const text = block?.querySelector('pre')?.textContent;
+        if (text) { await navigator.clipboard.writeText(text); toast('已复制'); }
+        return;
+    }
     if (actionId === 'codingTaskReport') return codingTaskCall('openReport', { id });
     if (actionId === 'codingTaskMerge' || actionId === 'codingTaskDiscard') {
         const merge = actionId === 'codingTaskMerge';
@@ -2371,7 +2376,7 @@ function renderPanelTab(host, tab) {
     let body, key;
     if (tab.kind === 'coding-task') {
         const task = codingTaskDetails.get(tab.taskId);
-        body = codingTaskPage(task, { action, date,
+        body = codingTaskPage(task, { action, date, markdown: rich,
             approvals: approvalRequests().filter(item => item.codingTaskId === tab.taskId) });
         key = tab.id + '\n' + body;
         if (!task && !tab.loading) {

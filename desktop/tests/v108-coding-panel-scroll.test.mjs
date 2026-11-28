@@ -14,7 +14,7 @@ const VIEW = 400;
 
 function makeTask(entries, pending = false) {
   const stream = [];
-  for (let i = 0; i < entries; i++) stream.push({type: i % 2 ? 'tool' : 'text', text: '输出 ' + i, at: 1000 + i});
+  for (let i = 0; i < entries; i++) stream.push(i % 2 ? {type: 'tool', text: `读取文件 f${i}.py · completed`, at: 1000 + i} : {type: 'text', text: '输出 ' + i, at: 1000 + i});
   return {id: 't1', title: '波动率过滤', status: pending ? 'waiting_permission' : 'running', request: '加一个波动率过滤', branch: 'quank/iter-20261128-a',
     agent: {name: '演示 Coding 智能体'}, updatedAt: 1, stream,
     ...(pending ? {pendingPermission: {requestId: 'req-1', action: '运行测试', summary: 'python -m unittest', time: 5}} : {})};
@@ -22,11 +22,13 @@ function makeTask(entries, pending = false) {
 
 // A tiny block layout: each counted box gets a fixed height and boxes stack in document order.
 function heightOf(el) {
-  if (el.matches('details.coding-approval-bar')) return 36; // the list opens as an overlay
+  if (el.matches('details.coding-approval-bar')) return 42; // the card list opens as an overlay
   if (el.matches('header')) return 60;
-  if (el.matches('details')) return el.open ? 80 : 36;
+  if (el.matches('.ct-msg')) return 80;
+  if (el.matches('details')) return el.open ? 80 : 38;
   if (el.matches('h3, h4')) return 24;
-  if (el.matches('.toolbar')) return 32;
+  if (el.matches('.ct-steps')) return 70;
+  if (el.matches('.toolbar')) return 52;
   if (el.matches('.coding-table')) return 120;
   return 20;
 }
@@ -35,7 +37,7 @@ function layout(container) {
   let y = 0;
   const walk = parent => {
     for (const child of parent.children) {
-      if (child.matches('article, section')) { walk(child); continue; }
+      if (child.matches('article, .ct-stream, .coding-result')) { walk(child); continue; }
       const h = heightOf(child);
       boxes.set(child, [y, h]);
       y += h;
@@ -45,8 +47,7 @@ function layout(container) {
   return {boxes, total: y};
 }
 function mount() {
-  const dom = new JSDOM('<div class="pp-body"></div>');
-  const {window} = dom;
+  const {window} = new JSDOM('<div class="pp-body"></div>');
   const el = window.document.querySelector('.pp-body');
   let scrollTop = 0;
   Object.defineProperty(el, 'clientHeight', {get: () => VIEW});
@@ -61,22 +62,20 @@ function mount() {
     const [y, h] = boxes.get(node);
     return {top: y - scrollTop, bottom: y + h - scrollTop, height: h, left: 0, right: 600, width: 600};
   };
-  return {el, window};
+  return {el};
 }
 function render(el, task) {
   const keep = captureScroll(el);
   el.innerHTML = codingTaskPage(task, {action, date});
   restoreScroll(el, keep);
 }
-function firstVisible(el) {
-  return [...el.querySelectorAll(CODING_ANCHORS)].find(node => node.dataset.codingFold.startsWith('stream-') && node.getBoundingClientRect().bottom > 1);
-}
+const firstVisible = el => [...el.querySelectorAll(CODING_ANCHORS)].find(node => node.dataset.codingFold.startsWith('stream-') && node.getBoundingClientRect().bottom > 1);
 const topOf = (el, key) => [...el.querySelectorAll('[data-coding-fold]')].find(node => node.dataset.codingFold === key).getBoundingClientRect().top;
 
 test('appending output keeps the first visible output in place', () => {
   const {el} = mount();
   el.innerHTML = codingTaskPage(makeTask(30), {action, date});
-  el.scrollTop = 500;
+  el.scrollTop = 600;
   const anchor = firstVisible(el), key = anchor.dataset.codingFold, before = anchor.getBoundingClientRect().top;
   render(el, makeTask(31));
   assert.ok(Math.abs(topOf(el, key) - before) <= 2);
@@ -85,13 +84,12 @@ test('appending output keeps the first visible output in place', () => {
 test('a new permission request does not push the output the user is reading', () => {
   const {el} = mount();
   el.innerHTML = codingTaskPage(makeTask(30), {action, date});
-  el.scrollTop = 500;
+  el.scrollTop = 600;
   const anchor = firstVisible(el), key = anchor.dataset.codingFold, before = anchor.getBoundingClientRect().top;
-  // Without keeping the position the bar above would shift the content by its height.
   el.innerHTML = codingTaskPage(makeTask(30, true), {action, date});
   assert.ok(Math.abs(topOf(el, key) - before) > 2, 'the fixture must really move without the fix');
   el.innerHTML = codingTaskPage(makeTask(30), {action, date});
-  el.scrollTop = 500;
+  el.scrollTop = 600;
   render(el, makeTask(30, true));
   assert.ok(Math.abs(topOf(el, key) - before) <= 2);
   assert.ok(el.querySelector('details.coding-approval-bar[data-pending]'), 'pending request shows as the sticky bar');
@@ -112,12 +110,13 @@ test('at the very top the page stays at the top', () => {
   assert.equal(el.scrollTop, 0);
 });
 
-test('permission requests are one collapsed line and 前往授权 opens it', () => {
-  const html = codingTaskPage(makeTask(4, true), {action, date});
-  const doc = new JSDOM(html).window.document;
+test('a waiting request is one amber line with its buttons inline, and 前往授权 opens the cards', () => {
+  const doc = new JSDOM(codingTaskPage(makeTask(4, true), {action, date})).window.document;
   const bar = doc.querySelector('details.coding-approval-bar');
   assert.ok(bar && !bar.open);
-  assert.match(bar.querySelector('summary').textContent, /需要你的授权：运行测试/);
+  assert.equal(bar.dataset.kind, 'command');
+  assert.match(bar.querySelector('summary').textContent, /需要你的授权 · 运行测试/);
+  assert.deepEqual([...bar.querySelectorAll('summary [data-action="approvalDecision"]')].map(b => b.textContent), ['拒绝', '本任务内允许', '允许一次']);
   assert.equal(doc.querySelectorAll('.coding-task-page > .inline-approval-card').length, 0, 'no full cards above the content');
   const card = bar.querySelector('[data-approval-id="req-1"]');
   card.scrollIntoView = () => {};
