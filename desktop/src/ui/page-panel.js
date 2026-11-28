@@ -1,4 +1,5 @@
 import {docIcon} from './avatars.js';
+import {icon} from './icons.js';
 // [v0.54] right-hand page tabs: pages opened from the chat, and every stock detail, open as tabs beside the
 // conversation instead of replacing it. Pure helpers here; app.js owns the DOM host and the render loop.
 
@@ -91,11 +92,14 @@ export function showOfficeDecision(host, title, options, choose) {
   label.textContent = title;
   const actions = document.createElement('div');
   actions.className = 'inline-approval-actions';
-  for (const [value, text, primary] of options) {
+  // [v1.0.8] same order and weights as the other approval cards: the primary choice last, 拒绝 / 放弃修改 as danger
+  const ordered = [...options.filter(option => !option[2]), ...options.filter(option => option[2])];
+  for (const [value, text, primary] of ordered) {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = text;
-    button.className = primary ? 'primary' : 'secondary';
+    button.className = primary ? 'primary' : ['deny', 'discard'].includes(value) ? 'danger' : 'secondary';
+    button.dataset.officeDecision = value;
     button.addEventListener('click', async () => {
       for (const child of actions.children) child.disabled = true;
       try {
@@ -108,7 +112,12 @@ export function showOfficeDecision(host, title, options, choose) {
     });
     actions.append(button);
   }
-  card.append(label, actions);
+  const head = document.createElement('header');
+  const mark = document.createElement('span');
+  mark.className = 'inline-approval-icon';
+  mark.innerHTML = icon('edit');
+  head.append(mark, label);
+  card.append(head, actions);
   host.prepend(card);
   return card;
 }

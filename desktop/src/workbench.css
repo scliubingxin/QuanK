@@ -2648,3 +2648,4 @@ body.pp-on .main{container: qkmain / inline-size}
   .coding-approval-list { box-shadow:0 14px 34px -14px rgba(0,0,0,.6); }
 }
 .q-table .q-op.buy { color:#dc2626; } .q-table .q-op.sell { color:#059669; } /* [v1.0.8] same colours as 方向 in 持仓 */
+.qk-office-decision header { display:flex; align-items:center; gap:8px; } .qk-office-decision header strong { color:var(--approval-title); font-size:13.5px; } /* [v1.0.8] */
