@@ -2656,3 +2656,6 @@ body.pp-on .main{container: qkmain / inline-size}
   .coding-task-status.review, .coding-task-status.running { color:#a7baff; background:#22305a; }
   .coding-task-status.failed { color:#ff9aa4; background:#4a2230; }
 }
+/* [v1.0.8] review 2: a wrapped result chip keeps a soft corner; the bar sticks only while a request waits */
+.ct-chip { border-radius:10px; }
+.coding-task-page details.coding-approval-bar:not([data-pending]) { position:relative; top:auto; box-shadow:none; }

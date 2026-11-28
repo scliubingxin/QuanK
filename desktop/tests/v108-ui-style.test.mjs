@@ -219,3 +219,8 @@ test('a finished call with output lines still merges with its earlier status upd
   assert.match(tools[0].querySelector('pre').textContent, /Ran 5 tests/);
   assert.match(css, /\.coding-task-page \.ct-kpi-table tbody th \{ background:transparent; color:inherit; \}/);
 });
+
+test('the decided-only approval bar does not stick; result chips keep a soft corner', () => {
+  assert.match(css, /\.coding-task-page details\.coding-approval-bar:not\(\[data-pending\]\) \{ position:relative; top:auto; box-shadow:none; \}/);
+  assert.match(css, /\.ct-chip \{ border-radius:10px; \}/);
+});
